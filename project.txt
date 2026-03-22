@@ -60,33 +60,48 @@ sqlalchemy
 psycopg2-binary
 
 app.main.py
+# app/main.py
+import os
 from fastapi import FastAPI
-from app.services.sensor_pipeline import SensorProcessingPipeline
-
-# 🛠 ИМПОРТИРУЕМ НОВЫЙ РОУТЕР
-from app.infrastructure.routing.osrm_router import OSRMRoutingProvider
-from app.domain.models import WebhookPayload
-from app.core.interfaces import NotificationService
-from app.infrastructure.database.database import engine, Base
-from app.infrastructure.database.postgres_repo import PostgresContainerRepo
 from fastapi.responses import HTMLResponse
 
+from app.services.sensor_pipeline import SensorProcessingPipeline
+from app.infrastructure.routing.osrm_router import OSRMRoutingProvider
+from app.domain.models import WebhookPayload
+from app.infrastructure.database.database import engine, Base
+from app.infrastructure.database.postgres_repo import PostgresContainerRepo
+
+# 🛠 ИМПОРТЫ ДЛЯ НОВОЙ СИСТЕМЫ УВЕДОМЛЕНИЙ
+from app.infrastructure.notifications.dispatcher import UniversalNotificationDispatcher
+from app.infrastructure.notifications.channels import ConsoleChannel, TelegramChannel, VKChannel
 
 Base.metadata.create_all(bind=engine)
-
 app = FastAPI(title="Innopolis Smart Waste API")
 
+# ==========================================
+# 🧱 СБОРКА УВЕДОМЛЕНИЙ (Подключаем каналы)
+# ==========================================
+active_channels = [
+    ConsoleChannel(), # Всегда выводим в консоль для дебага
+]
 
-class DummyNotifier(NotificationService):
-    def send_alert(self, message: str, role: str):
-        print(f"🔔 [DUMMY ALERT | Роль: {role}] -> {message}")
+# Если в переменных окружения есть токен ТГ - включаем ТГ канал
+tg_token = os.getenv("BOT_TOKEN", "8773001515:AAEe8BsCGPAdZyb_IDf4ZUw3L4fPF8Mqms4")
+if tg_token:
+    active_channels.append(TelegramChannel(bot_token=tg_token))
+
+# Если есть токен VK - включаем VK канал
+vk_token = os.getenv("VK_TOKEN")
+if vk_token:
+    active_channels.append(VKChannel(vk_token=vk_token))
+
+# Создаем Диспетчер и передаем ему список активных каналов
+notifier = UniversalNotificationDispatcher(channels=active_channels)
 
 # ==========================================
 # 🧱 СБОРКА ПАЙПЛАЙНА
 # ==========================================
 db_repo = PostgresContainerRepo()
-notifier = DummyNotifier()
-# 🛠 ПОДКЛЮЧИЛИ УМНУЮ ЛОГИСТИКУ!
 routing_provider = OSRMRoutingProvider()
 
 sensor_pipeline = SensorProcessingPipeline(
@@ -95,7 +110,6 @@ sensor_pipeline = SensorProcessingPipeline(
     enable_alerts=True
 )
 
-# Выдумаем координаты гаража (Депо) где-то возле Универа Иннополиса
 DEPOT_COORDS = "55.753, 48.743"
 
 # ==========================================
@@ -117,7 +131,7 @@ async def get_optimal_route():
 
 @app.post("/api/sensors/webhook")
 async def receive_sensor_data(payload: WebhookPayload):
-    sensor_pipeline.process_new_data(payload)
+    await sensor_pipeline.process_new_data(payload)
     return {"status": "ok", "container_id": payload.container_id, "saved_to_db": True}
 
 
@@ -333,7 +347,7 @@ class RoutingProvider(ABC):
 # Интерфейс для уведомлений
 class NotificationService(ABC):
     @abstractmethod
-    def send_alert(self, message: str, role: str): pass
+    async def send_alert(self, message: str, role: str): pass
 
 
 app.domain.exceptions.py
@@ -453,6 +467,121 @@ class PostgresContainerRepo(ContainerRepository):
 
             db.commit()
 
+
+app.infrastructure.notifications.channels.py
+# app/infrastructure/notifications/channels.py
+import os
+import httpx
+import logging
+from abc import ABC, abstractmethod
+
+logger = logging.getLogger("Notifications")
+
+
+class BaseChannel(ABC):
+    """Базовый класс для всех мессенджеров"""
+
+    @abstractmethod
+    async def send(self, message: str, role: str):
+        pass
+
+
+class ConsoleChannel(BaseChannel):
+    """Канал для отладки (выводит в консоль Docker)"""
+
+    async def send(self, message: str, role: str):
+        print(f"🖥 [CONSOLE | Роль: {role}] -> {message}")
+
+
+class TelegramChannel(BaseChannel):
+    """Интеграция с Telegram Bot API (С кнопкой Mini App)"""
+
+    def __init__(self, bot_token: str):
+        self.bot_token = bot_token
+        self.api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+
+        # В реальной системе здесь будет маппинг ролей на ID чатов.
+        # Пока шлем все в одну группу для тестов (замени на свой ID, если нужно)
+        self.role_to_chat_id = {
+            "Мэрия": "1530085496",  # Замени на ID группы Мэрии
+            "Подрядчик": "473829505"  # Замени на ID группы Подрядчика
+        }
+
+    async def send(self, message: str, role: str):
+        if not self.bot_token:
+            return
+
+        chat_id = self.role_to_chat_id.get(role) or os.getenv("DEFAULT_TG_CHAT_ID")
+        if not chat_id:
+            logger.warning(f"Не найден Chat ID для роли {role} в Telegram")
+            return
+
+        # Добавляем крутую кнопку (Inline Keyboard), которая открывает карту
+        # Для Mini App нужно использовать 'web_app', но для тестов подойдет обычный 'url'
+        map_url = os.getenv("PUBLIC_SERVER_URL", "http://твой_ip:8321/map")
+
+        payload = {
+            "chat_id": chat_id,
+            "text": f"<b>[{role}]</b>\n{message}",
+            "parse_mode": "HTML",
+            "reply_markup": {
+                "inline_keyboard": [[
+                    {"text": "🗺 Открыть Карту (Mini App)", "url": map_url}
+                ]]
+            }
+        }
+
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.post(self.api_url, json=payload)
+                if response.status_code != 200:
+                    logger.error(f"TG Error: {response.text}")
+            except Exception as e:
+                logger.error(f"TG Connection Error: {e}")
+
+
+class VKChannel(BaseChannel):
+    """Заготовка для ВКонтакте"""
+
+    def __init__(self, vk_token: str):
+        self.vk_token = vk_token
+
+    async def send(self, message: str, role: str):
+        if not self.vk_token:
+            return
+        # Здесь в будущем будет httpx запрос к api.vk.com/method/messages.send
+        print(f"🔵 [VK API | Роль: {role}] Отправка: {message}")
+
+
+app.infrastructure.notifications.dispatcher.py
+# app/infrastructure/notifications/dispatcher.py
+import asyncio
+from typing import List
+from app.core.interfaces import NotificationService
+from app.infrastructure.notifications.channels import BaseChannel
+
+
+class UniversalNotificationDispatcher(NotificationService):
+    def __init__(self, channels: List[BaseChannel]):
+        self.channels = channels
+
+    async def send_alert(self, message: str, role: str):
+        """
+        Берет сообщение и асинхронно рассылает его по всем подключенным каналам.
+        """
+        # Создаем список задач (чтобы отправка в VK не ждала отправку в ТГ)
+        tasks = []
+        for channel in self.channels:
+            tasks.append(channel.send(message, role))
+
+        # Запускаем все задачи параллельно (Fire and Forget)
+        if tasks:
+            asyncio.create_task(self._gather_tasks(tasks))
+
+    async def _gather_tasks(self, tasks):
+        # Выполняем рассылку без блокировки основного потока API
+        await asyncio.gather(*tasks, return_exceptions=True)
+        
 
 app.infrastructure.routing.osrm_router.py
 # app/infrastructure/routing/osrm_router.py
@@ -657,16 +786,10 @@ class SensorProcessingPipeline:
         self.notifier = notifier
         self.enable_alerts = enable_alerts
 
-    def process_new_data(self, payload: WebhookPayload):
-        # Превращаем модель датчика в обычный словарь
+    async def process_new_data(self, payload: WebhookPayload):
         sensor_dict = payload.sensor_data.dict()
-
-        # 🛠 ИСПРАВЛЕНИЕ ОШИБКИ ЗДЕСЬ:
-        # Принудительно превращаем datetime в строку (ISO 8601),
-        # чтобы БД могла сохранить это в колонку JSON.
         sensor_dict['timestamp'] = sensor_dict['timestamp'].isoformat()
 
-        # 1. Сохраняем/Обновляем данные в базе
         self.repo.upsert_container(
             container_id=payload.container_id,
             address=payload.address,
@@ -674,19 +797,20 @@ class SensorProcessingPipeline:
             sensor_data=sensor_dict
         )
 
-        # 2. Проверяем бизнес-правила
         if self.enable_alerts:
-            self._check_hardware_alerts(payload.container_id, payload.sensor_data)
-            self._check_fill_level(payload.container_id, payload.sensor_data)
+            # ИЗМЕНЕНИЕ: добавили await
+            await self._check_hardware_alerts(payload.container_id, payload.sensor_data)
+            await self._check_fill_level(payload.container_id, payload.sensor_data)
 
-    def _check_hardware_alerts(self, container_id: str, data: SensorData):
+    # ИЗМЕНЕНИЕ: Сделали методы async
+    async def _check_hardware_alerts(self, container_id: str, data: SensorData):
         if data.battery_status == "заряд батарейки низкий":
-            self.notifier.send_alert(f"Контейнер {container_id}: Низкий заряд!", role="Мэрия")
+            await self.notifier.send_alert(f"⚠️ Контейнер {container_id}: Низкий заряд!", role="Мэрия")
         if data.tilt_status != "угол наклона норм.":
-            self.notifier.send_alert(f"Контейнер {container_id}: Опрокинут!", role="Мэрия")
+            await self.notifier.send_alert(f"🚨 Контейнер {container_id}: Опрокинут!", role="Мэрия")
 
-    def _check_fill_level(self, container_id: str, data: SensorData):
+    async def _check_fill_level(self, container_id: str, data: SensorData):
         if data.fill_percent >= 70:
-            self.notifier.send_alert(f"Контейнер {container_id} переполнен ({data.fill_percent}%)!", role="Подрядчик")
-
+            await self.notifier.send_alert(f"🗑 Контейнер {container_id} переполнен ({data.fill_percent}%)!", role="Подрядчик")
+            
 

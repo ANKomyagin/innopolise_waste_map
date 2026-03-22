@@ -47,7 +47,7 @@ class TelegramChannel(BaseChannel):
 
         # Добавляем крутую кнопку (Inline Keyboard), которая открывает карту
         # Для Mini App нужно использовать 'web_app', но для тестов подойдет обычный 'url'
-        map_url = os.getenv("PUBLIC_SERVER_URL", "http://твой_ip:8321/map")
+        map_url = os.getenv("PUBLIC_SERVER_URL", "http://79.137.199.5:8321/map")
 
         payload = {
             "chat_id": chat_id,
