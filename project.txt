@@ -7,7 +7,7 @@ services:
     container_name: waste_api
     command: uvicorn main:app --host 0.0.0.0 --port 8000
     ports:
-      - "8000:8000"
+      - "8321:8000"
     restart: always
 
   parser:
