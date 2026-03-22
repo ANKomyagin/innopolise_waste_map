@@ -60,36 +60,32 @@ sqlalchemy
 psycopg2-binary
 
 app.main.py
-# app/main.py
 from fastapi import FastAPI
 from app.services.sensor_pipeline import SensorProcessingPipeline
-from app.infrastructure.routing.yandex_router import DummyRoutingProvider
-# from app.infrastructure.telegram.notifier import TelegramNotifier  # Пока отключаем
-from app.domain.models import WebhookPayload
-from app.core.interfaces import NotificationService # Добавили импорт интерфейса
 
+# 🛠 ИМПОРТИРУЕМ НОВЫЙ РОУТЕР
+from app.infrastructure.routing.osrm_router import OSRMRoutingProvider
+from app.domain.models import WebhookPayload
+from app.core.interfaces import NotificationService
 from app.infrastructure.database.database import engine, Base
 from app.infrastructure.database.postgres_repo import PostgresContainerRepo
 
-# Создаем таблицы в БД при старте
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Innopolis Smart Waste API")
 
-# ==========================================
-# 🛠 ЗАГЛУШКА ДЛЯ УВЕДОМЛЕНИЙ (Dummy)
-# ==========================================
+
 class DummyNotifier(NotificationService):
     def send_alert(self, message: str, role: str):
-        # Вместо отправки реального сообщения в ТГ, просто красиво выводим в логи Docker
         print(f"🔔 [DUMMY ALERT | Роль: {role}] -> {message}")
 
 # ==========================================
 # 🧱 СБОРКА ПАЙПЛАЙНА
 # ==========================================
 db_repo = PostgresContainerRepo()
-notifier = DummyNotifier() # ИСПОЛЬЗУЕМ НАШУ ЗАГЛУШКУ
-routing_provider = DummyRoutingProvider()
+notifier = DummyNotifier()
+# 🛠 ПОДКЛЮЧИЛИ УМНУЮ ЛОГИСТИКУ!
+routing_provider = OSRMRoutingProvider()
 
 sensor_pipeline = SensorProcessingPipeline(
     repo=db_repo,
@@ -97,18 +93,23 @@ sensor_pipeline = SensorProcessingPipeline(
     enable_alerts=True
 )
 
+# Выдумаем координаты гаража (Депо) где-то возле Универа Иннополиса
+DEPOT_COORDS = "55.753, 48.743"
+
 # ==========================================
 # 🚀 API ENDPOINTS
 # ==========================================
 @app.get("/api/logistics/route")
 async def get_optimal_route():
     containers = db_repo.get_all()
+    # Берем координаты только переполненных контейнеров
     to_collect = [c.coords for c in containers if c.sensor_data and c.sensor_data.fill_percent >= 70]
 
     if not to_collect:
         return {"message": "Нет контейнеров для вывоза (все < 70%)"}
 
-    route = routing_provider.build_route(origin="Депо", waypoints=to_collect)
+    # Строим маршрут
+    route = routing_provider.build_route(origin=DEPOT_COORDS, waypoints=to_collect)
     return {"route": route}
 
 
@@ -231,8 +232,11 @@ class Container(BaseModel):
 
 
 class RoutePath(BaseModel):
-    path: List[str]
+    # Теперь мы возвращаем полноценный GeoJSON объект типа LineString
+    route_geojson: dict
     distance_km: float
+    duration_min: float
+    optimized_waypoints_order: List[str]
 
 
 # Специальная модель для приема данных через API
@@ -321,6 +325,65 @@ class PostgresContainerRepo(ContainerRepository):
             db.commit()
 
 
+app.infrastructure.routing.osrm_router.py
+# app/infrastructure/routing/osrm_router.py
+import httpx
+from typing import List
+from app.core.interfaces import RoutingProvider
+from app.domain.models import RoutePath
+
+
+class OSRMRoutingProvider(RoutingProvider):
+    def __init__(self):
+        # Используем публичный бесплатный сервер OSRM (для хакатона - идеально)
+        self.base_url = "http://router.project-osrm.org/trip/v1/driving"
+
+    def build_route(self, origin: str, waypoints: List[str]) -> RoutePath:
+        """
+        origin: "Широта,Долгота"
+        waypoints: ["Широта,Долгота", ...]
+        """
+
+        # OSRM требует координаты в формате "Долгота,Широта" (Внимание: перевернуто!)
+        def flip_coords(coord_str: str) -> str:
+            lat, lon = coord_str.split(',')
+            return f"{lon.strip()},{lat.strip()}"
+
+        # Собираем все точки в один список: Депо + Контейнеры
+        all_points = [origin] + waypoints
+        osrm_coords = ";".join([flip_coords(p) for p in all_points])
+
+        # Формируем URL. Параметр source=first гарантирует, что маршрут начнется с Депо
+        url = f"{self.base_url}/{osrm_coords}?source=first&geometries=geojson&roundtrip=false"
+
+        print(f"[OSRM] Отправляю запрос на оптимизацию {len(all_points)} точек...")
+
+        response = httpx.get(url)
+        if response.status_code != 200:
+            print(f"[OSRM ERROR] {response.text}")
+            raise Exception("Ошибка построения маршрута")
+
+        data = response.json()
+
+        # OSRM возвращает оптимизированный маршрут (Trip)
+        trip = data['trips'][0]
+
+        # Получаем порядок, в котором алгоритм решил объехать точки
+        # (Исключаем самую первую точку, так как это Депо)
+        ordered_waypoints = []
+        for wp in sorted(data['waypoints'], key=lambda x: x['waypoint_index']):
+            if wp['waypoint_index'] != 0:
+                # Возвращаем в нормальный формат "Широта, Долгота"
+                ordered_waypoints.append(f"{wp['location'][1]}, {wp['location'][0]}")
+
+        return RoutePath(
+            route_geojson=trip['geometry'],  # Геометрия линии для карты!
+            distance_km=round(trip['distance'] / 1000, 2),  # переводим метры в км
+            duration_min=round(trip['duration'] / 60, 1),  # переводим секунды в минуты
+            optimized_waypoints_order=ordered_waypoints
+        )
+
+
 app.infrastructure.routing.yandex_router.py
 # app/infrastructure/routing/yandex_router.py
 from app.core.interfaces import RoutingProvider
@@ -340,7 +403,8 @@ class DummyRoutingProvider(RoutingProvider):
         return {"path": waypoints, "distance_km": 10.0}
 
 
-# app/infrastructure/telegram/notifier.py
+
+app.infrastructure.telegram.notifier.py
 from app.core.interfaces import NotificationService
 
 
@@ -348,7 +412,6 @@ class TelegramNotifier(NotificationService):
     def send_alert(self, message: str, role: str):
         # Логика отправки через бота нужной роли
         print(f"[TG БОТ -> {role}]: {message}")
-
 
 app.infrastructure.telegram.tg_parser.py
 # app/infrastructure/telegram/tg_parser.py
