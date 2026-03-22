@@ -6,8 +6,8 @@ from app.infrastructure.routing.yandex_router import DummyRoutingProvider
 from app.domain.models import WebhookPayload
 from app.core.interfaces import NotificationService # Добавили импорт интерфейса
 
-from infrastructure.database.database import engine, Base
-from infrastructure.database.postgres_repo import PostgresContainerRepo
+from app.infrastructure.database.database import engine, Base
+from app.infrastructure.database.postgres_repo import PostgresContainerRepo
 
 # Создаем таблицы в БД при старте
 Base.metadata.create_all(bind=engine)
