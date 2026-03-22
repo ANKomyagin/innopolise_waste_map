@@ -1,7 +1,6 @@
 from sqlalchemy import Column, String, JSON
 from .database import Base
 
-
 class DBContainer(Base):
     __tablename__ = "containers"
 
