@@ -35,7 +35,12 @@ async function loadBins() {
             `;
             // Для админа добавляем кнопку удаления
             if (currentRole === 'admin') {
-                popupContent += `<hr><button class="btn btn-sm btn-danger w-100" onclick="deleteBin('${feature.properties.id}')">Удалить контейнер</button>`;
+                popupContent += `
+                <hr>
+                <div class="d-grid gap-2">
+                    <a href="/api/containers/${feature.properties.id}/qr" target="_blank" class="btn btn-sm btn-outline-dark">🖨 Печать QR-кода</a>
+                    <button class="btn btn-sm btn-danger" onclick="deleteBin('${feature.properties.id}')">🗑 Удалить</button>
+                </div>`;
             }
             popupContent += `</div>`;
             layer.bindPopup(popupContent);

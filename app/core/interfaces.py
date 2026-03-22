@@ -11,6 +11,9 @@ class ContainerRepository(ABC):
     @abstractmethod
     def upsert_container(self, container_id: str, address: str, coords: str, sensor_data: dict): pass
 
+    @abstractmethod
+    def update_sensor_data(self, container_id: str, sensor_data: dict): pass
+
 
 # Интерфейс для построителя маршрутов (можно будет подключать разные)
 class RoutingProvider(ABC):

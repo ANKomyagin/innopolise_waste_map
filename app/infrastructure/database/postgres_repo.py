@@ -53,3 +53,13 @@ class PostgresContainerRepo(ContainerRepository):
                 db.commit()
                 return True
             return False
+
+    def update_sensor_data(self, container_id: str, sensor_data: dict):
+        """Обновление только данных датчика (для QR-сканирования)"""
+        with SessionLocal() as db:
+            container = db.query(DBContainer).filter(DBContainer.id == container_id).first()
+            if container:
+                container.sensor_data = sensor_data
+                db.commit()
+                return True
+            return False

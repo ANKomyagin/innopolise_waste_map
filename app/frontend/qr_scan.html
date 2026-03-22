@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отметка мусора</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; text-align: center; padding: 20px; font-family: sans-serif; }
+        .btn-xl { padding: 15px 20px; font-size: 18px; border-radius: 10px; margin-bottom: 15px; width: 100%; font-weight: bold;}
+        .card { border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); padding: 20px; margin-top: 20px;}
+    </style>
+</head>
+<body>
+
+    <h2 class="text-success mb-3">♻️ Innopolis Waste</h2>
+    <div class="card">
+        <h4 id="bin-title">Контейнер загружается...</h4>
+        <p class="text-muted mb-4">Насколько заполнен этот контейнер?</p>
+
+        <button class="btn btn-danger btn-xl" onclick="sendData(100)">🔴 Переполнен (100%)</button>
+        <button class="btn btn-warning btn-xl" onclick="sendData(70)">🟡 Почти заполнен (70%)</button>
+        <button class="btn btn-success btn-xl" onclick="sendData(30)">🟢 Свободен (< 50%)</button>
+
+        <hr>
+        <button class="btn btn-outline-dark btn-xl mt-2" onclick="contractorEmpty()">🚛 Я мусоровоз (очистил бак)</button>
+    </div>
+
+    <div id="result" class="alert mt-4 d-none"></div>
+
+<script>
+    // Получаем ID контейнера из URL (?id=123)
+    const urlParams = new URLSearchParams(window.location.search);
+    const containerId = urlParams.get('id');
+
+    if(containerId) {
+        document.getElementById('bin-title').innerText = `Контейнер №${containerId}`;
+    } else {
+        document.getElementById('bin-title').innerText = `Ошибка: Неверный QR-код`;
+    }
+
+    // Генерируем уникальный ID устройства (Fingerprint) и сохраняем навсегда
+    let deviceId = localStorage.getItem('inno_waste_device_id');
+    if (!deviceId) {
+        deviceId = 'device_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('inno_waste_device_id', deviceId);
+    }
+
+    async function sendData(fillPercent, role = 'resident') {
+        if(!containerId) return;
+
+        const payload = {
+            container_id: containerId,
+            fill_percent: fillPercent,
+            device_id: deviceId,
+            role: role
+        };
+
+        const res = await fetch('/api/sensors/manual', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        const resDiv = document.getElementById('result');
+        resDiv.classList.remove('d-none', 'alert-success', 'alert-danger');
+
+        if(data.status === 'ok') {
+            resDiv.classList.add('alert-success');
+            resDiv.innerText = role === 'contractor' ? "✅ Бак отмечен как пустой!" : "💚 Спасибо за вашу помощь городу!";
+        } else {
+            resDiv.classList.add('alert-danger');
+            resDiv.innerText = data.message;
+        }
+    }
+
+    function contractorEmpty() {
+        // В реальности тут можно запросить PIN-код подрядчика
+        sendData(0, 'contractor');
+    }
+</script>
+</body>
+</html>

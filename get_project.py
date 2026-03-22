@@ -2,7 +2,8 @@ import os
 
 OUTPUT_FILE = 'project.txt'
 EXCLUDED_DIRS = {'venv'}
-ADDED_FILES = {'docker-compose.yml', 'Dockerfile', 'requirements.txt'}
+ADDED_FILES = {'docker-compose.yml', 'Dockerfile', 'requirements.txt', 'app.js', 'index.html', 'style.css',
+               'qr_scan.html'}
 EXCLUDED_FILES = {'get_project.py'}
 ROOT_DIR = os.path.abspath(os.path.dirname(__file__))
 
