@@ -1,5 +1,5 @@
 from app.core.interfaces import ContainerRepository, NotificationService
-from app.domain.models import SensorData, WebhookPayload # <-- Добавлен импорт
+from app.domain.models import SensorData, WebhookPayload
 
 
 class SensorProcessingPipeline:
@@ -8,14 +8,21 @@ class SensorProcessingPipeline:
         self.notifier = notifier
         self.enable_alerts = enable_alerts
 
-    # ИЗМЕНЕНИЯ ЗДЕСЬ:
     def process_new_data(self, payload: WebhookPayload):
+        # Превращаем модель датчика в обычный словарь
+        sensor_dict = payload.sensor_data.dict()
+
+        # 🛠 ИСПРАВЛЕНИЕ ОШИБКИ ЗДЕСЬ:
+        # Принудительно превращаем datetime в строку (ISO 8601),
+        # чтобы БД могла сохранить это в колонку JSON.
+        sensor_dict['timestamp'] = sensor_dict['timestamp'].isoformat()
+
         # 1. Сохраняем/Обновляем данные в базе
         self.repo.upsert_container(
             container_id=payload.container_id,
             address=payload.address,
             coords=payload.coords,
-            sensor_data=payload.sensor_data.dict() # Конвертируем Pydantic в dict для JSON
+            sensor_data=sensor_dict
         )
 
         # 2. Проверяем бизнес-правила
@@ -30,5 +37,5 @@ class SensorProcessingPipeline:
             self.notifier.send_alert(f"Контейнер {container_id}: Опрокинут!", role="Мэрия")
 
     def _check_fill_level(self, container_id: str, data: SensorData):
-        if data.fill_percent >= 70: # Снизил до 70 для тестов
+        if data.fill_percent >= 70:
             self.notifier.send_alert(f"Контейнер {container_id} переполнен ({data.fill_percent}%)!", role="Подрядчик")
