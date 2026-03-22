@@ -2,6 +2,7 @@ import os
 
 OUTPUT_FILE = 'project.txt'
 EXCLUDED_DIRS = {'venv'}
+ADDED_FILES = {'docker-compose.yml', 'Dockerfile', 'requirements.txt'}
 EXCLUDED_FILES = {'get_project.py'}
 ROOT_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -15,7 +16,7 @@ with open(OUTPUT_FILE, 'w', encoding='utf-8') as output:
             if filename in EXCLUDED_FILES:
                 continue  # Пропускаем исключенные файлы
 
-            if filename.endswith('.py'):
+            if filename.endswith('.py') or filename in ADDED_FILES:
                 file_path = os.path.join(dirpath, filename)
                 # Относительный путь от корня, используем его для форматирования
                 rel_path = os.path.relpath(file_path, ROOT_DIR)

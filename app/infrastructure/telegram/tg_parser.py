@@ -4,23 +4,20 @@ import os
 import asyncio
 import httpx
 from datetime import datetime
-from telethon import TelegramClient, events
+from aiogram import Bot, Dispatcher, types
 
 # ==========================================
-# ⚙️ НАСТРОЙКИ (Лучше вынести в .env файл)
+# ⚙️ НАСТРОЙКИ (В идеале вынести в .env)
 # ==========================================
-# Получить можно на https://my.telegram.org/
-API_ID = 'ТВОЙ_API_ID'
-API_HASH = 'ТВОЙ_API_HASH'
-# Ссылка или ID группы/канала с ботом Иннополиса
-CHAT_URL = 'ССЫЛКА_НА_ЧАТ_С_ДАТЧИКАМИ'  # например 't.me/innopolis_waste_test'
-# Адрес нашего локального API
-API_WEBHOOK_URL = 'http://api:8000/api/sensors/webhook'
+# Вставь сюда токен, который выдал @BotFather
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8773001515:AAEe8BsCGPAdZyb_IDf4ZUw3L4fPF8Mqms4")
+
+# Адрес нашего локального API внутри Docker сети
+API_WEBHOOK_URL = os.getenv("API_WEBHOOK_URL", "http://api:8000/api/sensors/webhook")
 
 # ==========================================
 # 🧩 РЕГУЛЯРНОЕ ВЫРАЖЕНИЕ ДЛЯ ПАРСИНГА
 # ==========================================
-# Оно идеально разбирает текст, который ты прислал в ТЗ
 MESSAGE_PATTERN = re.compile(
     r'Контейнер "(?P<container_id>[^"]+)",\s*'
     r'площадка "(?P<address>[^"]+?)\s*",\s*'
@@ -32,7 +29,9 @@ MESSAGE_PATTERN = re.compile(
     r'время отправки (?P<timestamp>\d{2}\.\d{2}\.\d{4} \d{2}:\d{2})'
 )
 
-client = TelegramClient('waste_parser_session', API_ID, API_HASH)
+# Инициализируем бота и диспетчер
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher()
 
 
 async def send_to_api(payload: dict):
@@ -46,17 +45,22 @@ async def send_to_api(payload: dict):
             print(f"❌ Ошибка отправки в API: {e}")
 
 
-@client.on(events.NewMessage(chats=CHAT_URL))
-async def handle_new_message(event):
+# Этот хэндлер будет ловить ВСЕ текстовые сообщения, которые видит бот
+@dp.message()
+async def handle_new_message(message: types.Message):
     """Слушатель новых сообщений в чате"""
-    text = event.raw_text
+    # Сообщение может быть просто текстом, а может быть с картинкой (caption)
+    text = message.text or message.caption
+
+    if not text:
+        return
+
     match = MESSAGE_PATTERN.search(text)
 
     if match:
         data = match.groupdict()
 
         # Преобразуем строку времени (15.03.2026 12:00) в стандартный ISO формат
-        # Это нужно, чтобы Pydantic в FastAPI не ругался
         dt_obj = datetime.strptime(data['timestamp'], "%d.%m.%Y %H:%M")
         iso_timestamp = dt_obj.isoformat()
 
@@ -74,18 +78,17 @@ async def handle_new_message(event):
             }
         }
 
-        print(f"🔍 Распарсены данные для контейнера {payload['container_id']}. Отправляю...")
+        print(f"🔍 Распарсены данные для {payload['container_id']}. Отправляю в API...")
         await send_to_api(payload)
     else:
-        # Если бот написал что-то другое (не сводку)
+        # Сообщение не подошло под формат датчика
         pass
 
 
 async def main():
-    print("🚀 Запуск Telegram Парсера...")
-    await client.start()
-    print(f"🎧 Слушаю чат: {CHAT_URL}")
-    await client.run_until_disconnected()
+    print("🚀 Запуск Telegram Парсера (через Bot API)...")
+    # Запускаем поллинг (бот будет постоянно опрашивать сервера ТГ на наличие новых сообщений)
+    await dp.start_polling(bot)
 
 
 if __name__ == '__main__':
