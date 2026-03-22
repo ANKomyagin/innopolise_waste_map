@@ -1,0 +1,14 @@
+body, html { height: 100%; overflow: hidden; }
+.bg-dark-inno { background-color: #1a1a1a !important; }
+.text-inno-green { color: #8bc34a !important; }
+.btn-inno { background-color: #8bc34a; color: white; }
+.btn-inno:hover { background-color: #7cb342; color: white; }
+
+.main-container { display: flex; height: calc(100vh - 56px); } /* 56px - высота навбара */
+#map { flex-grow: 1; height: 100%; cursor: crosshair; }
+.sidebar { width: 350px; overflow-y: auto; display: flex; flex-direction: column; z-index: 1000;}
+
+.role-panel { display: none; }
+.role-panel.active { display: block; }
+.nav-pills .nav-link.active { background-color: #8bc34a; }
+.nav-pills .nav-link { color: #ccc; }

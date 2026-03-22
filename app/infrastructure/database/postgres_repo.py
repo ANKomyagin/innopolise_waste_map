@@ -45,3 +45,11 @@ class PostgresContainerRepo(ContainerRepository):
             container.sensor_data = sensor_data
 
             db.commit()
+    def delete_container(self, container_id: str):
+        with SessionLocal() as db:
+            container = db.query(DBContainer).filter(DBContainer.id == container_id).first()
+            if container:
+                db.delete(container)
+                db.commit()
+                return True
+            return False

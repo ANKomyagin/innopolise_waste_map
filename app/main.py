@@ -2,6 +2,7 @@
 import os
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
 
 from app.services.sensor_pipeline import SensorProcessingPipeline
 from app.infrastructure.routing.osrm_router import OSRMRoutingProvider
@@ -13,8 +14,23 @@ from app.infrastructure.database.postgres_repo import PostgresContainerRepo
 from app.infrastructure.notifications.dispatcher import UniversalNotificationDispatcher
 from app.infrastructure.notifications.channels import ConsoleChannel, TelegramChannel, VKChannel
 
+from fastapi.staticfiles import StaticFiles
+import os
+
 Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Innopolis Smart Waste API")
+
+# 🛠 МОНТИРУЕМ СТАТИКУ ФРОНТЕНДА
+# Мы скажем FastAPI отдавать файлы из папки app/frontend
+os.makedirs("app/frontend", exist_ok=True)
+app.mount("/static", StaticFiles(directory="app/frontend"), name="static")
+
+
+# Модель для ручного добавления мусорки админом
+class NewContainer(BaseModel):
+    id: str
+    address: str
+    coords: str
 
 # ==========================================
 # 🧱 СБОРКА УВЕДОМЛЕНИЙ (Подключаем каналы)
@@ -159,94 +175,25 @@ async def get_dashboard():
     }
 
 
-@app.get("/map", response_class=HTMLResponse)
-async def serve_map_html():
-    """
-    Простой Frontend: интерактивная карта для просмотра результатов!
-    """
-    html_content = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Умная карта отходов - Иннополис</title>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <style>
-            body { margin: 0; padding: 0; font-family: sans-serif; }
-            #map { width: 100vw; height: 100vh; }
-            .info-panel { position: absolute; top: 10px; right: 10px; z-index: 1000; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.2); width: 300px;}
-        </style>
-    </head>
-    <body>
-        <div class="info-panel">
-            <h3>Иннополис ТКО</h3>
-            <button onclick="loadRoute()" style="width: 100%; padding: 10px; background: #8bc34a; border: none; color: white; cursor: pointer; border-radius: 5px;">Сгенерировать маршрут</button>
-            <p id="route-stats">Маршрут не построен</p>
-        </div>
-        <div id="map"></div>
+@app.post("/api/containers")
+async def add_container_manual(container: NewContainer):
+    """Эндпоинт для Админки: ручное добавление пустой мусорки"""
+    db_repo.upsert_container(
+        container_id=container.id,
+        address=container.address,
+        coords=container.coords,
+        sensor_data=None # Пустая мусорка, датчик еще ничего не прислал
+    )
+    return {"status": "ok", "message": "Контейнер добавлен"}
 
-        <script>
-            // Инициализация карты (центр на Иннополисе)
-            var map = L.map('map').setView([55.753, 48.743], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+@app.delete("/api/containers/{container_id}")
+async def delete_container(container_id: str):
+    """Эндпоинт для Админки: удаление мусорки"""
+    success = db_repo.delete_container(container_id)
+    return {"status": "ok" if success else "error"}
 
-            var currentRouteLayer = null;
-
-            // Загружаем точки контейнеров
-            fetch('/api/map/geojson')
-                .then(res => res.json())
-                .then(data => {
-                    L.geoJSON(data, {
-                        pointToLayer: function (feature, latlng) {
-                            // Цвет точки зависит от заполненности
-                            var color = feature.properties.color;
-                            return L.circleMarker(latlng, {
-                                radius: 8, fillColor: color, color: "#000", weight: 1, opacity: 1, fillOpacity: 0.8
-                            });
-                        },
-                        onEachFeature: function (feature, layer) {
-                            layer.bindPopup(
-                                "<b>Контейнер ID:</b> " + feature.properties.id + "<br>" +
-                                "<b>Адрес:</b> " + feature.properties.address + "<br>" +
-                                "<b>Заполнение:</b> " + feature.properties.fill_percent + "%<br>" +
-                                "<b>Батарея:</b> " + feature.properties.battery
-                            );
-                        }
-                    }).addTo(map);
-                });
-
-            // Функция загрузки маршрута
-            function loadRoute() {
-                document.getElementById('route-stats').innerText = "Строим оптимальный маршрут...";
-                fetch('/api/logistics/route')
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.message) {
-                            document.getElementById('route-stats').innerText = data.message;
-                            return;
-                        }
-
-                        // Удаляем старый маршрут, если был
-                        if (currentRouteLayer) { map.removeLayer(currentRouteLayer); }
-
-                        // Рисуем синюю линию маршрута
-                        currentRouteLayer = L.geoJSON(data.route.route_geojson, {
-                            style: { color: "#2196F3", weight: 5, opacity: 0.7 }
-                        }).addTo(map);
-
-                        // Обновляем статистику на панели
-                        document.getElementById('route-stats').innerHTML = 
-                            "<b>Дистанция:</b> " + data.route.distance_km + " км<br>" +
-                            "<b>Время:</b> " + data.route.duration_min + " мин";
-                    })
-                    .catch(err => {
-                        document.getElementById('route-stats').innerText = "Ошибка построения маршрута";
-                    });
-            }
-        </script>
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=html_content)
+@app.get("/")
+async def serve_frontend():
+    """Отдаем главную страницу сайта"""
+    with open("app/frontend/index.html", "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read())
