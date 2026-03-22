@@ -1,0 +1,324 @@
+main.py
+
+
+app.main.py
+from fastapi import FastAPI
+from app.services.sensor_pipeline import SensorProcessingPipeline
+from app.infrastructure.routing.yandex_router import YandexRoutingProvider
+from app.infrastructure.routing.yandex_router import DummyRoutingProvider
+from app.infrastructure.telegram.notifier import TelegramNotifier
+from app.infrastructure.database.postgres_repo import PostgresContainerRepo  # Допустим, он есть
+from app.domain.models import SensorData, WebhookPayload  # Не забудь добавить импорты!
+
+
+app = FastAPI(title="Innopolis Smart Waste API")
+
+# ==========================================
+# 🧱 СБОРКА ПАЙПЛАЙНА (Dependency Injection)
+# ==========================================
+
+# 1. Выбираем инфраструктуру
+db_repo = PostgresContainerRepo()
+notifier = TelegramNotifier()
+
+# Хотим протестировать без платного API Яндекса?
+# Просто меняем YandexRoutingProvider() на DummyRoutingProvider()!
+routing_provider = DummyRoutingProvider()
+
+# 2. Собираем бизнес-сервисы
+sensor_pipeline = SensorProcessingPipeline(
+    repo=db_repo,
+    notifier=notifier,
+    enable_alerts=True  # Можно отключить алерты на время тестов
+)
+
+
+# ==========================================
+# 🚀 API ENDPOINTS
+# ==========================================
+
+@app.post("/api/sensors/webhook")
+async def receive_sensor_data(container_id: str, raw_data: dict):
+    """
+    Эндпоинт, куда парсер (или сами датчики) кидают данные.
+    """
+    # Преобразуем сырые данные в доменную модель (валидация)
+    sensor_data = SensorData(**raw_data)
+
+    # Запускаем наш независимый пайплайн
+    sensor_pipeline.process_new_data(container_id, sensor_data)
+
+    return {"status": "ok", "pipeline_executed": True}
+
+
+@app.get("/api/logistics/route")
+async def get_optimal_route():
+    """
+    Эндпоинт для роли 'Подрядчик' - получить маршрут.
+    """
+    containers = db_repo.get_all()
+    # Фильтруем только те, где мусора > 70%
+    to_collect = [c.coords for c in containers if c.sensor_data.fill_percent >= 70]
+
+    # Делегируем расчет нашему провайдеру (Яндекс или Dummy)
+    route = routing_provider.build_route(origin="Депо", waypoints=to_collect)
+
+    return {"route": route}
+
+
+@app.post("/api/sensors/webhook")
+async def receive_sensor_data(payload: WebhookPayload):
+    """
+    Эндпоинт, куда парсер (или сами датчики) кидают данные.
+    """
+    # Здесь в будущем мы будем обновлять координаты и адрес контейнера,
+    # если его еще нет в БД, или если он "переехал".
+
+    # Запускаем наш независимый пайплайн обработки датчика
+    sensor_pipeline.process_new_data(payload.container_id, payload.sensor_data)
+
+    return {"status": "ok", "container_id": payload.container_id, "pipeline_executed": True}
+
+
+app.api.dependencies.py
+
+
+app.api.routers.py
+
+
+app.core.config.py
+
+
+app.core.interfaces.py
+from abc import ABC, abstractmethod
+from typing import List
+from app.domain.models import Container, RoutePath
+
+
+# Интерфейс для работы с базой данных
+class ContainerRepository(ABC):
+    @abstractmethod
+    def get_all(self) -> List[Container]: pass
+
+    @abstractmethod
+    def update_sensor_data(self, container_id: str, data: dict): pass
+
+
+# Интерфейс для построителя маршрутов (можно будет подключать разные)
+class RoutingProvider(ABC):
+    @abstractmethod
+    def build_route(self, origin: str, waypoints: List[str]) -> RoutePath: pass
+
+
+# Интерфейс для уведомлений
+class NotificationService(ABC):
+    @abstractmethod
+    def send_alert(self, message: str, role: str): pass
+
+
+app.domain.exceptions.py
+
+
+app.domain.models.py
+from pydantic import BaseModel, Field
+from typing import Optional, List
+from datetime import datetime
+
+
+class SensorData(BaseModel):
+    fill_percent: int
+    temperature_status: str
+    tilt_status: str
+    battery_status: str
+    timestamp: datetime
+
+
+class Container(BaseModel):
+    id: str
+    address: str
+    coords: str
+    sensor_data: Optional[SensorData] = None
+
+
+class RoutePath(BaseModel):
+    path: List[str]
+    distance_km: float
+
+
+# Специальная модель для приема данных через API
+class WebhookPayload(BaseModel):
+    container_id: str
+    address: str
+    coords: str
+    sensor_data: SensorData
+
+
+app.infrastructure.database.py
+
+
+app.infrastructure.routing.yandex_router.py
+# app/infrastructure/routing/yandex_router.py
+from app.core.interfaces import RoutingProvider
+
+
+class YandexRoutingProvider(RoutingProvider):
+    def build_route(self, origin, waypoints):
+        # Здесь будет реальный HTTP запрос к API Яндекс.Маршрутизации
+        print(f"[Yandex API] Строю маршрут от {origin} через {len(waypoints)} точек...")
+        return {"path": [origin] + waypoints, "distance_km": 15.5}
+
+
+# Если у Яндекса упали сервера, мы можем быстро поднять Dummy:
+class DummyRoutingProvider(RoutingProvider):
+    def build_route(self, origin, waypoints):
+        print("[Dummy API] Строю прямой маршрут по координатам...")
+        return {"path": waypoints, "distance_km": 10.0}
+
+
+# app/infrastructure/telegram/notifier.py
+from app.core.interfaces import NotificationService
+
+
+class TelegramNotifier(NotificationService):
+    def send_alert(self, message: str, role: str):
+        # Логика отправки через бота нужной роли
+        print(f"[TG БОТ -> {role}]: {message}")
+
+
+app.infrastructure.telegram.tg_parser.py
+# app/infrastructure/telegram/tg_parser.py
+import re
+import os
+import asyncio
+import httpx
+from datetime import datetime
+from telethon import TelegramClient, events
+
+# ==========================================
+# ⚙️ НАСТРОЙКИ (Лучше вынести в .env файл)
+# ==========================================
+# Получить можно на https://my.telegram.org/
+API_ID = 'ТВОЙ_API_ID'
+API_HASH = 'ТВОЙ_API_HASH'
+# Ссылка или ID группы/канала с ботом Иннополиса
+CHAT_URL = 'ССЫЛКА_НА_ЧАТ_С_ДАТЧИКАМИ'  # например 't.me/innopolis_waste_test'
+# Адрес нашего локального API
+API_WEBHOOK_URL = 'http://127.0.0.1:8000/api/sensors/webhook'
+
+# ==========================================
+# 🧩 РЕГУЛЯРНОЕ ВЫРАЖЕНИЕ ДЛЯ ПАРСИНГА
+# ==========================================
+# Оно идеально разбирает текст, который ты прислал в ТЗ
+MESSAGE_PATTERN = re.compile(
+    r'Контейнер "(?P<container_id>[^"]+)",\s*'
+    r'площадка "(?P<address>[^"]+?)\s*",\s*'
+    r'заполнение "(?P<fill_percent>\d+)%",\s*'
+    r'координаты "(?P<coords>[^"]+)",\s*'
+    r'температура (?P<temperature>[^,]+),\s*'
+    r'угол наклона (?P<tilt>[^,]+),\s*'
+    r'заряд батарейки (?P<battery>[^,]+),\s*'
+    r'время отправки (?P<timestamp>\d{2}\.\d{2}\.\d{4} \d{2}:\d{2})'
+)
+
+client = TelegramClient('waste_parser_session', API_ID, API_HASH)
+
+
+async def send_to_api(payload: dict):
+    """Отправляет распарсенные данные в наше ядро FastAPI"""
+    async with httpx.AsyncClient() as http_client:
+        try:
+            response = await http_client.post(API_WEBHOOK_URL, json=payload)
+            response.raise_for_status()
+            print(f"✅ Успешно отправлено в API: Контейнер {payload['container_id']}")
+        except httpx.HTTPError as e:
+            print(f"❌ Ошибка отправки в API: {e}")
+
+
+@client.on(events.NewMessage(chats=CHAT_URL))
+async def handle_new_message(event):
+    """Слушатель новых сообщений в чате"""
+    text = event.raw_text
+    match = MESSAGE_PATTERN.search(text)
+
+    if match:
+        data = match.groupdict()
+
+        # Преобразуем строку времени (15.03.2026 12:00) в стандартный ISO формат
+        # Это нужно, чтобы Pydantic в FastAPI не ругался
+        dt_obj = datetime.strptime(data['timestamp'], "%d.%m.%Y %H:%M")
+        iso_timestamp = dt_obj.isoformat()
+
+        # Формируем JSON точно по структуре WebhookPayload
+        payload = {
+            "container_id": data['container_id'],
+            "address": data['address'],
+            "coords": data['coords'],
+            "sensor_data": {
+                "fill_percent": int(data['fill_percent']),
+                "temperature_status": data['temperature'].strip(),
+                "tilt_status": data['tilt'].strip(),
+                "battery_status": data['battery'].strip(),
+                "timestamp": iso_timestamp
+            }
+        }
+
+        print(f"🔍 Распарсены данные для контейнера {payload['container_id']}. Отправляю...")
+        await send_to_api(payload)
+    else:
+        # Если бот написал что-то другое (не сводку)
+        pass
+
+
+async def main():
+    print("🚀 Запуск Telegram Парсера...")
+    await client.start()
+    print(f"🎧 Слушаю чат: {CHAT_URL}")
+    await client.run_until_disconnected()
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
+
+
+app.services.analytics.py
+
+
+app.services.logistics.py
+
+
+app.services.sensor_pipeline.py
+from app.core.interfaces import ContainerRepository, NotificationService
+from app.domain.models import SensorData
+
+
+class SensorProcessingPipeline:
+    def __init__(
+        self,
+        repo: ContainerRepository,
+        notifier: NotificationService,
+        enable_alerts: bool = True # Флаг для включения/отключения фичи
+    ):
+        self.repo = repo
+        self.notifier = notifier
+        self.enable_alerts = enable_alerts
+
+    def process_new_data(self, container_id: str, data: SensorData):
+        # 1. Сохраняем данные (Кирпичик 1)
+        self.repo.update_sensor_data(container_id, data.dict())
+
+        # 2. Проверяем бизнес-правила (Кирпичик 2: Анализ аномалий)
+        if self.enable_alerts:
+            self._check_hardware_alerts(container_id, data)
+            self._check_fill_level(container_id, data)
+
+    def _check_hardware_alerts(self, container_id: str, data: SensorData):
+        if data.battery_status == "заряд батарейки низкий":
+            self.notifier.send_alert(f"Контейнер {container_id}: Низкий заряд!", role="Мэрия")
+        if data.tilt_status != "угол наклона норм.":
+            self.notifier.send_alert(f"Контейнер {container_id}: Опрокинут!", role="Мэрия")
+
+    def _check_fill_level(self, container_id: str, data: SensorData):
+        if data.fill_percent >= 90:
+            self.notifier.send_alert(f"Контейнер {container_id} переполнен ({data.fill_percent}%)!", role="Подрядчик")
+
+

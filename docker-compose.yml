@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    container_name: waste_api
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    restart: always
+
+  parser:
+    build: .
+    container_name: waste_parser
+    # Парсер запустится как отдельный скрипт
+    command: python -m app.infrastructure.telegram.tg_parser
+    depends_on:
+      - api
+    restart: always
