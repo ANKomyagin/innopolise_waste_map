@@ -40,6 +40,11 @@ class NewContainer(BaseModel):
     coords: str
 
 
+class EditContainer(BaseModel):
+    address: str
+    coords: str
+
+
 class QRManualReport(BaseModel):
     container_id: str
     fill_percent: int
@@ -199,6 +204,13 @@ async def add_container_manual(container: NewContainer):
         sensor_data=None # Пустая мусорка, датчик еще ничего не прислал
     )
     return {"status": "ok", "message": "Контейнер добавлен"}
+
+
+@app.put("/api/containers/{container_id}")
+async def edit_container(container_id: str, data: EditContainer):
+    """Эндпоинт для редактирования контейнера"""
+    success = db_repo.edit_container(container_id, data.address, data.coords)
+    return {"status": "ok" if success else "error"}
 
 @app.delete("/api/containers/{container_id}")
 async def delete_container(container_id: str):

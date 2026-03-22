@@ -12,3 +12,23 @@ body, html { height: 100%; overflow: hidden; }
 .role-panel.active { display: block; }
 .nav-pills .nav-link.active { background-color: #8bc34a; }
 .nav-pills .nav-link { color: #ccc; }
+/* Стили для кластерных маркеров мусорок */
+.pad-cluster {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 2px solid white;
+    color: white;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    font-size: 14px;
+}
+
+/* Ограничитель высоты для попапа, чтобы не вылезал за экран, если баков много */
+.container-list {
+    max-height: 200px;
+    overflow-y: auto;
+}

@@ -19,8 +19,10 @@
         <p class="text-muted mb-4">Насколько заполнен этот контейнер?</p>
 
         <button class="btn btn-danger btn-xl" onclick="sendData(100)">🔴 Переполнен (100%)</button>
-        <button class="btn btn-warning btn-xl" onclick="sendData(70)">🟡 Почти заполнен (70%)</button>
-        <button class="btn btn-success btn-xl" onclick="sendData(30)">🟢 Свободен (< 50%)</button>
+        <button class="btn btn-warning btn-xl" onclick="sendData(75)">🟠 Заполнен на 3/4 (75%)</button>
+        <button class="btn btn-primary btn-xl" onclick="sendData(50)">🔵 Наполовину (50%)</button>
+        <button class="btn btn-info btn-xl" style="color: white;" onclick="sendData(25)">💧 Четверть (25%)</button>
+        <button class="btn btn-success btn-xl" onclick="sendData(0)">🟢 Свободен (0%)</button>
 
         <hr>
         <button class="btn btn-outline-dark btn-xl mt-2" onclick="contractorEmpty()">🚛 Я мусоровоз (очистил бак)</button>

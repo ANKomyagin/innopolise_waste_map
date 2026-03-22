@@ -58,6 +58,7 @@ httpx
 aiogram
 sqlalchemy
 psycopg2-binary
+qrcode[pil]
 
 app.main.py
 # app/main.py
@@ -79,6 +80,13 @@ from app.infrastructure.notifications.channels import ConsoleChannel, TelegramCh
 from fastapi.staticfiles import StaticFiles
 import os
 
+import qrcode
+import io
+from datetime import datetime
+from fastapi.responses import StreamingResponse
+from fastapi import Request
+import uuid
+
 Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Innopolis Smart Waste API")
 
@@ -93,6 +101,13 @@ class NewContainer(BaseModel):
     id: str
     address: str
     coords: str
+
+
+class QRManualReport(BaseModel):
+    container_id: str
+    fill_percent: int
+    device_id: str
+    role: str = "resident" # может быть 'resident' или 'contractor'
 
 # ==========================================
 # 🧱 СБОРКА УВЕДОМЛЕНИЙ (Подключаем каналы)
@@ -254,6 +269,70 @@ async def delete_container(container_id: str):
     success = db_repo.delete_container(container_id)
     return {"status": "ok" if success else "error"}
 
+
+@app.get("/api/containers/{container_id}/qr")
+async def generate_qr(container_id: str, request: Request):
+    """Генерирует PNG картинку с QR-кодом для конкретной мусорки"""
+    # Формируем ссылку, на которую поведет QR-код (страница сканирования)
+    base_url = str(request.base_url).rstrip("/")
+    target_url = f"{base_url}/qr-scan?id={container_id}"
+
+    qr = qrcode.make(target_url)
+    buf = io.BytesIO()
+    qr.save(buf, format="PNG")
+    buf.seek(0)
+
+    return StreamingResponse(buf, media_type="image/png")
+
+
+@app.get("/qr-scan")
+async def serve_qr_page():
+    """Отдает мобильную страничку для отметки уровня мусора"""
+    with open("app/frontend/qr_scan.html", "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read())
+
+
+# Простой словарь для защиты от спама (в проде используют Redis)
+# Формат: {"device_id_container_id": timestamp}
+anti_spam_cache = {}
+
+
+@app.post("/api/sensors/manual")
+async def receive_qr_data(report: QRManualReport):
+    """Принимает данные от жителей/мусорщиков через QR"""
+    now = datetime.utcnow()
+    spam_key = f"{report.device_id}_{report.container_id}"
+
+    # 🛡 Антиспам: разрешаем отправлять статус не чаще раза в 5 минут
+    if spam_key in anti_spam_cache:
+        delta = (now - anti_spam_cache[spam_key]).total_seconds()
+        if delta < 300:
+            return {"status": "error", "message": "Вы уже отправляли данные недавно. Спасибо!"}
+
+    anti_spam_cache[spam_key] = now
+
+    # Формируем псевдо-данные "датчика"
+    sensor_dict = {
+        "fill_percent": report.fill_percent,
+        "temperature_status": "норм. (QR)",
+        "tilt_status": "норм. (QR)",
+        "battery_status": "не применимо",
+        "timestamp": now.isoformat()
+    }
+
+    success = db_repo.update_sensor_data(report.container_id, sensor_dict)
+
+    if success:
+        # Если мусорка переполнена - запускаем оповещение подрядчику (используем уже готовый пайплайн)
+        if report.fill_percent >= 70:
+            await notifier.send_alert(
+                f"📱 [QR-Crowdsourcing] Жители сообщают: Контейнер {report.container_id} переполнен ({report.fill_percent}%)!",
+                role="Подрядчик")
+
+        return {"status": "ok", "message": "Данные успешно обновлены!"}
+    return {"status": "error", "message": "Контейнер не найден"}
+
+
 @app.get("/")
 async def serve_frontend():
     """Отдаем главную страницу сайта"""
@@ -283,6 +362,9 @@ class ContainerRepository(ABC):
 
     @abstractmethod
     def upsert_container(self, container_id: str, address: str, coords: str, sensor_data: dict): pass
+
+    @abstractmethod
+    def update_sensor_data(self, container_id: str, sensor_data: dict): pass
 
 
 # Интерфейс для построителя маршрутов (можно будет подключать разные)
@@ -375,7 +457,12 @@ async function loadBins() {
             `;
             // Для админа добавляем кнопку удаления
             if (currentRole === 'admin') {
-                popupContent += `<hr><button class="btn btn-sm btn-danger w-100" onclick="deleteBin('${feature.properties.id}')">Удалить контейнер</button>`;
+                popupContent += `
+                <hr>
+                <div class="d-grid gap-2">
+                    <a href="/api/containers/${feature.properties.id}/qr" target="_blank" class="btn btn-sm btn-outline-dark">🖨 Печать QR-кода</a>
+                    <button class="btn btn-sm btn-danger" onclick="deleteBin('${feature.properties.id}')">🗑 Удалить</button>
+                </div>`;
             }
             popupContent += `</div>`;
             layer.bindPopup(popupContent);
@@ -596,6 +683,92 @@ app.frontend.index.html
 </body>
 </html>
 
+app.frontend.qr_scan.html
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отметка мусора</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; text-align: center; padding: 20px; font-family: sans-serif; }
+        .btn-xl { padding: 15px 20px; font-size: 18px; border-radius: 10px; margin-bottom: 15px; width: 100%; font-weight: bold;}
+        .card { border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); padding: 20px; margin-top: 20px;}
+    </style>
+</head>
+<body>
+
+    <h2 class="text-success mb-3">♻️ Innopolis Waste</h2>
+    <div class="card">
+        <h4 id="bin-title">Контейнер загружается...</h4>
+        <p class="text-muted mb-4">Насколько заполнен этот контейнер?</p>
+
+        <button class="btn btn-danger btn-xl" onclick="sendData(100)">🔴 Переполнен (100%)</button>
+        <button class="btn btn-warning btn-xl" onclick="sendData(70)">🟡 Почти заполнен (70%)</button>
+        <button class="btn btn-success btn-xl" onclick="sendData(30)">🟢 Свободен (< 50%)</button>
+
+        <hr>
+        <button class="btn btn-outline-dark btn-xl mt-2" onclick="contractorEmpty()">🚛 Я мусоровоз (очистил бак)</button>
+    </div>
+
+    <div id="result" class="alert mt-4 d-none"></div>
+
+<script>
+    // Получаем ID контейнера из URL (?id=123)
+    const urlParams = new URLSearchParams(window.location.search);
+    const containerId = urlParams.get('id');
+
+    if(containerId) {
+        document.getElementById('bin-title').innerText = `Контейнер №${containerId}`;
+    } else {
+        document.getElementById('bin-title').innerText = `Ошибка: Неверный QR-код`;
+    }
+
+    // Генерируем уникальный ID устройства (Fingerprint) и сохраняем навсегда
+    let deviceId = localStorage.getItem('inno_waste_device_id');
+    if (!deviceId) {
+        deviceId = 'device_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('inno_waste_device_id', deviceId);
+    }
+
+    async function sendData(fillPercent, role = 'resident') {
+        if(!containerId) return;
+
+        const payload = {
+            container_id: containerId,
+            fill_percent: fillPercent,
+            device_id: deviceId,
+            role: role
+        };
+
+        const res = await fetch('/api/sensors/manual', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        const resDiv = document.getElementById('result');
+        resDiv.classList.remove('d-none', 'alert-success', 'alert-danger');
+
+        if(data.status === 'ok') {
+            resDiv.classList.add('alert-success');
+            resDiv.innerText = role === 'contractor' ? "✅ Бак отмечен как пустой!" : "💚 Спасибо за вашу помощь городу!";
+        } else {
+            resDiv.classList.add('alert-danger');
+            resDiv.innerText = data.message;
+        }
+    }
+
+    function contractorEmpty() {
+        // В реальности тут можно запросить PIN-код подрядчика
+        sendData(0, 'contractor');
+    }
+</script>
+</body>
+</html>
+
 app.frontend.style.css
 body, html { height: 100%; overflow: hidden; }
 .bg-dark-inno { background-color: #1a1a1a !important; }
@@ -693,6 +866,16 @@ class PostgresContainerRepo(ContainerRepository):
             container = db.query(DBContainer).filter(DBContainer.id == container_id).first()
             if container:
                 db.delete(container)
+                db.commit()
+                return True
+            return False
+
+    def update_sensor_data(self, container_id: str, sensor_data: dict):
+        """Обновление только данных датчика (для QR-сканирования)"""
+        with SessionLocal() as db:
+            container = db.query(DBContainer).filter(DBContainer.id == container_id).first()
+            if container:
+                container.sensor_data = sensor_data
                 db.commit()
                 return True
             return False

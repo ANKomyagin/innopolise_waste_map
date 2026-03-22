@@ -55,11 +55,43 @@ class PostgresContainerRepo(ContainerRepository):
             return False
 
     def update_sensor_data(self, container_id: str, sensor_data: dict):
-        """Обновление только данных датчика (для QR-сканирования)"""
+        """Обновление данных с QR-кода с логикой УСРЕДНЕНИЯ (защита от выбросов)"""
         with SessionLocal() as db:
             container = db.query(DBContainer).filter(DBContainer.id == container_id).first()
             if container:
+                # Берем старые данные, если они есть
+                old_data = container.sensor_data or {}
+
+                # Достаем историю последних сканирований (сохраняем до 5 последних оценок)
+                history = old_data.get("qr_history", [])
+
+                # Добавляем новую оценку
+                new_fill = sensor_data["fill_percent"]
+                history.append(new_fill)
+
+                # Храним только последние 4 оценки (чтобы старые данные забывались)
+                if len(history) > 4:
+                    history.pop(0)
+
+                # Считаем среднее арифметическое
+                avg_fill = int(sum(history) / len(history))
+
+                # Обновляем словарь
+                sensor_data["fill_percent"] = avg_fill
+                sensor_data["qr_history"] = history
+
                 container.sensor_data = sensor_data
+                db.commit()
+                return True
+            return False
+
+    def edit_container(self, old_id: str, new_address: str, new_coords: str):
+        """Обновление адреса и координат контейнера"""
+        with SessionLocal() as db:
+            container = db.query(DBContainer).filter(DBContainer.id == old_id).first()
+            if container:
+                container.address = new_address
+                container.coords = new_coords
                 db.commit()
                 return True
             return False
