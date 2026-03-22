@@ -21,4 +21,4 @@ class RoutingProvider(ABC):
 # Интерфейс для уведомлений
 class NotificationService(ABC):
     @abstractmethod
-    def send_alert(self, message: str, role: str): pass
+    async def send_alert(self, message: str, role: str): pass

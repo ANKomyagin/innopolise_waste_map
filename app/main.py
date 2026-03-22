@@ -1,30 +1,45 @@
+# app/main.py
+import os
 from fastapi import FastAPI
-from app.services.sensor_pipeline import SensorProcessingPipeline
-
-# 🛠 ИМПОРТИРУЕМ НОВЫЙ РОУТЕР
-from app.infrastructure.routing.osrm_router import OSRMRoutingProvider
-from app.domain.models import WebhookPayload
-from app.core.interfaces import NotificationService
-from app.infrastructure.database.database import engine, Base
-from app.infrastructure.database.postgres_repo import PostgresContainerRepo
 from fastapi.responses import HTMLResponse
 
+from app.services.sensor_pipeline import SensorProcessingPipeline
+from app.infrastructure.routing.osrm_router import OSRMRoutingProvider
+from app.domain.models import WebhookPayload
+from app.infrastructure.database.database import engine, Base
+from app.infrastructure.database.postgres_repo import PostgresContainerRepo
+
+# 🛠 ИМПОРТЫ ДЛЯ НОВОЙ СИСТЕМЫ УВЕДОМЛЕНИЙ
+from app.infrastructure.notifications.dispatcher import UniversalNotificationDispatcher
+from app.infrastructure.notifications.channels import ConsoleChannel, TelegramChannel, VKChannel
 
 Base.metadata.create_all(bind=engine)
-
 app = FastAPI(title="Innopolis Smart Waste API")
 
+# ==========================================
+# 🧱 СБОРКА УВЕДОМЛЕНИЙ (Подключаем каналы)
+# ==========================================
+active_channels = [
+    ConsoleChannel(), # Всегда выводим в консоль для дебага
+]
 
-class DummyNotifier(NotificationService):
-    def send_alert(self, message: str, role: str):
-        print(f"🔔 [DUMMY ALERT | Роль: {role}] -> {message}")
+# Если в переменных окружения есть токен ТГ - включаем ТГ канал
+tg_token = os.getenv("BOT_TOKEN", "8773001515:AAEe8BsCGPAdZyb_IDf4ZUw3L4fPF8Mqms4")
+if tg_token:
+    active_channels.append(TelegramChannel(bot_token=tg_token))
+
+# Если есть токен VK - включаем VK канал
+vk_token = os.getenv("VK_TOKEN")
+if vk_token:
+    active_channels.append(VKChannel(vk_token=vk_token))
+
+# Создаем Диспетчер и передаем ему список активных каналов
+notifier = UniversalNotificationDispatcher(channels=active_channels)
 
 # ==========================================
 # 🧱 СБОРКА ПАЙПЛАЙНА
 # ==========================================
 db_repo = PostgresContainerRepo()
-notifier = DummyNotifier()
-# 🛠 ПОДКЛЮЧИЛИ УМНУЮ ЛОГИСТИКУ!
 routing_provider = OSRMRoutingProvider()
 
 sensor_pipeline = SensorProcessingPipeline(
@@ -33,7 +48,6 @@ sensor_pipeline = SensorProcessingPipeline(
     enable_alerts=True
 )
 
-# Выдумаем координаты гаража (Депо) где-то возле Универа Иннополиса
 DEPOT_COORDS = "55.753, 48.743"
 
 # ==========================================
@@ -55,7 +69,7 @@ async def get_optimal_route():
 
 @app.post("/api/sensors/webhook")
 async def receive_sensor_data(payload: WebhookPayload):
-    sensor_pipeline.process_new_data(payload)
+    await sensor_pipeline.process_new_data(payload)
     return {"status": "ok", "container_id": payload.container_id, "saved_to_db": True}
 
 
