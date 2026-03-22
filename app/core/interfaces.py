@@ -9,7 +9,7 @@ class ContainerRepository(ABC):
     def get_all(self) -> List[Container]: pass
 
     @abstractmethod
-    def update_sensor_data(self, container_id: str, data: dict): pass
+    def upsert_container(self, container_id: str, address: str, coords: str, sensor_data: dict): pass
 
 
 # Интерфейс для построителя маршрутов (можно будет подключать разные)

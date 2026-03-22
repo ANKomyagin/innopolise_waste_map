@@ -3,3 +3,5 @@ uvicorn
 pydantic
 httpx
 aiogram
+sqlalchemy
+psycopg2-binary
