@@ -1,18 +1,34 @@
 docker-compose.yml
 services:
+  db:
+    image: postgres:15-alpine
+    container_name: waste_db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: waste_db
+    ports:
+      - "5432:5432"
+    restart: always
+
   api:
     build: .
     container_name: waste_api
-    # ИСПРАВЛЕНО: путь к приложению теперь app.main:app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     ports:
       - "8321:8000"
+    environment:
+      - DATABASE_URL=postgresql://user:password@db:5432/waste_db
+    depends_on:
+      - db
     restart: always
 
   parser:
     build: .
     container_name: waste_parser
     command: python -m app.infrastructure.telegram.tg_parser
+    environment:
+      - API_WEBHOOK_URL=http://api:8000/api/sensors/webhook
     depends_on:
       - api
     restart: always
@@ -35,42 +51,31 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 main.py
-
-
-requirements.txt
-fastapi
-uvicorn
-pydantic
-httpx
-aiogram
-
-app.main.py
 # app/main.py
 from fastapi import FastAPI
 from app.services.sensor_pipeline import SensorProcessingPipeline
 from app.infrastructure.routing.yandex_router import DummyRoutingProvider
-from app.infrastructure.telegram.notifier import TelegramNotifier
-from app.domain.models import SensorData, WebhookPayload
-from app.core.interfaces import ContainerRepository
+from app.infrastructure.telegram.notifier import TelegramNotifier # Возвращаем
+from app.domain.models import WebhookPayload
 
-# ВРЕМЕННАЯ ЗАГЛУШКА БАЗЫ ДАННЫХ, чтобы код не падал
-class DummyRepo(ContainerRepository):
-    def get_all(self): return []
-    def update_sensor_data(self, container_id: str, data: dict):
-        print(f"[DB MOCK] Данные контейнера {container_id} сохранены в базу!")
+from app.infrastructure.database.database import engine, Base
+from app.infrastructure.database.postgres_repo import PostgresContainerRepo
+
+# Создаем таблицы в БД при старте
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Innopolis Smart Waste API")
 
 # ==========================================
-# 🧱 СБОРКА ПАЙПЛАЙНА (Dependency Injection)
+# 🧱 СБОРКА ПАЙПЛАЙНА
 # ==========================================
-db_repo = DummyRepo() # Используем заглушку вместо Postgres
-notifier = TelegramNotifier()
+db_repo = PostgresContainerRepo()
+notifier = TelegramNotifier() # Возвращаем
 routing_provider = DummyRoutingProvider()
 
 sensor_pipeline = SensorProcessingPipeline(
     repo=db_repo,
-    notifier=notifier,
+    notifier=notifier, # Передаем аргумент!
     enable_alerts=True
 )
 
@@ -81,14 +86,28 @@ sensor_pipeline = SensorProcessingPipeline(
 async def get_optimal_route():
     containers = db_repo.get_all()
     to_collect = [c.coords for c in containers if c.sensor_data and c.sensor_data.fill_percent >= 70]
+
+    if not to_collect:
+        return {"message": "Нет контейнеров для вывоза (все < 70%)"}
+
     route = routing_provider.build_route(origin="Депо", waypoints=to_collect)
     return {"route": route}
 
+
 @app.post("/api/sensors/webhook")
 async def receive_sensor_data(payload: WebhookPayload):
-    sensor_pipeline.process_new_data(payload.container_id, payload.sensor_data)
-    return {"status": "ok", "container_id": payload.container_id, "pipeline_executed": True}
+    sensor_pipeline.process_new_data(payload)
+    return {"status": "ok", "container_id": payload.container_id, "saved_to_db": True}
 
+
+requirements.txt
+fastapi
+uvicorn
+pydantic
+httpx
+aiogram
+sqlalchemy
+psycopg2-binary
 
 app.api.dependencies.py
 
@@ -111,7 +130,7 @@ class ContainerRepository(ABC):
     def get_all(self) -> List[Container]: pass
 
     @abstractmethod
-    def update_sensor_data(self, container_id: str, data: dict): pass
+    def upsert_container(self, container_id: str, address: str, coords: str, sensor_data: dict): pass
 
 
 # Интерфейс для построителя маршрутов (можно будет подключать разные)
@@ -164,6 +183,84 @@ class WebhookPayload(BaseModel):
 
 
 app.infrastructure.database.py
+
+
+app.infrastructure.database.database.py
+import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
+
+# Получаем URL из переменных окружения Docker
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@localhost:5432/waste_db")
+
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+
+app.infrastructure.database.models.py
+from sqlalchemy import Column, String, JSON
+from .database import Base
+
+
+class DBContainer(Base):
+    __tablename__ = "containers"
+
+    id = Column(String, primary_key=True, index=True)
+    address = Column(String)
+    coords = Column(String)
+    # Сохраняем все данные датчика в виде JSON-объекта
+    sensor_data = Column(JSON, nullable=True)
+
+
+app.infrastructure.database.postgres_repo.py
+from typing import List
+from app.core.interfaces import ContainerRepository
+from app.domain.models import Container, SensorData
+from .database import SessionLocal
+from .models import DBContainer
+
+
+class PostgresContainerRepo(ContainerRepository):
+
+    def get_all(self) -> List[Container]:
+        with SessionLocal() as db:
+            db_containers = db.query(DBContainer).all()
+            result = []
+            for db_c in db_containers:
+                # Преобразуем данные из БД в наши чистые Pydantic модели
+                sensor = SensorData(**db_c.sensor_data) if db_c.sensor_data else None
+                result.append(
+                    Container(
+                        id=db_c.id,
+                        address=db_c.address,
+                        coords=db_c.coords,
+                        sensor_data=sensor
+                    )
+                )
+            return result
+
+    def upsert_container(self, container_id: str, address: str, coords: str, sensor_data: dict):
+        """
+        Upsert: Если контейнера нет - создаем. Если есть - обновляем его данные.
+        Это решает кейс 'Учесть что контейнеры могут появляться в новых локациях'
+        """
+        with SessionLocal() as db:
+            container = db.query(DBContainer).filter(DBContainer.id == container_id).first()
+
+            if not container:
+                # Контейнер новый! Создаем
+                container = DBContainer(id=container_id, address=address, coords=coords)
+                db.add(container)
+            else:
+                # Контейнер существует! Обновляем адрес и координаты на случай перемещения
+                container.address = address
+                container.coords = coords
+
+            # Обновляем показания датчика
+            container.sensor_data = sensor_data
+
+            db.commit()
 
 
 app.infrastructure.routing.yandex_router.py
@@ -301,28 +398,29 @@ app.services.logistics.py
 
 app.services.sensor_pipeline.py
 from app.core.interfaces import ContainerRepository, NotificationService
-from app.domain.models import SensorData
+from app.domain.models import SensorData, WebhookPayload # <-- Добавлен импорт
 
 
 class SensorProcessingPipeline:
-    def __init__(
-        self,
-        repo: ContainerRepository,
-        notifier: NotificationService,
-        enable_alerts: bool = True # Флаг для включения/отключения фичи
-    ):
+    def __init__(self, repo: ContainerRepository, notifier: NotificationService, enable_alerts: bool = True):
         self.repo = repo
         self.notifier = notifier
         self.enable_alerts = enable_alerts
 
-    def process_new_data(self, container_id: str, data: SensorData):
-        # 1. Сохраняем данные (Кирпичик 1)
-        self.repo.update_sensor_data(container_id, data.dict())
+    # ИЗМЕНЕНИЯ ЗДЕСЬ:
+    def process_new_data(self, payload: WebhookPayload):
+        # 1. Сохраняем/Обновляем данные в базе
+        self.repo.upsert_container(
+            container_id=payload.container_id,
+            address=payload.address,
+            coords=payload.coords,
+            sensor_data=payload.sensor_data.dict() # Конвертируем Pydantic в dict для JSON
+        )
 
-        # 2. Проверяем бизнес-правила (Кирпичик 2: Анализ аномалий)
+        # 2. Проверяем бизнес-правила
         if self.enable_alerts:
-            self._check_hardware_alerts(container_id, data)
-            self._check_fill_level(container_id, data)
+            self._check_hardware_alerts(payload.container_id, payload.sensor_data)
+            self._check_fill_level(payload.container_id, payload.sensor_data)
 
     def _check_hardware_alerts(self, container_id: str, data: SensorData):
         if data.battery_status == "заряд батарейки низкий":
@@ -331,7 +429,7 @@ class SensorProcessingPipeline:
             self.notifier.send_alert(f"Контейнер {container_id}: Опрокинут!", role="Мэрия")
 
     def _check_fill_level(self, container_id: str, data: SensorData):
-        if data.fill_percent >= 90:
+        if data.fill_percent >= 70: # Снизил до 70 для тестов
             self.notifier.send_alert(f"Контейнер {container_id} переполнен ({data.fill_percent}%)!", role="Подрядчик")
 
 
