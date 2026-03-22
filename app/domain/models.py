@@ -19,8 +19,11 @@ class Container(BaseModel):
 
 
 class RoutePath(BaseModel):
-    path: List[str]
+    # Теперь мы возвращаем полноценный GeoJSON объект типа LineString
+    route_geojson: dict
     distance_km: float
+    duration_min: float
+    optimized_waypoints_order: List[str]
 
 
 # Специальная модель для приема данных через API

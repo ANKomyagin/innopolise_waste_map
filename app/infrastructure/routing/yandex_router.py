@@ -15,12 +15,3 @@ class DummyRoutingProvider(RoutingProvider):
         print("[Dummy API] Строю прямой маршрут по координатам...")
         return {"path": waypoints, "distance_km": 10.0}
 
-
-# app/infrastructure/telegram/notifier.py
-from app.core.interfaces import NotificationService
-
-
-class TelegramNotifier(NotificationService):
-    def send_alert(self, message: str, role: str):
-        # Логика отправки через бота нужной роли
-        print(f"[TG БОТ -> {role}]: {message}")

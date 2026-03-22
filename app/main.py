@@ -1,33 +1,29 @@
-# app/main.py
 from fastapi import FastAPI
 from app.services.sensor_pipeline import SensorProcessingPipeline
-from app.infrastructure.routing.yandex_router import DummyRoutingProvider
-# from app.infrastructure.telegram.notifier import TelegramNotifier  # Пока отключаем
-from app.domain.models import WebhookPayload
-from app.core.interfaces import NotificationService # Добавили импорт интерфейса
 
+# 🛠 ИМПОРТИРУЕМ НОВЫЙ РОУТЕР
+from app.infrastructure.routing.osrm_router import OSRMRoutingProvider
+from app.domain.models import WebhookPayload
+from app.core.interfaces import NotificationService
 from app.infrastructure.database.database import engine, Base
 from app.infrastructure.database.postgres_repo import PostgresContainerRepo
 
-# Создаем таблицы в БД при старте
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Innopolis Smart Waste API")
 
-# ==========================================
-# 🛠 ЗАГЛУШКА ДЛЯ УВЕДОМЛЕНИЙ (Dummy)
-# ==========================================
+
 class DummyNotifier(NotificationService):
     def send_alert(self, message: str, role: str):
-        # Вместо отправки реального сообщения в ТГ, просто красиво выводим в логи Docker
         print(f"🔔 [DUMMY ALERT | Роль: {role}] -> {message}")
 
 # ==========================================
 # 🧱 СБОРКА ПАЙПЛАЙНА
 # ==========================================
 db_repo = PostgresContainerRepo()
-notifier = DummyNotifier() # ИСПОЛЬЗУЕМ НАШУ ЗАГЛУШКУ
-routing_provider = DummyRoutingProvider()
+notifier = DummyNotifier()
+# 🛠 ПОДКЛЮЧИЛИ УМНУЮ ЛОГИСТИКУ!
+routing_provider = OSRMRoutingProvider()
 
 sensor_pipeline = SensorProcessingPipeline(
     repo=db_repo,
@@ -35,18 +31,23 @@ sensor_pipeline = SensorProcessingPipeline(
     enable_alerts=True
 )
 
+# Выдумаем координаты гаража (Депо) где-то возле Универа Иннополиса
+DEPOT_COORDS = "55.753, 48.743"
+
 # ==========================================
 # 🚀 API ENDPOINTS
 # ==========================================
 @app.get("/api/logistics/route")
 async def get_optimal_route():
     containers = db_repo.get_all()
+    # Берем координаты только переполненных контейнеров
     to_collect = [c.coords for c in containers if c.sensor_data and c.sensor_data.fill_percent >= 70]
 
     if not to_collect:
         return {"message": "Нет контейнеров для вывоза (все < 70%)"}
 
-    route = routing_provider.build_route(origin="Депо", waypoints=to_collect)
+    # Строим маршрут
+    route = routing_provider.build_route(origin=DEPOT_COORDS, waypoints=to_collect)
     return {"route": route}
 
 
