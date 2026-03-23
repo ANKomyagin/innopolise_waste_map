@@ -114,19 +114,15 @@
         // --- Загрузка и отрисовка данных ---
         async function fetchContainers() {
             try {
-                // В РЕАЛЬНОСТИ: const response = await fetch('/api/containers');
-                // В РЕАЛЬНОСТИ: containersData = await response.json();
+                const response = await fetch('/api/containers');
 
-                // --- МОКОВЫЕ ДАННЫЕ ДЛЯ ТЕСТА (Удалите, когда подключите бекенд) ---
-                containersData = [
-                    { id: 1, lat: 55.7510, lon: 48.7420, fill_percent: 20 },
-                    { id: 2, lat: 55.7530, lon: 48.7450, fill_percent: 85 }, // Переполнен
-                    { id: 3, lat: 55.7550, lon: 48.7480, fill_percent: 45 },
-                    { id: 4, lat: 55.7500, lon: 48.7490, fill_percent: 92 }, // Переполнен
-                    { id: 5, lat: 55.7490, lon: 48.7410, fill_percent: 10 }
-                ];
-                // -------------------------------------------------------------------
+                if (!response.ok) {
+                    throw new Error("Ошибка сети");
+                }
 
+                containersData = await response.json();
+
+                // Отрисовываем реальные маркеры
                 renderMarkers(containersData);
             } catch (error) {
                 console.error("Ошибка загрузки данных:", error);

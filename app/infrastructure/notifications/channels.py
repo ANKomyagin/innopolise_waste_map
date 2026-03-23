@@ -6,10 +6,8 @@ from abc import ABC, abstractmethod
 
 import smtplib
 from email.message import EmailMessage
-from app.infrastructure.notifications.channels import BaseChannel
 
 logger = logging.getLogger("Notifications")
-
 
 class BaseChannel(ABC):
     """Базовый класс для всех мессенджеров"""
@@ -18,13 +16,11 @@ class BaseChannel(ABC):
     async def send(self, message: str, role: str):
         pass
 
-
 class ConsoleChannel(BaseChannel):
     """Канал для отладки (выводит в консоль Docker)"""
 
     async def send(self, message: str, role: str):
         print(f"🖥 [CONSOLE | Роль: {role}] -> {message}")
-
 
 class TelegramChannel(BaseChannel):
     """Интеграция с Telegram Bot API (С кнопкой Mini App)"""
@@ -34,10 +30,9 @@ class TelegramChannel(BaseChannel):
         self.api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
 
         # В реальной системе здесь будет маппинг ролей на ID чатов.
-        # Пока шлем все в одну группу для тестов (замени на свой ID, если нужно)
         self.role_to_chat_id = {
-            "Мэрия": "1530085496",  # Замени на ID группы Мэрии
-            "Подрядчик": "473829505"  # Замени на ID группы Подрядчика
+            "Мэрия": "1530085496",
+            "Подрядчик": "473829505"
         }
 
     async def send(self, message: str, role: str):
@@ -49,9 +44,7 @@ class TelegramChannel(BaseChannel):
             logger.warning(f"Не найден Chat ID для роли {role} в Telegram")
             return
 
-        # Добавляем крутую кнопку (Inline Keyboard), которая открывает карту
-        # Для Mini App нужно использовать 'web_app', но для тестов подойдет обычный 'url'
-        map_url = os.getenv("PUBLIC_SERVER_URL", "http://79.137.199.5:8321/map")
+        map_url = os.getenv("PUBLIC_SERVER_URL", "http://79.137.199.5:8321/")
 
         payload = {
             "chat_id": chat_id,
@@ -59,7 +52,7 @@ class TelegramChannel(BaseChannel):
             "parse_mode": "HTML",
             "reply_markup": {
                 "inline_keyboard": [[
-                    {"text": "🗺 Открыть Карту (Mini App)", "url": map_url}
+                    {"text": "🗺 Открыть Карту", "url": map_url}
                 ]]
             }
         }
@@ -72,7 +65,6 @@ class TelegramChannel(BaseChannel):
             except Exception as e:
                 logger.error(f"TG Connection Error: {e}")
 
-
 class VKChannel(BaseChannel):
     """Заготовка для ВКонтакте"""
 
@@ -82,9 +74,7 @@ class VKChannel(BaseChannel):
     async def send(self, message: str, role: str):
         if not self.vk_token:
             return
-        # Здесь в будущем будет httpx запрос к api.vk.com/method/messages.send
         print(f"🔵 [VK API | Роль: {role}] Отправка: {message}")
-
 
 class EmailChannel(BaseChannel):
     def __init__(self, smtp_server, port, login, password, to_email):
@@ -95,7 +85,7 @@ class EmailChannel(BaseChannel):
         self.to_email = to_email
 
     async def send(self, message: str, role: str):
-        if role != "Подрядчик": return  # Шлем маршруты только подрядчику
+        if role != "Подрядчик": return
 
         msg = EmailMessage()
         msg.set_content(message)
@@ -103,7 +93,6 @@ class EmailChannel(BaseChannel):
         msg['From'] = self.login
         msg['To'] = self.to_email
 
-        # Для асинхронности лучше использовать aiosmtplib, но для хакатона сойдет и так (в отдельном потоке)
         with smtplib.SMTP_SSL(self.smtp, self.port) as server:
             server.login(self.login, self.password)
             server.send_message(msg)
