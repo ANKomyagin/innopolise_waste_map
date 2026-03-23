@@ -1,23 +1,56 @@
-// --- ИНИЦИАЛИЗАЦИЯ КАРТЫ ---
-const map = L.map('map').setView([55.753, 48.743], 15);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-let binsLayer = L.layerGroup().addTo(map);
-let routeLayer = L.layerGroup().addTo(map);
+// --- ИНИЦИАЛИЗАЦИЯ КАРТЫ ЯНДЕКС ---
+let myMap;
+let objectManager;
 let userMarker = null;
+let userRouteLine = null; // Линия для жителя
+let multiRoute = null; // Маршрут для подрядчика
 let currentRole = 'resident';
-let allBinsData = []; // Кэш данных
+let allBinsData = []; // Кэш данных с бекенда
 
-// --- ФУНКЦИЯ РАСЧЕТА РАССТОЯНИЯ (в метрах) ---
+// Ждем загрузки API Яндекса
+ymaps.ready(init);
+
+function init() {
+    myMap = new ymaps.Map("map", {
+        center: [55.753, 48.743], // Координаты Иннополиса
+        zoom: 15,
+        controls: ['zoomControl', 'typeSelector', 'fullscreenControl']
+    });
+
+    // Обработка клика по карте (для жителя и мэрии)
+    myMap.events.add('click', function (e) {
+        let coords = e.get('coords');
+
+        if (currentRole === 'resident') {
+            // Ставим метку пользователя
+            if (userMarker) myMap.geoObjects.remove(userMarker);
+            userMarker = new ymaps.Placemark(coords, { balloonContent: "Я здесь" }, { preset: 'islands#bluePersonIcon' });
+            myMap.geoObjects.add(userMarker);
+
+            // Если была старая линия до бака - удаляем
+            if (userRouteLine) myMap.geoObjects.remove(userRouteLine);
+            document.getElementById('nearest-bin-info').classList.add('d-none');
+
+        } else if (currentRole === 'admin') {
+            // Мэрия: Добавление нового бака
+            let id = prompt("Введите ID нового умного контейнера:");
+            if (id) {
+                fetch('/api/containers', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({id: id, address: "Новая площадка", coords: `${coords[0]}, ${coords[1]}`})
+                }).then(() => loadBins());
+            }
+        }
+    });
+
+    // Загружаем данные
+    loadBins();
+}
+
+// --- ФУНКЦИЯ РАСЧЕТА РАССТОЯНИЯ ЯНДЕКСА ---
 function getDistanceMeters(lat1, lon1, lat2, lon2) {
-    const R = 6371e3; // Радиус Земли
-    const φ1 = lat1 * Math.PI/180;
-    const φ2 = lat2 * Math.PI/180;
-    const Δφ = (lat2-lat1) * Math.PI/180;
-    const Δλ = (lon2-lon1) * Math.PI/180;
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
+    return ymaps.coordSystem.geo.getDistance([lat1, lon1], [lat2, lon2]);
 }
 
 // --- ЗАГРУЗКА И КЛАСТЕРИЗАЦИЯ МУСОРОК ---
@@ -25,13 +58,19 @@ async function loadBins() {
     const res = await fetch('/api/map/geojson');
     const data = await res.json();
     allBinsData = data.features;
-    binsLayer.clearLayers();
+
+    // Очищаем карту от старых баков (не трогаем маршруты и юзера)
+    myMap.geoObjects.each(function (geoObject) {
+        if (geoObject !== userMarker && geoObject !== multiRoute && geoObject !== userRouteLine) {
+            myMap.geoObjects.remove(geoObject);
+        }
+    });
 
     // 1. Группируем контейнеры в площадки (радиус 15 метров)
     let pads = [];
     allBinsData.forEach(bin => {
         let placed = false;
-        let binLat = bin.geometry.coordinates[1];
+        let binLat = bin.geometry.coordinates[1]; // У GeoJSON координаты перевернуты [lon, lat]
         let binLng = bin.geometry.coordinates[0];
 
         for(let pad of pads) {
@@ -54,16 +93,10 @@ async function loadBins() {
 
         let avgFill = (currentFill / pad.containers.length) || 0;
 
-        // Определяем цвет кластера
-        let colorClass = 'bg-success';
-        if (avgFill >= 70) colorClass = 'bg-danger';
-        else if (avgFill >= 50) colorClass = 'bg-warning text-dark';
-
-        // Рисуем красивую иконку с цифрой (количество баков на площадке)
-        let iconHtml = `<div class="pad-cluster ${colorClass}">${pad.containers.length}</div>`;
-        let customIcon = L.divIcon({ html: iconHtml, className: '', iconSize: [30, 30], iconAnchor: [15, 15] });
-
-        let marker = L.marker([pad.lat, pad.lng], { icon: customIcon });
+        // Определяем цвет иконки Яндекса
+        let presetColor = 'islands#greenCircleIcon';
+        if (avgFill >= 70) presetColor = 'islands#redCircleIcon';
+        else if (avgFill >= 50) presetColor = 'islands#yellowCircleIcon';
 
         // Формируем попап
         let popupHtml = `
@@ -72,7 +105,7 @@ async function loadBins() {
                 <div class="alert alert-secondary p-2 mb-2 text-center">
                     <b>Заполнено: ${Math.round(currentFill)}% из ${totalCapacity}%</b>
                 </div>
-                <div class="container-list">
+                <div class="container-list" style="max-height: 200px; overflow-y: auto;">
         `;
 
         pad.containers.forEach(c => {
@@ -87,8 +120,8 @@ async function loadBins() {
                 popupHtml += `
                     <div class="mt-1 d-flex gap-1">
                         <a href="/api/containers/${p.id}/qr" target="_blank" class="btn btn-sm btn-outline-dark" style="flex:1">🖨 QR</a>
-                        <button class="btn btn-sm btn-outline-primary" style="flex:1" onclick="editBin('${p.id}', '${p.address}', '${c.geometry.coordinates[1]}, ${c.geometry.coordinates[0]}')">✏️ Изменить</button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="deleteBin('${p.id}')">🗑</button>
+                        <button class="btn btn-sm btn-outline-primary" style="flex:1" onclick="window.editBin('${p.id}', '${p.address}', '${c.geometry.coordinates[1]}, ${c.geometry.coordinates[0]}')">✏️</button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="window.deleteBin('${p.id}')">🗑</button>
                     </div>
                 `;
             }
@@ -96,14 +129,23 @@ async function loadBins() {
         });
 
         popupHtml += `</div></div>`;
-        marker.bindPopup(popupHtml).addTo(binsLayer);
+
+        // Создаем маркер на Яндекс.Карте с цифрой количества баков
+        let placemark = new ymaps.Placemark([pad.lat, pad.lng], {
+            balloonContent: popupHtml,
+            iconContent: pad.containers.length.toString()
+        }, {
+            preset: presetColor
+        });
+
+        myMap.geoObjects.add(placemark);
     });
 }
 
 // --- ЛОГИКА АДМИНА: РЕДАКТИРОВАНИЕ ---
-async function editBin(id, oldAddress, oldCoords) {
+window.editBin = async function(id, oldAddress, oldCoords) {
     let newAddress = prompt(`Редактирование адреса для контейнера ${id}:`, oldAddress);
-    if (newAddress === null) return; // Нажали Отмена
+    if (newAddress === null) return;
 
     let newCoords = prompt(`Координаты (Широта, Долгота):`, oldCoords);
     if (newCoords === null) return;
@@ -114,53 +156,41 @@ async function editBin(id, oldAddress, oldCoords) {
         body: JSON.stringify({address: newAddress, coords: newCoords})
     });
     loadBins();
-}
+};
 
-async function deleteBin(id) {
+window.deleteBin = async function(id) {
     if(confirm(`Удалить контейнер ${id}?`)) {
         await fetch(`/api/containers/${id}`, {method: 'DELETE'});
         loadBins();
     }
-}
+};
 
 // --- ПЕРЕКЛЮЧЕНИЕ РОЛЕЙ ---
-function switchRole(role) {
+window.switchRole = function(role) {
     currentRole = role;
     document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
     event.target.classList.add('active');
     document.querySelectorAll('.role-panel').forEach(el => el.classList.remove('active'));
     document.getElementById(`panel-${role}`).classList.add('active');
+
+    // Перерисовываем баки (чтобы обновить кнопки в попапах)
     loadBins();
+
     if (role === 'admin') loadDashboard();
-}
+};
 
-// Оставил логику маршрутов и добавления без изменений:
-map.on('click', function(e) {
-    if (currentRole === 'resident') {
-        if (userMarker) map.removeLayer(userMarker);
-        userMarker = L.marker(e.latlng).addTo(map).bindPopup("Я здесь").openPopup();
-    } else if (currentRole === 'admin') {
-        let id = prompt("Введите ID нового контейнера:");
-        if (id) {
-            fetch('/api/containers', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({id: id, address: "Новая площадка", coords: `${e.latlng.lat}, ${e.latlng.lng}`})
-            }).then(() => loadBins());
-        }
-    }
-});
+// --- ЖИТЕЛЬ: НАЙТИ СВОБОДНУЮ МУСОРКУ ---
+window.findNearestGreenBin = function() {
+    if (!userMarker) { alert("Сначала кликните на карту, чтобы указать, где вы!"); return; }
 
-function findNearestGreenBin() {
-    if (!userMarker) { alert("Сначала кликните на карту!"); return; }
-    let userLoc = userMarker.getLatLng();
+    let userLoc = userMarker.geometry.getCoordinates();
     let minDistance = Infinity;
     let nearestBin = null;
 
     allBinsData.forEach(bin => {
         if (bin.properties.fill_percent < 50) {
-            let binLoc = L.latLng(bin.geometry.coordinates[1], bin.geometry.coordinates[0]);
-            let dist = userLoc.distanceTo(binLoc);
+            let binLoc = [bin.geometry.coordinates[1], bin.geometry.coordinates[0]];
+            let dist = getDistanceMeters(userLoc[0], userLoc[1], binLoc[0], binLoc[1]);
             if (dist < minDistance) { minDistance = dist; nearestBin = bin; }
         }
     });
@@ -169,39 +199,81 @@ function findNearestGreenBin() {
         let el = document.getElementById('nearest-bin-info');
         el.classList.remove('d-none');
         el.innerHTML = `Ближайший свободный: <b>Контейнер ${nearestBin.properties.id}</b><br>Расстояние: ${Math.round(minDistance)} м.`;
-        routeLayer.clearLayers();
-        L.polyline([userLoc, [nearestBin.geometry.coordinates[1], nearestBin.geometry.coordinates[0]]], {color: 'green', dashArray: '5, 10'}).addTo(routeLayer);
-    } else { alert("Нет свободных контейнеров поблизости :("); }
-}
 
-async function buildOptimalRoute() {
-    routeLayer.clearLayers();
+        if (userRouteLine) myMap.geoObjects.remove(userRouteLine);
+
+        let binCoords = [nearestBin.geometry.coordinates[1], nearestBin.geometry.coordinates[0]];
+        userRouteLine = new ymaps.Polyline([userLoc, binCoords], {}, { strokeColor: '#00ea00', strokeWidth: 4, strokeStyle: 'shortdash' });
+        myMap.geoObjects.add(userRouteLine);
+    } else {
+        alert("Нет свободных контейнеров поблизости :(");
+    }
+};
+
+// --- ПОДРЯДЧИК: ПОСТРОИТЬ МАРШРУТ (через API Яндекса) ---
+window.buildOptimalRoute = function() {
+    clearRoute();
     document.getElementById('route-time').innerText = "Строим...";
     document.getElementById('route-stats').classList.remove('d-none');
-    const res = await fetch('/api/logistics/route');
-    const data = await res.json();
-    if (data.message) {
+
+    // Собираем точки для вывоза (>70%)
+    let points = [];
+    points.push([55.753, 48.743]); // Депо мусоровозов (База)
+
+    allBinsData.forEach(bin => {
+        if (bin.properties.fill_percent >= 70) {
+            points.push([bin.geometry.coordinates[1], bin.geometry.coordinates[0]]);
+        }
+    });
+
+    if (points.length === 1) {
         document.getElementById('route-time').innerText = "Нет работы!";
-        document.getElementById('route-dist').innerText = data.message;
+        document.getElementById('route-dist').innerText = "Все контейнеры свободны";
         return;
     }
-    L.geoJSON(data.route.route_geojson, { style: { color: "#2196F3", weight: 5 } }).addTo(routeLayer);
-    document.getElementById('route-time').innerText = `⏳ ${data.route.duration_min} мин.`;
-    document.getElementById('route-dist').innerText = `🛣 ${data.route.distance_km} км пробега`;
-}
 
-function clearRoute() { routeLayer.clearLayers(); document.getElementById('route-stats').classList.add('d-none'); }
+    // Создаем мультимаршрут Яндекса с оптимизацией
+    multiRoute = new ymaps.multiRouter.MultiRoute({
+        referencePoints: points,
+        params: { routingMode: 'auto' } // Автомобильный маршрут
+    }, {
+        boundsAutoApply: true,
+        routeActiveStrokeWidth: 6,
+        routeActiveStrokeColor: '#1E98FF'
+    });
 
+    // Когда маршрут построится, берем оттуда время и километры
+    multiRoute.model.events.add('requestsuccess', function() {
+        var activeRoute = multiRoute.getActiveRoute();
+        if(activeRoute) {
+            document.getElementById('route-time').innerText = `⏳ ${activeRoute.properties.get("duration").text}`;
+            document.getElementById('route-dist').innerText = `🛣 ${activeRoute.properties.get("distance").text}`;
+        }
+    });
+
+    myMap.geoObjects.add(multiRoute);
+};
+
+window.clearRoute = function() {
+    if (multiRoute) myMap.geoObjects.remove(multiRoute);
+    document.getElementById('route-stats').classList.add('d-none');
+};
+
+// --- ДАШБОРД МЭРИИ ---
 async function loadDashboard() {
     const res = await fetch('/api/analytics/dashboard');
     const data = await res.json();
     if(data.message) return;
     document.getElementById('dash-full').innerText = data.needs_collection_now;
     document.getElementById('dash-alerts').innerText = data.hardware_alerts_count;
-    const fillList = document.getElementById('top-full-list'); fillList.innerHTML = '';
-    data.top_fastest_filling.forEach(b => { fillList.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center">Контейнер ${b.id} <span class="badge bg-danger rounded-pill">${b.fill}%</span></li>`; });
-    const emptyList = document.getElementById('top-empty-list'); emptyList.innerHTML = '';
-    data.least_used.forEach(b => { emptyList.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center">Контейнер ${b.id} <span class="badge bg-success rounded-pill">${b.fill}%</span></li>`; });
-}
 
-loadBins();
+    const fillList = document.getElementById('top-full-list'); fillList.innerHTML = '';
+    data.top_fastest_filling.forEach(b => {
+        fillList.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center">Контейнер ${b.id} <span class="badge bg-danger rounded-pill">${b.fill}%</span></li>`;
+    });
+
+    const emptyList = document.getElementById('top-empty-list'); emptyList.innerHTML = '';
+    data.least_used.forEach(b => {
+        emptyList.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center">Контейнер ${b.id} <span class="badge bg-success rounded-pill">${b.fill}%</span></li>`;
+    });
+}
