@@ -194,16 +194,24 @@ async def get_dashboard():
     }
 
 
-@app.post("/api/containers")
-async def add_container_manual(container: NewContainer):
-    """Эндпоинт для Админки: ручное добавление пустой мусорки"""
-    db_repo.upsert_container(
-        container_id=container.id,
-        address=container.address,
-        coords=container.coords,
-        sensor_data=None # Пустая мусорка, датчик еще ничего не прислал
-    )
-    return {"status": "ok", "message": "Контейнер добавлен"}
+@app.get("/api/containers")
+async def get_containers():
+    # Получаем из БД ваши баки
+    containers = db_repo.get_all()
+
+    result = []
+    for c in containers:
+        # Разбиваем строку "lat,lon" в два числа, если они у вас строкой
+        lat, lon = map(float, c.coords.split(','))
+
+        result.append({
+            "id": c.id,
+            "lat": lat,
+            "lon": lon,
+            "fill_percent": c.sensor_data.fill_percent if c.sensor_data else 0
+        })
+
+    return result
 
 
 @app.put("/api/containers/{container_id}")

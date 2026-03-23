@@ -4,6 +4,10 @@ import httpx
 import logging
 from abc import ABC, abstractmethod
 
+import smtplib
+from email.message import EmailMessage
+from app.infrastructure.notifications.channels import BaseChannel
+
 logger = logging.getLogger("Notifications")
 
 
@@ -80,3 +84,26 @@ class VKChannel(BaseChannel):
             return
         # Здесь в будущем будет httpx запрос к api.vk.com/method/messages.send
         print(f"🔵 [VK API | Роль: {role}] Отправка: {message}")
+
+
+class EmailChannel(BaseChannel):
+    def __init__(self, smtp_server, port, login, password, to_email):
+        self.smtp = smtp_server
+        self.port = port
+        self.login = login
+        self.password = password
+        self.to_email = to_email
+
+    async def send(self, message: str, role: str):
+        if role != "Подрядчик": return  # Шлем маршруты только подрядчику
+
+        msg = EmailMessage()
+        msg.set_content(message)
+        msg['Subject'] = "🚚 Маршрут вывоза мусора на сегодня"
+        msg['From'] = self.login
+        msg['To'] = self.to_email
+
+        # Для асинхронности лучше использовать aiosmtplib, но для хакатона сойдет и так (в отдельном потоке)
+        with smtplib.SMTP_SSL(self.smtp, self.port) as server:
+            server.login(self.login, self.password)
+            server.send_message(msg)
