@@ -455,26 +455,59 @@ class WebhookPayload(BaseModel):
 
 
 app.frontend.app.js
-// --- ИНИЦИАЛИЗАЦИЯ КАРТЫ ---
-const map = L.map('map').setView([55.753, 48.743], 15);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-let binsLayer = L.layerGroup().addTo(map);
-let routeLayer = L.layerGroup().addTo(map);
+// --- ИНИЦИАЛИЗАЦИЯ КАРТЫ ЯНДЕКС ---
+let myMap;
+let objectManager;
 let userMarker = null;
+let userRouteLine = null; // Линия для жителя
+let multiRoute = null; // Маршрут для подрядчика
 let currentRole = 'resident';
-let allBinsData = []; // Кэш данных
+let allBinsData = []; // Кэш данных с бекенда
 
-// --- ФУНКЦИЯ РАСЧЕТА РАССТОЯНИЯ (в метрах) ---
+// Ждем загрузки API Яндекса
+ymaps.ready(init);
+
+function init() {
+    myMap = new ymaps.Map("map", {
+        center: [55.753, 48.743], // Координаты Иннополиса
+        zoom: 15,
+        controls: ['zoomControl', 'typeSelector', 'fullscreenControl']
+    });
+
+    // Обработка клика по карте (для жителя и мэрии)
+    myMap.events.add('click', function (e) {
+        let coords = e.get('coords');
+
+        if (currentRole === 'resident') {
+            // Ставим метку пользователя
+            if (userMarker) myMap.geoObjects.remove(userMarker);
+            userMarker = new ymaps.Placemark(coords, { balloonContent: "Я здесь" }, { preset: 'islands#bluePersonIcon' });
+            myMap.geoObjects.add(userMarker);
+
+            // Если была старая линия до бака - удаляем
+            if (userRouteLine) myMap.geoObjects.remove(userRouteLine);
+            document.getElementById('nearest-bin-info').classList.add('d-none');
+
+        } else if (currentRole === 'admin') {
+            // Мэрия: Добавление нового бака
+            let id = prompt("Введите ID нового умного контейнера:");
+            if (id) {
+                fetch('/api/containers', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({id: id, address: "Новая площадка", coords: `${coords[0]}, ${coords[1]}`})
+                }).then(() => loadBins());
+            }
+        }
+    });
+
+    // Загружаем данные
+    loadBins();
+}
+
+// --- ФУНКЦИЯ РАСЧЕТА РАССТОЯНИЯ ЯНДЕКСА ---
 function getDistanceMeters(lat1, lon1, lat2, lon2) {
-    const R = 6371e3; // Радиус Земли
-    const φ1 = lat1 * Math.PI/180;
-    const φ2 = lat2 * Math.PI/180;
-    const Δφ = (lat2-lat1) * Math.PI/180;
-    const Δλ = (lon2-lon1) * Math.PI/180;
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
+    return ymaps.coordSystem.geo.getDistance([lat1, lon1], [lat2, lon2]);
 }
 
 // --- ЗАГРУЗКА И КЛАСТЕРИЗАЦИЯ МУСОРОК ---
@@ -482,13 +515,19 @@ async function loadBins() {
     const res = await fetch('/api/map/geojson');
     const data = await res.json();
     allBinsData = data.features;
-    binsLayer.clearLayers();
+
+    // Очищаем карту от старых баков (не трогаем маршруты и юзера)
+    myMap.geoObjects.each(function (geoObject) {
+        if (geoObject !== userMarker && geoObject !== multiRoute && geoObject !== userRouteLine) {
+            myMap.geoObjects.remove(geoObject);
+        }
+    });
 
     // 1. Группируем контейнеры в площадки (радиус 15 метров)
     let pads = [];
     allBinsData.forEach(bin => {
         let placed = false;
-        let binLat = bin.geometry.coordinates[1];
+        let binLat = bin.geometry.coordinates[1]; // У GeoJSON координаты перевернуты [lon, lat]
         let binLng = bin.geometry.coordinates[0];
 
         for(let pad of pads) {
@@ -511,16 +550,10 @@ async function loadBins() {
 
         let avgFill = (currentFill / pad.containers.length) || 0;
 
-        // Определяем цвет кластера
-        let colorClass = 'bg-success';
-        if (avgFill >= 70) colorClass = 'bg-danger';
-        else if (avgFill >= 50) colorClass = 'bg-warning text-dark';
-
-        // Рисуем красивую иконку с цифрой (количество баков на площадке)
-        let iconHtml = `<div class="pad-cluster ${colorClass}">${pad.containers.length}</div>`;
-        let customIcon = L.divIcon({ html: iconHtml, className: '', iconSize: [30, 30], iconAnchor: [15, 15] });
-
-        let marker = L.marker([pad.lat, pad.lng], { icon: customIcon });
+        // Определяем цвет иконки Яндекса
+        let presetColor = 'islands#greenCircleIcon';
+        if (avgFill >= 70) presetColor = 'islands#redCircleIcon';
+        else if (avgFill >= 50) presetColor = 'islands#yellowCircleIcon';
 
         // Формируем попап
         let popupHtml = `
@@ -529,7 +562,7 @@ async function loadBins() {
                 <div class="alert alert-secondary p-2 mb-2 text-center">
                     <b>Заполнено: ${Math.round(currentFill)}% из ${totalCapacity}%</b>
                 </div>
-                <div class="container-list">
+                <div class="container-list" style="max-height: 200px; overflow-y: auto;">
         `;
 
         pad.containers.forEach(c => {
@@ -544,8 +577,8 @@ async function loadBins() {
                 popupHtml += `
                     <div class="mt-1 d-flex gap-1">
                         <a href="/api/containers/${p.id}/qr" target="_blank" class="btn btn-sm btn-outline-dark" style="flex:1">🖨 QR</a>
-                        <button class="btn btn-sm btn-outline-primary" style="flex:1" onclick="editBin('${p.id}', '${p.address}', '${c.geometry.coordinates[1]}, ${c.geometry.coordinates[0]}')">✏️ Изменить</button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="deleteBin('${p.id}')">🗑</button>
+                        <button class="btn btn-sm btn-outline-primary" style="flex:1" onclick="window.editBin('${p.id}', '${p.address}', '${c.geometry.coordinates[1]}, ${c.geometry.coordinates[0]}')">✏️</button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="window.deleteBin('${p.id}')">🗑</button>
                     </div>
                 `;
             }
@@ -553,14 +586,23 @@ async function loadBins() {
         });
 
         popupHtml += `</div></div>`;
-        marker.bindPopup(popupHtml).addTo(binsLayer);
+
+        // Создаем маркер на Яндекс.Карте с цифрой количества баков
+        let placemark = new ymaps.Placemark([pad.lat, pad.lng], {
+            balloonContent: popupHtml,
+            iconContent: pad.containers.length.toString()
+        }, {
+            preset: presetColor
+        });
+
+        myMap.geoObjects.add(placemark);
     });
 }
 
 // --- ЛОГИКА АДМИНА: РЕДАКТИРОВАНИЕ ---
-async function editBin(id, oldAddress, oldCoords) {
+window.editBin = async function(id, oldAddress, oldCoords) {
     let newAddress = prompt(`Редактирование адреса для контейнера ${id}:`, oldAddress);
-    if (newAddress === null) return; // Нажали Отмена
+    if (newAddress === null) return;
 
     let newCoords = prompt(`Координаты (Широта, Долгота):`, oldCoords);
     if (newCoords === null) return;
@@ -571,53 +613,41 @@ async function editBin(id, oldAddress, oldCoords) {
         body: JSON.stringify({address: newAddress, coords: newCoords})
     });
     loadBins();
-}
+};
 
-async function deleteBin(id) {
+window.deleteBin = async function(id) {
     if(confirm(`Удалить контейнер ${id}?`)) {
         await fetch(`/api/containers/${id}`, {method: 'DELETE'});
         loadBins();
     }
-}
+};
 
 // --- ПЕРЕКЛЮЧЕНИЕ РОЛЕЙ ---
-function switchRole(role) {
+window.switchRole = function(role) {
     currentRole = role;
     document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
     event.target.classList.add('active');
     document.querySelectorAll('.role-panel').forEach(el => el.classList.remove('active'));
     document.getElementById(`panel-${role}`).classList.add('active');
+
+    // Перерисовываем баки (чтобы обновить кнопки в попапах)
     loadBins();
+
     if (role === 'admin') loadDashboard();
-}
+};
 
-// Оставил логику маршрутов и добавления без изменений:
-map.on('click', function(e) {
-    if (currentRole === 'resident') {
-        if (userMarker) map.removeLayer(userMarker);
-        userMarker = L.marker(e.latlng).addTo(map).bindPopup("Я здесь").openPopup();
-    } else if (currentRole === 'admin') {
-        let id = prompt("Введите ID нового контейнера:");
-        if (id) {
-            fetch('/api/containers', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({id: id, address: "Новая площадка", coords: `${e.latlng.lat}, ${e.latlng.lng}`})
-            }).then(() => loadBins());
-        }
-    }
-});
+// --- ЖИТЕЛЬ: НАЙТИ СВОБОДНУЮ МУСОРКУ ---
+window.findNearestGreenBin = function() {
+    if (!userMarker) { alert("Сначала кликните на карту, чтобы указать, где вы!"); return; }
 
-function findNearestGreenBin() {
-    if (!userMarker) { alert("Сначала кликните на карту!"); return; }
-    let userLoc = userMarker.getLatLng();
+    let userLoc = userMarker.geometry.getCoordinates();
     let minDistance = Infinity;
     let nearestBin = null;
 
     allBinsData.forEach(bin => {
         if (bin.properties.fill_percent < 50) {
-            let binLoc = L.latLng(bin.geometry.coordinates[1], bin.geometry.coordinates[0]);
-            let dist = userLoc.distanceTo(binLoc);
+            let binLoc = [bin.geometry.coordinates[1], bin.geometry.coordinates[0]];
+            let dist = getDistanceMeters(userLoc[0], userLoc[1], binLoc[0], binLoc[1]);
             if (dist < minDistance) { minDistance = dist; nearestBin = bin; }
         }
     });
@@ -626,42 +656,84 @@ function findNearestGreenBin() {
         let el = document.getElementById('nearest-bin-info');
         el.classList.remove('d-none');
         el.innerHTML = `Ближайший свободный: <b>Контейнер ${nearestBin.properties.id}</b><br>Расстояние: ${Math.round(minDistance)} м.`;
-        routeLayer.clearLayers();
-        L.polyline([userLoc, [nearestBin.geometry.coordinates[1], nearestBin.geometry.coordinates[0]]], {color: 'green', dashArray: '5, 10'}).addTo(routeLayer);
-    } else { alert("Нет свободных контейнеров поблизости :("); }
-}
 
-async function buildOptimalRoute() {
-    routeLayer.clearLayers();
+        if (userRouteLine) myMap.geoObjects.remove(userRouteLine);
+
+        let binCoords = [nearestBin.geometry.coordinates[1], nearestBin.geometry.coordinates[0]];
+        userRouteLine = new ymaps.Polyline([userLoc, binCoords], {}, { strokeColor: '#00ea00', strokeWidth: 4, strokeStyle: 'shortdash' });
+        myMap.geoObjects.add(userRouteLine);
+    } else {
+        alert("Нет свободных контейнеров поблизости :(");
+    }
+};
+
+// --- ПОДРЯДЧИК: ПОСТРОИТЬ МАРШРУТ (через API Яндекса) ---
+window.buildOptimalRoute = function() {
+    clearRoute();
     document.getElementById('route-time').innerText = "Строим...";
     document.getElementById('route-stats').classList.remove('d-none');
-    const res = await fetch('/api/logistics/route');
-    const data = await res.json();
-    if (data.message) {
+
+    // Собираем точки для вывоза (>70%)
+    let points = [];
+    points.push([55.753, 48.743]); // Депо мусоровозов (База)
+
+    allBinsData.forEach(bin => {
+        if (bin.properties.fill_percent >= 70) {
+            points.push([bin.geometry.coordinates[1], bin.geometry.coordinates[0]]);
+        }
+    });
+
+    if (points.length === 1) {
         document.getElementById('route-time').innerText = "Нет работы!";
-        document.getElementById('route-dist').innerText = data.message;
+        document.getElementById('route-dist').innerText = "Все контейнеры свободны";
         return;
     }
-    L.geoJSON(data.route.route_geojson, { style: { color: "#2196F3", weight: 5 } }).addTo(routeLayer);
-    document.getElementById('route-time').innerText = `⏳ ${data.route.duration_min} мин.`;
-    document.getElementById('route-dist').innerText = `🛣 ${data.route.distance_km} км пробега`;
-}
 
-function clearRoute() { routeLayer.clearLayers(); document.getElementById('route-stats').classList.add('d-none'); }
+    // Создаем мультимаршрут Яндекса с оптимизацией
+    multiRoute = new ymaps.multiRouter.MultiRoute({
+        referencePoints: points,
+        params: { routingMode: 'auto' } // Автомобильный маршрут
+    }, {
+        boundsAutoApply: true,
+        routeActiveStrokeWidth: 6,
+        routeActiveStrokeColor: '#1E98FF'
+    });
 
+    // Когда маршрут построится, берем оттуда время и километры
+    multiRoute.model.events.add('requestsuccess', function() {
+        var activeRoute = multiRoute.getActiveRoute();
+        if(activeRoute) {
+            document.getElementById('route-time').innerText = `⏳ ${activeRoute.properties.get("duration").text}`;
+            document.getElementById('route-dist').innerText = `🛣 ${activeRoute.properties.get("distance").text}`;
+        }
+    });
+
+    myMap.geoObjects.add(multiRoute);
+};
+
+window.clearRoute = function() {
+    if (multiRoute) myMap.geoObjects.remove(multiRoute);
+    document.getElementById('route-stats').classList.add('d-none');
+};
+
+// --- ДАШБОРД МЭРИИ ---
 async function loadDashboard() {
     const res = await fetch('/api/analytics/dashboard');
     const data = await res.json();
     if(data.message) return;
     document.getElementById('dash-full').innerText = data.needs_collection_now;
     document.getElementById('dash-alerts').innerText = data.hardware_alerts_count;
-    const fillList = document.getElementById('top-full-list'); fillList.innerHTML = '';
-    data.top_fastest_filling.forEach(b => { fillList.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center">Контейнер ${b.id} <span class="badge bg-danger rounded-pill">${b.fill}%</span></li>`; });
-    const emptyList = document.getElementById('top-empty-list'); emptyList.innerHTML = '';
-    data.least_used.forEach(b => { emptyList.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center">Контейнер ${b.id} <span class="badge bg-success rounded-pill">${b.fill}%</span></li>`; });
-}
 
-loadBins();
+    const fillList = document.getElementById('top-full-list'); fillList.innerHTML = '';
+    data.top_fastest_filling.forEach(b => {
+        fillList.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center">Контейнер ${b.id} <span class="badge bg-danger rounded-pill">${b.fill}%</span></li>`;
+    });
+
+    const emptyList = document.getElementById('top-empty-list'); emptyList.innerHTML = '';
+    data.least_used.forEach(b => {
+        emptyList.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center">Контейнер ${b.id} <span class="badge bg-success rounded-pill">${b.fill}%</span></li>`;
+    });
+}
 
 app.frontend.index.html
 <!DOCTYPE html>
@@ -669,217 +741,79 @@ app.frontend.index.html
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Иннополис: Умный вывоз мусора</title>
+    <title>Innopolis Smart Waste</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 
-    <!-- Подключаем API Яндекс Карт (apikey можно оставить пустым для тестов/хакатона, но лучше получить бесплатный) -->
-    <script src="https://api-maps.yandex.ru/2.1/?apikey=ВАШ_API_КЛЮЧ_ИЛИ_ПУСТО&lang=ru_RU" type="text/javascript"></script>
+    <!-- Подключаем API Яндекс Карт вместо Leaflet -->
+    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=ВАШ_API_КЛЮЧ_ИЛИ_ПУСТО" type="text/javascript"></script>
 
-    <style>
-        body, html { padding: 0; margin: 0; height: 100%; font-family: Arial, sans-serif; }
-        #map { width: 100%; height: 100vh; }
-
-        /* Панель управления */
-        .control-panel {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            z-index: 1000;
-        }
-        select, button {
-            margin-top: 10px;
-            padding: 8px;
-            width: 100%;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-            cursor: pointer;
-        }
-        button.action-btn { background: #007bff; color: white; font-weight: bold; border: none; }
-        button.action-btn:hover { background: #0056b3; }
-    </style>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 
-    <!-- Карта -->
+<!-- Навигация (Стиль Иннополиса) -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark-inno">
+  <div class="container-fluid">
+    <a class="navbar-brand text-inno-green fw-bold" href="#">♻️ INNOPOLIS WASTE</a>
+    <div class="d-flex">
+        <ul class="nav nav-pills" id="roleTabs">
+            <li class="nav-item"><a class="nav-link active" href="#" onclick="switchRole('resident')">👨‍🦱 Житель</a></li>
+            <li class="nav-item"><a class="nav-link" href="#" onclick="switchRole('contractor')">🚛 Подрядчик</a></li>
+            <li class="nav-item"><a class="nav-link" href="#" onclick="switchRole('admin')">🏢 Мэрия</a></li>
+        </ul>
+    </div>
+  </div>
+</nav>
+
+<div class="main-container">
+    <!-- Левая панель (Карта) -->
     <div id="map"></div>
 
-    <!-- Панель управления (переключатель ролей) -->
-    <div class="control-panel">
-        <h3>Управление системой</h3>
-        <label>Ваша роль:</label>
-        <select id="roleSelector" onchange="changeRole()">
-            <option value="viewer">Житель (просмотр)</option>
-            <option value="mayor">Мэрия (управление датчиками)</option>
-            <option value="contractor">Подрядчик (вывоз мусора)</option>
-        </select>
+    <!-- Правая панель (Сайдбар, меняется от роли) -->
+    <div id="sidebar" class="sidebar bg-light p-3 shadow">
 
-        <div id="mayor-tools" style="display: none;">
-            <p style="font-size: 12px; color: gray;">*Кликните по карте, чтобы установить новый умный контейнер</p>
+        <!-- РОЛЬ: ЖИТЕЛЬ -->
+        <div id="panel-resident" class="role-panel active">
+            <h4>👋 Привет, житель!</h4>
+            <p class="text-muted">Кликните на карту, чтобы указать, где вы находитесь, и мы найдем ближайшую свободную мусорку.</p>
+            <div id="nearest-bin-info" class="alert alert-success d-none"></div>
+            <button class="btn btn-inno w-100 mt-2" onclick="findNearestGreenBin()">Найти свободный контейнер</button>
         </div>
 
-        <div id="contractor-tools" style="display: none;">
-            <button class="action-btn" onclick="buildOptimizedRoute()">🛣 Построить маршрут вывоза</button>
+        <!-- РОЛЬ: ПОДРЯДЧИК -->
+        <div id="panel-contractor" class="role-panel">
+            <h4>🚛 Логистика</h4>
+            <p class="text-muted">Система автоматически строит маршрут только к переполненным контейнерам (>70%).</p>
+            <button class="btn btn-primary w-100 mb-3" onclick="buildOptimalRoute()">Построить маршрут на сегодня</button>
+            <div id="route-stats" class="card p-3 d-none border-primary">
+                <h5 class="text-primary mb-1" id="route-time">0 мин</h5>
+                <small class="text-muted mb-2" id="route-dist">0 км пробега</small>
+                <button class="btn btn-sm btn-outline-danger w-100" onclick="clearRoute()">Сбросить маршрут</button>
+            </div>
         </div>
+
+        <!-- РОЛЬ: МЭРИЯ (АДМИН) -->
+        <div id="panel-admin" class="role-panel">
+            <h4>🏢 Дашборд Мэрии</h4>
+            <p class="text-muted small">Кликните по карте, чтобы добавить новый контейнер.</p>
+
+            <div class="row text-center mb-3">
+                <div class="col-6"><div class="card p-2 border-danger"><h4 id="dash-full" class="text-danger m-0">-</h4><small>К вывозу</small></div></div>
+                <div class="col-6"><div class="card p-2 border-warning"><h4 id="dash-alerts" class="text-warning m-0">-</h4><small>Аварии</small></div></div>
+            </div>
+
+            <h6>🔥 Самые заполняемые:</h6>
+            <ul class="list-group list-group-flush small mb-3" id="top-full-list"></ul>
+
+            <h6>❄️ Менее используемые:</h6>
+            <ul class="list-group list-group-flush small" id="top-empty-list"></ul>
+        </div>
+
     </div>
+</div>
 
-    <script>
-        let myMap;
-        let objectManager;
-        let multiRoute; // Переменная для хранения маршрута мусоровоза
-        let containersData = []; // Сюда загрузим данные с бекенда
-
-        // Инициализация Яндекс Карт
-        ymaps.ready(init);
-
-        function init() {
-            // Центр Иннополиса
-            myMap = new ymaps.Map("map", {
-                center: [55.7520, 48.7446],
-                zoom: 15,
-                controls: ['zoomControl', 'typeSelector', 'fullscreenControl']
-            });
-
-            // Менеджер объектов для удобной работы с большим кол-вом точек
-            objectManager = new ymaps.ObjectManager({
-                clusterize: true,
-                gridSize: 32
-            });
-            myMap.geoObjects.add(objectManager);
-
-            // Загружаем данные с вашего бекенда
-            fetchContainers();
-
-            // Обработка клика по карте (ДЛЯ МЭРИИ - добавление датчиков)
-            myMap.events.add('click', function (e) {
-                const role = document.getElementById('roleSelector').value;
-                if (role !== 'mayor') return;
-
-                const coords = e.get('coords');
-                const confirmAdd = confirm(`Установить новый датчик на координатах: ${coords[0].toFixed(4)}, ${coords[1].toFixed(4)}?`);
-
-                if (confirmAdd) {
-                    // Отправляем POST запрос на ваш бекенд
-                    /*
-                    fetch('/api/containers', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ coords: `${coords[0]},${coords[1]}` })
-                    }).then(() => fetchContainers());
-                    */
-
-                    // Заглушка для хакатона (локальное добавление)
-                    alert("Датчик успешно добавлен в систему Цифрового Двойника!");
-                    fetchContainers(); // Перерисовываем карту
-                }
-            });
-        }
-
-        // --- Загрузка и отрисовка данных ---
-        async function fetchContainers() {
-            try {
-                // В РЕАЛЬНОСТИ: const response = await fetch('/api/containers');
-                // В РЕАЛЬНОСТИ: containersData = await response.json();
-
-                // --- МОКОВЫЕ ДАННЫЕ ДЛЯ ТЕСТА (Удалите, когда подключите бекенд) ---
-                containersData = [
-                    { id: 1, lat: 55.7510, lon: 48.7420, fill_percent: 20 },
-                    { id: 2, lat: 55.7530, lon: 48.7450, fill_percent: 85 }, // Переполнен
-                    { id: 3, lat: 55.7550, lon: 48.7480, fill_percent: 45 },
-                    { id: 4, lat: 55.7500, lon: 48.7490, fill_percent: 92 }, // Переполнен
-                    { id: 5, lat: 55.7490, lon: 48.7410, fill_percent: 10 }
-                ];
-                // -------------------------------------------------------------------
-
-                renderMarkers(containersData);
-            } catch (error) {
-                console.error("Ошибка загрузки данных:", error);
-            }
-        }
-
-        function renderMarkers(data) {
-            objectManager.removeAll();
-
-            let features = data.map(container => {
-                // Определяем цвет иконки в зависимости от заполненности
-                let iconColor = '#00ea00'; // Зеленый
-                if (container.fill_percent >= 40) iconColor = '#ffd700'; // Желтый
-                if (container.fill_percent >= 70) iconColor = '#ff0000'; // Красный
-
-                return {
-                    type: 'Feature',
-                    id: container.id,
-                    geometry: {
-                        type: 'Point',
-                        coordinates: [container.lat, container.lon]
-                    },
-                    properties: {
-                        balloonContentHeader: `♻️ Контейнер #${container.id}`,
-                        balloonContentBody: `Заполненность: <b>${container.fill_percent}%</b><br><hr>ID датчика: SENS-${container.id}00X`,
-                        hintContent: `Заполнено на ${container.fill_percent}%`
-                    },
-                    options: {
-                        preset: 'islands#circleIcon',
-                        iconColor: iconColor
-                    }
-                };
-            });
-
-            objectManager.add({ type: 'FeatureCollection', features: features });
-        }
-
-        // --- Логика Подрядчика (Построение маршрута Яндекс Картами) ---
-        function buildOptimizedRoute() {
-            if (multiRoute) {
-                myMap.geoObjects.remove(multiRoute); // Удаляем старый маршрут
-            }
-
-            // Ищем только те баки, где мусора >= 70%
-            let pointsToVisit = containersData
-                .filter(c => c.fill_percent >= 70)
-                .map(c => [c.lat, c.lon]);
-
-            if (pointsToVisit.length === 0) {
-                alert("Нет переполненных контейнеров. Маршрут строить не нужно!");
-                return;
-            }
-
-            // Добавляем начальную точку (База мусоровозов Иннополиса)
-            const depotCoords = [55.7485, 48.7455];
-            pointsToVisit.unshift(depotCoords); // Ставим базу в начало маршрута
-
-            // Создаем мультимаршрут Яндекса с оптимизацией
-            multiRoute = new ymaps.multiRouter.MultiRoute({
-                referencePoints: pointsToVisit,
-                params: {
-                    routingMode: 'auto', // Автомобильный
-                    // Для хакатона Яндекса хватит этого, но если нужен строгий порядок (TSP),
-                    // нужно сортировать массив pointsToVisit на бекенде по кратчайшему пути.
-                }
-            }, {
-                boundsAutoApply: true, // Карта сама зуммируется, чтобы вместить маршрут
-                routeActiveStrokeWidth: 6,
-                routeActiveStrokeColor: '#1E98FF'
-            });
-
-            myMap.geoObjects.add(multiRoute);
-            alert(`Маршрут построен! Нужно вывезти ${pointsToVisit.length - 1} контейнеров.`);
-        }
-
-        // --- Переключение ролей UI ---
-        function changeRole() {
-            const role = document.getElementById('roleSelector').value;
-            document.getElementById('mayor-tools').style.display = (role === 'mayor') ? 'block' : 'none';
-            document.getElementById('contractor-tools').style.display = (role === 'contractor') ? 'block' : 'none';
-
-            // Если ушли с роли подрядчика — очищаем маршрут
-            if (role !== 'contractor' && multiRoute) {
-                myMap.geoObjects.remove(multiRoute);
-            }
-        }
-    </script>
+<script src="/static/app.js"></script>
 </body>
 </html>
 
@@ -1142,10 +1076,8 @@ from abc import ABC, abstractmethod
 
 import smtplib
 from email.message import EmailMessage
-from app.infrastructure.notifications.channels import BaseChannel
 
 logger = logging.getLogger("Notifications")
-
 
 class BaseChannel(ABC):
     """Базовый класс для всех мессенджеров"""
@@ -1154,13 +1086,11 @@ class BaseChannel(ABC):
     async def send(self, message: str, role: str):
         pass
 
-
 class ConsoleChannel(BaseChannel):
     """Канал для отладки (выводит в консоль Docker)"""
 
     async def send(self, message: str, role: str):
         print(f"🖥 [CONSOLE | Роль: {role}] -> {message}")
-
 
 class TelegramChannel(BaseChannel):
     """Интеграция с Telegram Bot API (С кнопкой Mini App)"""
@@ -1170,10 +1100,9 @@ class TelegramChannel(BaseChannel):
         self.api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
 
         # В реальной системе здесь будет маппинг ролей на ID чатов.
-        # Пока шлем все в одну группу для тестов (замени на свой ID, если нужно)
         self.role_to_chat_id = {
-            "Мэрия": "1530085496",  # Замени на ID группы Мэрии
-            "Подрядчик": "473829505"  # Замени на ID группы Подрядчика
+            "Мэрия": "1530085496",
+            "Подрядчик": "473829505"
         }
 
     async def send(self, message: str, role: str):
@@ -1185,9 +1114,7 @@ class TelegramChannel(BaseChannel):
             logger.warning(f"Не найден Chat ID для роли {role} в Telegram")
             return
 
-        # Добавляем крутую кнопку (Inline Keyboard), которая открывает карту
-        # Для Mini App нужно использовать 'web_app', но для тестов подойдет обычный 'url'
-        map_url = os.getenv("PUBLIC_SERVER_URL", "http://79.137.199.5:8321/map")
+        map_url = os.getenv("PUBLIC_SERVER_URL", "http://79.137.199.5:8321/")
 
         payload = {
             "chat_id": chat_id,
@@ -1195,7 +1122,7 @@ class TelegramChannel(BaseChannel):
             "parse_mode": "HTML",
             "reply_markup": {
                 "inline_keyboard": [[
-                    {"text": "🗺 Открыть Карту (Mini App)", "url": map_url}
+                    {"text": "🗺 Открыть Карту", "url": map_url}
                 ]]
             }
         }
@@ -1208,7 +1135,6 @@ class TelegramChannel(BaseChannel):
             except Exception as e:
                 logger.error(f"TG Connection Error: {e}")
 
-
 class VKChannel(BaseChannel):
     """Заготовка для ВКонтакте"""
 
@@ -1218,9 +1144,7 @@ class VKChannel(BaseChannel):
     async def send(self, message: str, role: str):
         if not self.vk_token:
             return
-        # Здесь в будущем будет httpx запрос к api.vk.com/method/messages.send
         print(f"🔵 [VK API | Роль: {role}] Отправка: {message}")
-
 
 class EmailChannel(BaseChannel):
     def __init__(self, smtp_server, port, login, password, to_email):
@@ -1231,7 +1155,7 @@ class EmailChannel(BaseChannel):
         self.to_email = to_email
 
     async def send(self, message: str, role: str):
-        if role != "Подрядчик": return  # Шлем маршруты только подрядчику
+        if role != "Подрядчик": return
 
         msg = EmailMessage()
         msg.set_content(message)
@@ -1239,11 +1163,9 @@ class EmailChannel(BaseChannel):
         msg['From'] = self.login
         msg['To'] = self.to_email
 
-        # Для асинхронности лучше использовать aiosmtplib, но для хакатона сойдет и так (в отдельном потоке)
         with smtplib.SMTP_SSL(self.smtp, self.port) as server:
             server.login(self.login, self.password)
             server.send_message(msg)
-
 
 app.infrastructure.notifications.dispatcher.py
 # app/infrastructure/notifications/dispatcher.py

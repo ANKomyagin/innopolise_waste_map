@@ -2,8 +2,8 @@
 let myMap;
 let objectManager;
 let userMarker = null;
-let userRouteLine = null; // Линия для жителя
-let multiRoute = null; // Маршрут для подрядчика
+let userRouteLine = null; // Маршрут для жителя (пешеходный)
+let multiRoute = null; // Маршрут для подрядчика (авто)
 let currentRole = 'resident';
 let allBinsData = []; // Кэш данных с бекенда
 
@@ -48,7 +48,7 @@ function init() {
     loadBins();
 }
 
-// --- ФУНКЦИЯ РАСЧЕТА РАССТОЯНИЯ ЯНДЕКСА ---
+// --- ФУНКЦИЯ РАСЧЕТА ПРЯМОГО РАССТОЯНИЯ (Для поиска ближайшего бака) ---
 function getDistanceMeters(lat1, lon1, lat2, lon2) {
     return ymaps.coordSystem.geo.getDistance([lat1, lon1], [lat2, lon2]);
 }
@@ -130,7 +130,7 @@ async function loadBins() {
 
         popupHtml += `</div></div>`;
 
-        // Создаем маркер на Яндекс.Карте с цифрой количества баков
+        // Создаем маркер на Яндекс.Карте
         let placemark = new ymaps.Placemark([pad.lat, pad.lng], {
             balloonContent: popupHtml,
             iconContent: pad.containers.length.toString()
@@ -146,7 +146,6 @@ async function loadBins() {
 window.editBin = async function(id, oldAddress, oldCoords) {
     let newAddress = prompt(`Редактирование адреса для контейнера ${id}:`, oldAddress);
     if (newAddress === null) return;
-
     let newCoords = prompt(`Координаты (Широта, Долгота):`, oldCoords);
     if (newCoords === null) return;
 
@@ -173,13 +172,11 @@ window.switchRole = function(role) {
     document.querySelectorAll('.role-panel').forEach(el => el.classList.remove('active'));
     document.getElementById(`panel-${role}`).classList.add('active');
 
-    // Перерисовываем баки (чтобы обновить кнопки в попапах)
     loadBins();
-
     if (role === 'admin') loadDashboard();
 };
 
-// --- ЖИТЕЛЬ: НАЙТИ СВОБОДНУЮ МУСОРКУ ---
+// --- ЖИТЕЛЬ: НАЙТИ СВОБОДНУЮ МУСОРКУ (Пешеходный маршрут) ---
 window.findNearestGreenBin = function() {
     if (!userMarker) { alert("Сначала кликните на карту, чтобы указать, где вы!"); return; }
 
@@ -187,6 +184,7 @@ window.findNearestGreenBin = function() {
     let minDistance = Infinity;
     let nearestBin = null;
 
+    // Ищем ближайший бак математически
     allBinsData.forEach(bin => {
         if (bin.properties.fill_percent < 50) {
             let binLoc = [bin.geometry.coordinates[1], bin.geometry.coordinates[0]];
@@ -198,27 +196,38 @@ window.findNearestGreenBin = function() {
     if (nearestBin) {
         let el = document.getElementById('nearest-bin-info');
         el.classList.remove('d-none');
-        el.innerHTML = `Ближайший свободный: <b>Контейнер ${nearestBin.properties.id}</b><br>Расстояние: ${Math.round(minDistance)} м.`;
+        el.innerHTML = `Ближайший свободный: <b>Контейнер ${nearestBin.properties.id}</b><br>Расстояние по прямой: ${Math.round(minDistance)} м.`;
 
         if (userRouteLine) myMap.geoObjects.remove(userRouteLine);
 
         let binCoords = [nearestBin.geometry.coordinates[1], nearestBin.geometry.coordinates[0]];
-        userRouteLine = new ymaps.Polyline([userLoc, binCoords], {}, { strokeColor: '#00ea00', strokeWidth: 4, strokeStyle: 'shortdash' });
+
+        // РЕШЕНИЕ 1: СТРОИМ НАСТОЯЩИЙ ПЕШЕХОДНЫЙ МАРШРУТ (С учетом тротуаров)
+        userRouteLine = new ymaps.multiRouter.MultiRoute({
+            referencePoints: [userLoc, binCoords],
+            params: { routingMode: 'pedestrian' } // Режим пешехода
+        }, {
+            boundsAutoApply: true,
+            wayPointVisible: false, // Скрываем дефолтные метки Яндекса (т.к. у нас уже стоят свои)
+            routeActiveStrokeColor: '#28a745',
+            routeActiveStrokeWidth: 5,
+            routeActiveStrokeStyle: 'shortdash'
+        });
+
         myMap.geoObjects.add(userRouteLine);
     } else {
         alert("Нет свободных контейнеров поблизости :(");
     }
 };
 
-// --- ПОДРЯДЧИК: ПОСТРОИТЬ МАРШРУТ (через API Яндекса) ---
+// --- ПОДРЯДЧИК: ПОСТРОИТЬ МАРШРУТ (Автомобильный) ---
 window.buildOptimalRoute = function() {
     clearRoute();
-    document.getElementById('route-time').innerText = "Строим...";
+    document.getElementById('route-time').innerText = "Строим маршрут...";
     document.getElementById('route-stats').classList.remove('d-none');
 
-    // Собираем точки для вывоза (>70%)
     let points = [];
-    points.push([55.753, 48.743]); // Депо мусоровозов (База)
+    points.push([55.753, 48.743]); // Депо мусоровозов (База Иннополиса)
 
     allBinsData.forEach(bin => {
         if (bin.properties.fill_percent >= 70) {
@@ -232,23 +241,34 @@ window.buildOptimalRoute = function() {
         return;
     }
 
-    // Создаем мультимаршрут Яндекса с оптимизацией
+    // РЕШЕНИЕ 2: ГАРАНТИРОВАННОЕ ПОСТРОЕНИЕ АВТОМАРШРУТА ПО УЛИЦАМ
     multiRoute = new ymaps.multiRouter.MultiRoute({
         referencePoints: points,
-        params: { routingMode: 'auto' } // Автомобильный маршрут
+        params: {
+            routingMode: 'auto', // Автомобиль
+            results: 1           // Берем только самый быстрый маршрут
+        }
     }, {
         boundsAutoApply: true,
         routeActiveStrokeWidth: 6,
-        routeActiveStrokeColor: '#1E98FF'
+        routeActiveStrokeColor: '#1E98FF',
+        wayPointVisible: true // Показываем кружочки на точках остановки мусоровоза
     });
 
-    // Когда маршрут построится, берем оттуда время и километры
+    // Обработка успешного построения (извлечение минут и километров)
     multiRoute.model.events.add('requestsuccess', function() {
         var activeRoute = multiRoute.getActiveRoute();
         if(activeRoute) {
             document.getElementById('route-time').innerText = `⏳ ${activeRoute.properties.get("duration").text}`;
             document.getElementById('route-dist').innerText = `🛣 ${activeRoute.properties.get("distance").text}`;
         }
+    });
+
+    // Обработка ошибок Яндекса (если упадет, мы это увидим, а не просто пустую карту)
+    multiRoute.model.events.add('requesterror', function (error) {
+        console.error("Ошибка API Яндекса:", error.get('error').message);
+        document.getElementById('route-time').innerText = "Ошибка API!";
+        document.getElementById('route-dist').innerText = "Яндекс не смог проложить путь.";
     });
 
     myMap.geoObjects.add(multiRoute);
