@@ -1,6 +1,6 @@
 # app/api/routers/__init__.py
 from fastapi import APIRouter
-from app.api.routers import containers, sensors, logistics, analytics, map, frontend
+from app.api.routers import containers, sensors, logistics, analytics, map, frontend, telegram
 
 
 def create_api_router():
@@ -14,5 +14,6 @@ def create_api_router():
     api_router.include_router(analytics.router)
     api_router.include_router(map.router)
     api_router.include_router(frontend.router)
+    api_router.include_router(telegram.router, prefix="/telegram", tags=["telegram"])
     
     return api_router

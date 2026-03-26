@@ -1,11 +1,18 @@
 # app/main.py
 import os
+import asyncio
+import logging
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 
 from app.infrastructure.database.database import engine, Base
-from app.api.routers import containers, sensors, logistics, analytics, map, frontend
+from app.api.routers import create_api_router
+from app.infrastructure.telegram.bot import telegram_bot_service
+
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Database setup (only create tables if database is available)
 try:
@@ -22,10 +29,31 @@ app = FastAPI(title="Innopolis Smart Waste API")
 os.makedirs("app/frontend", exist_ok=True)
 app.mount("/static", StaticFiles(directory="app/frontend"), name="static")
 
-# Include API routers (they handle their own dependencies)
-app.include_router(containers.router)
-app.include_router(sensors.router)
-app.include_router(logistics.router)
-app.include_router(analytics.router)
-app.include_router(map.router)
-app.include_router(frontend.router)
+# Include unified API router
+api_router = create_api_router()
+app.include_router(api_router)
+
+@app.on_event("startup")
+async def startup_event():
+    """Инициализация сервисов при запуске"""
+    # Инициализация Telegram бота
+    telegram_initialized = await telegram_bot_service.initialize()
+    if telegram_initialized:
+        logger.info("✅ Telegram бот успешно инициализирован")
+        
+        # Установка webhook (если нужно)
+        webhook_url = f"https://194.67.122.226/api/telegram/webhook"
+        webhook_success = await telegram_bot_service.set_webhook(webhook_url)
+        if webhook_success:
+            logger.info(f"✅ Telegram webhook установлен: {webhook_url}")
+        else:
+            logger.warning("⚠️ Не удалось установить webhook, используем polling")
+            # Запуск polling как fallback
+            asyncio.create_task(telegram_bot_service.start_polling())
+    else:
+        logger.warning("⚠️ Telegram бот не инициализирован")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Очистка при остановке"""
+    logger.info("🔄 Завершение работы приложения...")
