@@ -1,0 +1,18 @@
+# app/api/routers/__init__.py
+from fastapi import APIRouter
+from app.api.routers import containers, sensors, logistics, analytics, map, frontend
+
+
+def create_api_router():
+    """Create and configure the main API router"""
+    api_router = APIRouter()
+    
+    # Include all sub-routers
+    api_router.include_router(containers.router)
+    api_router.include_router(sensors.router)
+    api_router.include_router(logistics.router)
+    api_router.include_router(analytics.router)
+    api_router.include_router(map.router)
+    api_router.include_router(frontend.router)
+    
+    return api_router
