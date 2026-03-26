@@ -25,13 +25,13 @@ except Exception as e:
 # FastAPI app initialization
 app = FastAPI(title="Innopolis Smart Waste API")
 
-# Static files setup
-os.makedirs("app/frontend", exist_ok=True)
-app.mount("/static", StaticFiles(directory="app/frontend"), name="static")
-
-# Include unified API router
+# Include API routes FIRST (before static files)
 api_router = create_api_router()
 app.include_router(api_router)
+
+# Static files setup (mount after API routes)
+os.makedirs("app/frontend", exist_ok=True)
+app.mount("/static", StaticFiles(directory="app/frontend"), name="static")
 
 @app.on_event("startup")
 async def startup_event():
