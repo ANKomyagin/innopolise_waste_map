@@ -128,8 +128,8 @@
         function initMap() {
             ymaps.ready(function() {
                 map = new ymaps.Map("map", {
-                    center: [55.753, 48.743], // Координаты Иннополиса
-                    zoom: 13,
+                    center: [{{ DEFAULT_LAT }}, {{ DEFAULT_LON }}], // Координаты Иннополиса
+                    zoom: {{ DEFAULT_ZOOM }},
                     controls: ['zoomControl', 'searchControl', 'typeSelector', 'fullscreenControl']
                 });
 
@@ -213,7 +213,7 @@
 
         // Центрирование на Иннополисе
         function centerOnInnopolis() {
-            map.setCenter([55.753, 48.743], 13);
+            map.setCenter([{{ DEFAULT_LAT }}, {{ DEFAULT_LON }}], {{ DEFAULT_ZOOM }});
         }
 
         // Показ статистики

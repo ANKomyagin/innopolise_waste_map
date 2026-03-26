@@ -5,15 +5,13 @@ import asyncio
 import httpx
 from datetime import datetime
 from aiogram import Bot, Dispatcher, types
+from app.config.settings import settings
 
 # ==========================================
-# ⚙️ НАСТРОЙКИ (В идеале вынести в .env)
+# ⚙️ НАСТРОЙКИ
 # ==========================================
-# Вставь сюда токен, который выдал @BotFather
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8773001515:AAEe8BsCGPAdZyb_IDf4ZUw3L4fPF8Mqms4")
-
-# Адрес нашего локального API внутри Docker сети
-API_WEBHOOK_URL = os.getenv("API_WEBHOOK_URL", "http://api:8000/api/sensors/webhook")
+BOT_TOKEN = settings.BOT_TOKEN
+API_WEBHOOK_URL = os.getenv("API_WEBHOOK_URL", f"http://api:{settings.PORT}/api/sensors/webhook")
 
 # ==========================================
 # 🧩 РЕГУЛЯРНОЕ ВЫРАЖЕНИЕ ДЛЯ ПАРСИНГА

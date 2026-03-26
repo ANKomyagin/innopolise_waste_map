@@ -5,6 +5,7 @@ from app.infrastructure.routing.osrm_router import OSRMRoutingProvider
 from app.infrastructure.database.postgres_repo import PostgresContainerRepo
 from app.infrastructure.notifications.dispatcher import UniversalNotificationDispatcher
 from app.infrastructure.notifications.channels import ConsoleChannel, TelegramChannel, VKChannel
+from app.config.settings import settings
 
 
 def setup_notification_channels():
@@ -14,7 +15,7 @@ def setup_notification_channels():
     ]
     
     # Если в переменных окружения есть токен ТГ - включаем ТГ канал
-    tg_token = os.getenv("BOT_TOKEN", "8773001515:AAEe8BsCGPAdZyb_IDf4ZUw3L4fPF8Mqms4")
+    tg_token = settings.BOT_TOKEN
     if tg_token:
         active_channels.append(TelegramChannel(bot_token=tg_token))
     

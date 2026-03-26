@@ -39,12 +39,12 @@ class TelegramChannel(BaseChannel):
         if not self.bot_token:
             return
 
-        chat_id = self.role_to_chat_id.get(role) or os.getenv("DEFAULT_TG_CHAT_ID")
+        chat_id = settings.get_telegram_chat_ids().get(role) or os.getenv("DEFAULT_TG_CHAT_ID")
         if not chat_id:
             logger.warning(f"Не найден Chat ID для роли {role} в Telegram")
             return
 
-        map_url = os.getenv("PUBLIC_SERVER_URL", "http://79.137.199.5:8321/")
+        map_url = settings.PUBLIC_SERVER_URL
 
         payload = {
             "chat_id": chat_id,

@@ -1,9 +1,10 @@
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
+from app.config.settings import settings
 
-# Получаем URL из переменных окружения Docker
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@localhost:5432/waste_db")
+# Получаем URL из настроек
+DATABASE_URL = settings.DATABASE_URL
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
