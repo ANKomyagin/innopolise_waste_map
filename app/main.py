@@ -37,22 +37,34 @@ app.mount("/static", StaticFiles(directory="app/frontend"), name="static")
 @app.on_event("startup")
 async def startup_event():
     """Инициализация сервисов при запуске"""
-    # Инициализация Telegram бота
-    telegram_initialized = await telegram_bot_service.initialize()
-    if telegram_initialized:
-        logger.info("✅ Telegram бот успешно инициализирован")
-        
-        # Установка webhook (если нужно)
-        webhook_url = f"{settings.PUBLIC_SERVER_URL}/telegram/webhook"
-        webhook_success = await telegram_bot_service.set_webhook(webhook_url)
-        if webhook_success:
-            logger.info(f"✅ Telegram webhook установлен: {webhook_url}")
+    try:
+        # Инициализация Telegram бота с таймаутом
+        telegram_initialized = await asyncio.wait_for(
+            telegram_bot_service.initialize(), timeout=10
+        )
+        if telegram_initialized:
+            logger.info("✅ Telegram бот успешно инициализирован")
+            
+            # Установка webhook с таймаутом
+            webhook_url = f"{settings.PUBLIC_SERVER_URL}/telegram/webhook"
+            try:
+                webhook_success = await asyncio.wait_for(
+                    telegram_bot_service.set_webhook(webhook_url), timeout=10
+                )
+                if webhook_success:
+                    logger.info(f"✅ Telegram webhook установлен: {webhook_url}")
+                else:
+                    logger.warning("⚠️ Не удалось установить webhook, используем polling")
+                    asyncio.create_task(telegram_bot_service.start_polling())
+            except asyncio.TimeoutError:
+                logger.warning("⚠️ Таймаут установки webhook, используем polling")
+                asyncio.create_task(telegram_bot_service.start_polling())
         else:
-            logger.warning("⚠️ Не удалось установить webhook, используем polling")
-            # Запуск polling как fallback
-            asyncio.create_task(telegram_bot_service.start_polling())
-    else:
-        logger.warning("⚠️ Telegram бот не инициализирован")
+            logger.warning("⚠️ Telegram бот не инициализирован")
+    except asyncio.TimeoutError:
+        logger.warning("⚠️ Таймаут инициализации Telegram бота")
+    except Exception as e:
+        logger.warning(f"⚠️ Ошибка инициализации Telegram: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_event():
