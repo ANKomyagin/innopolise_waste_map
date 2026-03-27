@@ -41,8 +41,9 @@ class PostgresContainerRepo(ContainerRepository):
                 container.address = address
                 container.coords = coords
 
-            # Обновляем показания датчика
-            container.sensor_data = sensor_data
+            # Обновляем показания датчика (только если переданы)
+            if sensor_data is not None:
+                container.sensor_data = sensor_data
 
             db.commit()
     def delete_container(self, container_id: str):

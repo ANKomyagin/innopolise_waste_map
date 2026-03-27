@@ -9,7 +9,7 @@ class SensorProcessingPipeline:
         self.enable_alerts = enable_alerts
 
     async def process_new_data(self, payload: WebhookPayload):
-        sensor_dict = payload.sensor_data.dict()
+        sensor_dict = payload.sensor_data.model_dump()
         sensor_dict['timestamp'] = sensor_dict['timestamp'].isoformat()
 
         self.repo.upsert_container(

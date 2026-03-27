@@ -43,6 +43,18 @@ async def get_containers(db_repo = Depends(get_db_repo)):
     return result
 
 
+@router.post("/")
+async def create_container(data: NewContainer, db_repo = Depends(get_db_repo)):
+    """Create a new container (mayor role)"""
+    db_repo.upsert_container(
+        container_id=data.id,
+        address=data.address,
+        coords=data.coords,
+        sensor_data=None
+    )
+    return {"status": "ok", "id": data.id}
+
+
 @router.put("/{container_id}")
 async def edit_container(container_id: str, data: EditContainer, db_repo = Depends(get_db_repo)):
     """Edit container information"""

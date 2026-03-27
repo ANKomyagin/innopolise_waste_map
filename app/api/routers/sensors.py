@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 import qrcode
 import io
 from app.api.dependencies import get_db_repo, get_notifier, get_sensor_pipeline
+from app.domain.models import WebhookPayload
 
 router = APIRouter(prefix="/api/sensors", tags=["sensors"])
 
@@ -22,7 +23,7 @@ anti_spam_cache = {}
 
 
 @router.post("/webhook")
-async def receive_sensor_data(payload, sensor_pipeline = Depends(get_sensor_pipeline)):
+async def receive_sensor_data(payload: WebhookPayload, sensor_pipeline = Depends(get_sensor_pipeline)):
     """Receive sensor data from IoT devices"""
     await sensor_pipeline.process_new_data(payload)
     return {"status": "ok", "container_id": payload.container_id, "saved_to_db": True}

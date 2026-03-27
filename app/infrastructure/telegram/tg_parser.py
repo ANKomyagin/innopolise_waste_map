@@ -28,7 +28,7 @@ MESSAGE_PATTERN = re.compile(
 )
 
 # Инициализируем бота и диспетчер
-bot = Bot(token=BOT_TOKEN)
+bot = Bot(token=BOT_TOKEN) if BOT_TOKEN else None
 dp = Dispatcher()
 
 
@@ -85,6 +85,9 @@ async def handle_new_message(message: types.Message):
 
 async def main():
     print("🚀 Запуск Telegram Парсера (через Bot API)...")
+    if not bot:
+        print("❌ BOT_TOKEN не задан. Парсер не может быть запущен.")
+        return
     # Запускаем поллинг (бот будет постоянно опрашивать сервера ТГ на наличие новых сообщений)
     await dp.start_polling(bot)
 

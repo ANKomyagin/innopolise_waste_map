@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse
 from app.infrastructure.database.database import engine, Base
 from app.api.routers import create_api_router
 from app.infrastructure.telegram.bot import telegram_bot_service
+from app.config.settings import settings
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -42,7 +43,7 @@ async def startup_event():
         logger.info("✅ Telegram бот успешно инициализирован")
         
         # Установка webhook (если нужно)
-        webhook_url = f"https://194.67.122.226/api/telegram/webhook"
+        webhook_url = f"{settings.PUBLIC_SERVER_URL}/telegram/webhook"
         webhook_success = await telegram_bot_service.set_webhook(webhook_url)
         if webhook_success:
             logger.info(f"✅ Telegram webhook установлен: {webhook_url}")

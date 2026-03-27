@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 
 import smtplib
 from email.message import EmailMessage
+from app.config.settings import settings
 
 logger = logging.getLogger("Notifications")
 

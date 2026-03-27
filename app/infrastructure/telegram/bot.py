@@ -54,7 +54,7 @@ class TelegramBotService:
             await self._process_sensor_message(message)
         
         @self.dp.channel_post()
-        async def handle_channel_post(message: types.ChannelPost):
+        async def handle_channel_post(message: types.Message):
             """Обработчик сообщений в канале"""
             await self._process_sensor_message(message)
         
@@ -135,13 +135,13 @@ class TelegramBotService:
             
         try:
             await self.bot.delete_webhook(drop_pending_updates=True)
-            webhook_info = await self.bot.set_webhook(
+            await self.bot.set_webhook(
                 url=webhook_url,
                 secret_token="waste_map_secret",
                 drop_pending_updates=True
             )
             self.webhook_url = webhook_url
-            logger.info(f"Webhook установлен: {webhook_info.url}")
+            logger.info(f"Webhook установлен: {webhook_url}")
             return True
         except Exception as e:
             logger.error(f"Ошибка установки webhook: {e}")
