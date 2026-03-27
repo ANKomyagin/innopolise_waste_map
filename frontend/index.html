@@ -159,7 +159,18 @@
         async function loadContainers() {
             try {
                 const response = await fetch('/api/map/geojson');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const data = await response.json();
+                
+                if (!data || !data.features) {
+                    throw new Error('Invalid data format received from API');
+                }
+                
+                console.log('Received data:', data);
                 
                 // Очистка старых объектов
                 objects.forEach(obj => map.geoObjects.remove(obj));
@@ -169,6 +180,12 @@
                 data.features.forEach(feature => {
                     const coords = feature.geometry.coordinates;
                     const props = feature.properties;
+                    
+                    // Проверка наличия контейнеров
+                    if (!props.containers || props.containers.length === 0) {
+                        console.warn('Feature without containers:', feature);
+                        return;
+                    }
                     
                     // Определяем цвет в зависимости от заполненности
                     let fillColor = '#28a745'; // зеленый
@@ -294,10 +311,11 @@
                     objects.push(placemark);
                 });
 
-                console.log(`Загружено ${data.features.length} контейнеров`);
+                console.log(`Загружено ${data.features.length} площадок/контейнеров`);
             } catch (error) {
                 console.error('Ошибка загрузки данных:', error);
-                alert('Не удалось загрузить данные о контейнерах. Попробуйте обновить страницу.');
+                console.error('Error details:', error.message, error.stack);
+                alert(`Не удалось загрузить данные о контейнерах.\nОшибка: ${error.message}\nПроверьте консоль браузера для деталей.`);
             }
         }
 
