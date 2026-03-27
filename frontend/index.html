@@ -266,7 +266,7 @@
                                 <circle cx="24" cy="24" r="18" fill="${fillColor}" stroke="#fff" stroke-width="3" filter="url(#shadow)"/>
                                 <circle cx="24" cy="24" r="14" fill="none" stroke="#fff" stroke-width="1" opacity="0.5"/>
                                 <text x="24" y="22" text-anchor="middle" fill="white" font-size="11" font-weight="bold">${props.total_fill}%</text>
-                                <text x="24" y="32" text-anchor="middle" fill="white" font-size="8">${props.container_count} шт</text>
+                                <text x="24" y="32" text-anchor="middle" fill="white" font-size="8">${props.container_count}x</text>
                             </svg>
                         `;
                     } else {
@@ -301,7 +301,7 @@
                         },
                         {
                             iconLayout: 'default#image',
-                            iconImageHref: 'data:image/svg+xml;base64,' + btoa(iconSvg),
+                            iconImageHref: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSvg),
                             iconImageSize: props.is_cluster ? [48, 48] : [36, 36],
                             iconImageOffset: props.is_cluster ? [-24, -24] : [-18, -18]
                         }
