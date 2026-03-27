@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}Панель администратора{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .stats-card h3 {
+        margin: 0;
+        font-size: 2rem;
+        font-weight: bold;
+    }
+    
+    .stats-card p {
+        margin: 5px 0 0 0;
+        opacity: 0.9;
+    }
+    
+    .chart-container {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .container-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+    }
+    
+    .modal-body #miniMap {
+        height: 300px;
+        border-radius: 8px;
+        margin: 15px 0;
+    }
+</style>
+{% endblock %}
+
+{% block head_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block header %}
+<div class="top-bar">
+    <h4><i class="fas fa-cogs"></i> Панель администратора</h4>
+    <div>
+        <button class="btn-back" onclick="window.location.href='index.html'">
+            <i class="fas fa-arrow-left"></i> На главную
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Статистика -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h3 id="totalContainers">0</h3>
+                <p><i class="fas fa-trash"></i> Всего контейнеров</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <h3 id="avgFill">0%</h3>
+                <p><i class="fas fa-chart-pie"></i> Среднее заполнение</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <h3 id="fullContainers">0</h3>
+                <p><i class="fas fa-exclamation-triangle"></i> Заполнены</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                <h3 id="emptyContainers">0</h3>
+                <p><i class="fas fa-check-circle"></i> Пустые</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Графики и карта -->
+    <div class="row">
+        <div class="col-md-8">
+            <div class="chart-container">
+                <h5><i class="fas fa-map-marked-alt"></i> Карта контейнеров</h5>
+                <hr>
+                <div id="map" style="height: 500px; border-radius: 8px;"></div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="chart-container mb-3">
+                <h5><i class="fas fa-chart-doughnut"></i> Распределение заполненности</h5>
+                <canvas id="fillChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h5><i class="fas fa-chart-bar"></i> Топ заполненных</h5>
+                <canvas id="topChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Таблица контейнеров -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-list"></i> Список контейнеров</h5>
+                    <div>
+                        <button class="btn btn-primary" id="addContainerBtn">
+                            <i class="fas fa-plus"></i> Добавить
+                        </button>
+                        <button class="btn btn-secondary" id="refreshBtn">
+                            <i class="fas fa-sync"></i> Обновить
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Заполнение</th>
+                                    <th>Широта</th>
+                                    <th>Долгота</th>
+                                    <th>Обновлено</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="containersTableBody">
+                                <tr>
+                                    <td colspan="6" class="text-center">
+                                        <div class="spinner-border" role="status">
+                                            <span class="visually-hidden">Загрузка...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/admin.js"></script>
+{% endblock %}

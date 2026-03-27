@@ -4,452 +4,205 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Маршрут мусоровоза</title>
+    
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Общие стили -->
+    <link rel="stylesheet" href="static/css/common.css">
+    
+    <!-- Яндекс.Карты API -->
     <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=7d253372-5194-4f00-a292-ea1d7bc18844" type="text/javascript"></script>
     
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        #map {
-            height: 100vh;
-            width: 100%;
-        }
-        .top-bar {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 1000;
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-            padding: 15px 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .top-bar h4 {
-            color: white;
-            margin: 0;
-            font-weight: 600;
-        }
-        .btn-back {
-            background: rgba(255,255,255,0.2);
-            color: white;
-            border: 1px solid rgba(255,255,255,0.3);
-            padding: 8px 20px;
-            border-radius: 20px;
-            text-decoration: none;
-            transition: all 0.3s ease;
-        }
-        .btn-back:hover {
-            background: rgba(255,255,255,0.3);
-            color: white;
-        }
-        .controls {
-            position: absolute;
-            top: 80px;
+        .route-panel {
+            position: fixed;
             right: 20px;
-            z-index: 1000;
+            top: 100px;
+            width: 350px;
             background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            min-width: 320px;
-            max-height: calc(100vh - 120px);
+            z-index: 1000;
+            max-height: 70vh;
             overflow-y: auto;
         }
-        .controls h5 {
-            margin-bottom: 15px;
-            color: #333;
-            font-weight: 600;
-        }
-        .btn-custom {
-            width: 100%;
-            margin: 8px 0;
-            padding: 12px;
-            border-radius: 10px;
-            font-weight: 500;
+        
+        .route-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #fa709a;
+            cursor: pointer;
             transition: all 0.3s ease;
         }
-        .btn-build-route {
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-            border: none;
+        
+        .route-item:hover {
+            transform: translateX(-5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .route-item.active {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
             color: white;
         }
-        .btn-build-route:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(67, 233, 123, 0.4);
+        
+        .route-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #dee2e6;
         }
-        .route-info {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 10px;
-            margin-top: 15px;
-        }
-        .route-info h6 {
-            color: #43e97b;
-            margin-bottom: 10px;
-            font-weight: 600;
-        }
-        .container-list {
-            margin-top: 15px;
-        }
-        .container-item {
-            background: white;
-            border-left: 4px solid #dc3545;
-            padding: 10px;
-            margin: 8px 0;
-            border-radius: 5px;
-            font-size: 0.9rem;
-        }
-        .container-item.medium {
-            border-left-color: #ffc107;
-        }
-        .container-item strong {
-            color: #333;
-        }
-        .stats-box {
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-            color: white;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 15px;
+        
+        .stat-item {
             text-align: center;
         }
-        .stats-box h3 {
-            font-size: 2rem;
-            margin: 0;
-            font-weight: 700;
+        
+        .stat-item .value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #fa709a;
         }
-        .stats-box p {
-            margin: 5px 0 0 0;
-            font-size: 0.9rem;
-            opacity: 0.9;
+        
+        .stat-item .label {
+            font-size: 0.8rem;
+            color: #6c757d;
         }
-        .threshold-selector {
-            margin: 15px 0;
+        
+        .control-buttons {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000;
         }
-        .threshold-selector label {
-            font-size: 0.9rem;
-            color: #666;
-            margin-bottom: 5px;
-            display: block;
+        
+        .control-buttons .btn {
+            border-radius: 50px;
+            padding: 12px 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
-        .threshold-selector input {
-            width: 100%;
+        
+        .progress-info {
+            position: fixed;
+            top: 100px;
+            left: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            min-width: 250px;
+        }
+        
+        @media (max-width: 768px) {
+            .route-panel {
+                position: relative;
+                right: auto;
+                top: auto;
+                width: 100%;
+                margin: 20px 0;
+                max-height: none;
+            }
+            
+            .control-buttons {
+                bottom: 10px;
+                right: 10px;
+            }
+            
+            .progress-info {
+                position: relative;
+                top: auto;
+                left: auto;
+                margin: 10px;
+            }
         }
     </style>
 </head>
 <body>
+    <!-- Шапка -->
     <div class="top-bar">
-        <h4><i class="fas fa-truck"></i> Режим мусоровоза</h4>
-        <a href="role-select.html" class="btn-back"><i class="fas fa-arrow-left"></i> Назад</a>
+        <h4><i class="fas fa-truck"></i> Маршрут мусоровоза</h4>
+        <div>
+            <a href="index.html" class="btn-back">
+                <i class="fas fa-arrow-left"></i> На главную
+            </a>
+        </div>
     </div>
 
-    <div id="map"></div>
+    <!-- Карта -->
+    <div id="map" style="height: 100vh; width: 100%;"></div>
+
+    <!-- Информация о прогрессе -->
+    <div class="progress-info">
+        <h6><i class="fas fa-route"></i> Прогресс маршрута</h6>
+        <div class="progress mb-2">
+            <div class="progress-bar" role="progressbar" style="width: 0%; background: linear-gradient(90deg, #fa709a, #fee140);" id="routeProgress">
+                0%
+            </div>
+        </div>
+        <small class="text-muted">Обработано: <span id="processedCount">0</span> из <span id="totalCount">0</span></small>
+    </div>
+
+    <!-- Панель маршрутов -->
+    <div class="route-panel">
+        <h6><i class="fas fa-list"></i> Контейнеры для сбора</h6>
+        <div id="containerList">
+            <div class="text-center text-muted">
+                <div class="spinner-border spinner-border-sm" role="status">
+                    <span class="visually-hidden">Загрузка...</span>
+                </div>
+                <p class="mt-2">Загрузка маршрута...</p>
+            </div>
+        </div>
+        
+        <div class="route-stats">
+            <div class="stat-item">
+                <div class="value" id="totalDistance">0</div>
+                <div class="label">км</div>
+            </div>
+            <div class="stat-item">
+                <div class="value" id="estimatedTime">0</div>
+                <div class="label">минут</div>
+            </div>
+            <div class="stat-item">
+                <div class="value" id="totalContainers">0</div>
+                <div class="label">контейнеров</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Кнопки управления -->
+    <div class="control-buttons">
+        <button class="btn btn-primary" id="startRouteBtn">
+            <i class="fas fa-play"></i> Начать маршрут
+        </button>
+        <button class="btn btn-success" id="nextContainerBtn">
+            <i class="fas fa-arrow-right"></i> Следующий
+        </button>
+        <button class="btn btn-secondary" id="clearRouteBtn">
+            <i class="fas fa-eraser"></i> Очистить
+        </button>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
-    <div class="controls">
-        <div class="stats-box">
-            <h3 id="containerCount">0</h3>
-            <p>Контейнеров требуют вывоза</p>
-        </div>
-
-        <h5><i class="fas fa-route"></i> Построение маршрута</h5>
-        
-        <div class="threshold-selector">
-            <label for="fillThreshold">Порог заполненности: <span id="thresholdValue">50</span>%</label>
-            <input type="range" class="form-range" id="fillThreshold" min="30" max="90" value="50" oninput="updateThreshold(this.value)">
-        </div>
-
-        <button class="btn btn-custom btn-build-route" onclick="buildOptimalRoute()">
-            <i class="fas fa-map-marked-alt"></i> Построить оптимальный маршрут
-        </button>
-        <button class="btn btn-custom btn-secondary" onclick="clearRoute()">
-            <i class="fas fa-times"></i> Очистить маршрут
-        </button>
-        
-        <div id="routeInfo" class="route-info" style="display: none;">
-            <h6><i class="fas fa-info-circle"></i> Информация о маршруте</h6>
-            <p id="routeDistance"></p>
-            <p id="routeDuration"></p>
-        </div>
-
-        <div id="containerList" class="container-list"></div>
-    </div>
-
-    <script>
-        let map;
-        let routeLine = null;
-        let containers = [];
-        let fillThreshold = 50;
-
-        function initMap() {
-            ymaps.ready(function() {
-                map = new ymaps.Map("map", {
-                    center: [55.753, 48.743],
-                    zoom: 13,
-                    controls: ['zoomControl', 'typeSelector', 'fullscreenControl']
-                });
-
-                loadContainers();
-            });
-        }
-
-        async function loadContainers() {
-            try {
-                const response = await fetch('/api/map/geojson');
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                
-                const data = await response.json();
-                if (!data || !data.features) throw new Error('Invalid data format');
-
-                containers = [];
-                data.features.forEach(feature => {
-                    const coords = feature.geometry.coordinates;
-                    const props = feature.properties;
-                    if (!props.containers || props.containers.length === 0) return;
-
-                    // Add all containers from cluster to list
-                    props.containers.forEach(c => {
-                        containers.push({
-                            id: c.id,
-                            lat: c.lat,
-                            lon: c.lon,
-                            fill: c.fill_percent,
-                            address: c.address
-                        });
-                    });
-
-                    // Determine color based on average fill
-                    const avgFill = props.is_cluster ? props.avg_fill_percent : props.containers[0].fill_percent;
-                    let fillColor = '#28a745';
-                    if (avgFill >= 70) fillColor = '#dc3545';
-                    else if (avgFill >= 50) fillColor = '#ffc107';
-
-                    let iconSvg, balloonHeader, balloonBody, hintContent;
-
-                    // Unified design for all containers (single or cluster)
-                    const containerCount = props.container_count;
-                    const iconSize = 60; // Increased size
-                    
-                    // Beautiful cluster/container icon
-                    iconSvg = `
-                        <svg width="${iconSize}" height="${iconSize}" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
-                            <defs>
-                                <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-                                    <feGaussianBlur in="SourceAlpha" stdDeviation="2.5"/>
-                                    <feOffset dx="0" dy="3" result="offsetblur"/>
-                                    <feComponentTransfer><feFuncA type="linear" slope="0.4"/></feComponentTransfer>
-                                    <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
-                                </filter>
-                            </defs>
-                            <!-- Background circle -->
-                            <circle cx="30" cy="30" r="26" fill="${fillColor}" opacity="0.2"/>
-                            <circle cx="30" cy="30" r="24" fill="white" stroke="${fillColor}" stroke-width="3" filter="url(#shadow)"/>
-                            <!-- Trash bins group -->
-                            <g transform="translate(30, 30)">
-                                <!-- Left bin -->
-                                <rect x="-14" y="-7" width="9" height="12" rx="1" fill="${fillColor}" opacity="0.8"/>
-                                <rect x="-14" y="-9" width="9" height="2.5" rx="1" fill="${fillColor}"/>
-                                <line x1="-11" y1="-7" x2="-11" y2="3" stroke="white" stroke-width="1.2"/>
-                                <!-- Center bin -->
-                                <rect x="-4.5" y="-9" width="9" height="14" rx="1" fill="${fillColor}"/>
-                                <rect x="-4.5" y="-11" width="9" height="2.5" rx="1" fill="${fillColor}"/>
-                                <line x1="-2" y1="-9" x2="-2" y2="3" stroke="white" stroke-width="1.2"/>
-                                <line x1="2" y1="-9" x2="2" y2="3" stroke="white" stroke-width="1.2"/>
-                                <!-- Right bin -->
-                                <rect x="5" y="-7" width="9" height="12" rx="1" fill="${fillColor}" opacity="0.8"/>
-                                <rect x="5" y="-9" width="9" height="2.5" rx="1" fill="${fillColor}"/>
-                                <line x1="8" y1="-7" x2="8" y2="3" stroke="white" stroke-width="1.2"/>
-                            </g>
-                            <!-- Count badge -->
-                            <circle cx="46" cy="14" r="10" fill="#ff6b6b" stroke="white" stroke-width="2.5"/>
-                            <text x="46" y="19" text-anchor="middle" fill="white" font-size="11" font-weight="bold">${containerCount}</text>
-                        </svg>
-                    `;
-
-                    const containersList = props.containers.map(c => `
-                        <div style="padding: 8px; margin: 5px 0; background: #f8f9fa; border-radius: 5px; border-left: 3px solid ${c.fill_percent >= 70 ? '#dc3545' : c.fill_percent >= 50 ? '#ffc107' : '#28a745'};">
-                            <strong>🗑️ ${c.id}</strong><br>
-                            Заполнение: <strong>${c.fill_percent}%</strong>
-                        </div>
-                    `).join('');
-
-                    // Progress bar for fill percentage
-                    const fillPercentage = props.avg_fill_percent;
-                    const progressBarColor = fillPercentage >= 70 ? '#dc3545' : fillPercentage >= 50 ? '#ffc107' : '#28a745';
-                    
-                    balloonHeader = `<b>📍 ${props.is_cluster ? 'Площадка' : 'Контейнер'} (${containerCount} ${containerCount === 1 ? 'контейнер' : 'контейнера'})</b>`;
-                    balloonBody = `
-                        <div style="padding: 10px; max-height: 400px; overflow-y: auto;">
-                            <p><strong>📍 Адрес:</strong> ${props.address}</p>
-                            <div style="margin: 15px 0;">
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                                    <span style="font-weight: 600;">Заполненность:</span>
-                                    <span style="font-weight: 700; color: ${progressBarColor};">${fillPercentage}%</span>
-                                </div>
-                                <div style="width: 100%; height: 24px; background: #e9ecef; border-radius: 12px; overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
-                                    <div style="width: ${fillPercentage}%; height: 100%; background: linear-gradient(90deg, ${progressBarColor}, ${progressBarColor}dd); transition: width 0.3s ease; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px;">
-                                        ${fillPercentage > 15 ? fillPercentage + '%' : ''}
-                                    </div>
-                                </div>
-                            </div>
-                            <hr>
-                            <h6><strong>Контейнеры на площадке:</strong></h6>
-                            ${containersList}
-                        </div>
-                    `;
-                    hintContent = `${props.is_cluster ? 'Площадка' : 'Контейнер'}: ${containerCount} ${containerCount === 1 ? 'контейнер' : 'контейнеров'}, ${fillPercentage}%`;
-                    const placemark = new ymaps.Placemark(
-                        [coords[1], coords[0]],
-                        {
-                            balloonContentHeader: balloonHeader,
-                            balloonContentBody: balloonBody,
-                            hintContent: hintContent
-                        },
-                        {
-                            iconLayout: 'default#image',
-                            iconImageHref: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSvg),
-                            iconImageSize: [iconSize, iconSize],
-                            iconImageOffset: [-iconSize/2, -iconSize/2]
-                        }
-                    );
-
-                    map.geoObjects.add(placemark);
-                });
-
-                updateContainerCount();
-                console.log(`Загружено ${containers.length} контейнеров`);
-            } catch (error) {
-                console.error('Ошибка загрузки данных:', error);
-                alert('Не удалось загрузить данные о контейнерах');
-            }
-        }
-
-        function updateThreshold(value) {
-            fillThreshold = parseInt(value);
-            document.getElementById('thresholdValue').textContent = value;
-            updateContainerCount();
-        }
-
-        function updateContainerCount() {
-            const needCollection = containers.filter(c => c.fill >= fillThreshold);
-            document.getElementById('containerCount').textContent = needCollection.length;
-        }
-
-        async function buildOptimalRoute() {
-            const needCollection = containers.filter(c => c.fill >= fillThreshold);
-            
-            if (needCollection.length === 0) {
-                alert('Нет контейнеров, требующих вывоза с текущим порогом');
-                return;
-            }
-
-            // Sort by fill percentage (highest first - priority)
-            needCollection.sort((a, b) => b.fill - a.fill);
-
-            // Build waypoints
-            const waypoints = needCollection.map(c => [c.lat, c.lon]);
-
-            try {
-                // Use API to get optimal route
-                const response = await fetch('/api/logistics/route', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        container_ids: needCollection.map(c => c.id),
-                        threshold: fillThreshold
-                    })
-                });
-
-                if (response.ok) {
-                    const routeData = await response.json();
-                    displayOptimizedRoute(routeData, needCollection);
-                } else {
-                    // Fallback: simple route through all points
-                    displaySimpleRoute(waypoints, needCollection);
-                }
-            } catch (error) {
-                console.error('API route error, using fallback:', error);
-                displaySimpleRoute(waypoints, needCollection);
-            }
-        }
-
-        function displaySimpleRoute(waypoints, containers) {
-            if (waypoints.length === 0) return;
-
-            ymaps.route(waypoints, {
-                mapStateAutoApply: true,
-                routingMode: 'auto'
-            }).then(route => {
-                if (routeLine) {
-                    map.geoObjects.remove(routeLine);
-                }
-                
-                route.getPaths().options.set({
-                    strokeColor: '#43e97b',
-                    strokeWidth: 5,
-                    opacity: 0.8
-                });
-
-                map.geoObjects.add(route);
-                routeLine = route;
-
-                const distance = route.getLength() / 1000; // km
-                const duration = route.getTime() / 60; // minutes
-
-                displayRouteInfo(distance, duration, containers);
-            }).catch(error => {
-                console.error('Ошибка построения маршрута:', error);
-                alert('Не удалось построить маршрут. Попробуйте уменьшить количество точек.');
-            });
-        }
-
-        function displayOptimizedRoute(routeData, containers) {
-            // Display route from API response
-            const waypoints = routeData.optimized_waypoints_order.map(id => {
-                const container = containers.find(c => c.id === id);
-                return [container.lat, container.lon];
-            });
-
-            displaySimpleRoute(waypoints, containers);
-        }
-
-        function displayRouteInfo(distance, duration, containers) {
-            document.getElementById('routeDistance').innerHTML = 
-                `<strong>Расстояние:</strong> ${distance.toFixed(2)} км`;
-            document.getElementById('routeDuration').innerHTML = 
-                `<strong>Время в пути:</strong> ~${Math.round(duration)} мин`;
-            document.getElementById('routeInfo').style.display = 'block';
-
-            let listHtml = '<h6 style="margin-top: 20px;"><i class="fas fa-list"></i> Контейнеры на маршруте:</h6>';
-            containers.forEach((c, index) => {
-                const className = c.fill >= 70 ? '' : 'medium';
-                listHtml += `
-                    <div class="container-item ${className}">
-                        <strong>${index + 1}. ${c.id}</strong><br>
-                        ${c.address}<br>
-                        Заполненность: ${c.fill}%
-                    </div>
-                `;
-            });
-            document.getElementById('containerList').innerHTML = listHtml;
-        }
-
-        function clearRoute() {
-            if (routeLine) {
-                map.geoObjects.remove(routeLine);
-                routeLine = null;
-            }
-            document.getElementById('routeInfo').style.display = 'none';
-            document.getElementById('containerList').innerHTML = '';
-        }
-
-        initMap();
-    </script>
+    <!-- Общие утилиты -->
+    <script src="static/js/common.js"></script>
+    
+    <!-- Утилиты для карт -->
+    <script src="static/js/map-utils.js"></script>
+    
+    <!-- Специфичные скрипты -->
+    <script src="static/js/truck.js"></script>
 </body>
 </html>
