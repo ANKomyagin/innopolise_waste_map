@@ -7,7 +7,7 @@ services:
       context: .
       dockerfile: Dockerfile.prod
     ports:
-      - "8000:8000"
+      - "8001:8000"
     environment:
       - DATABASE_URL=postgresql://waste_user:waste_password@postgres:5432/waste_db
       - BOT_TOKEN=${BOT_TOKEN}
