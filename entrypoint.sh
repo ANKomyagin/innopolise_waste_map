@@ -7,7 +7,7 @@ echo "🚀 Starting Innopolis Waste Management System..."
 
 # Wait for PostgreSQL to be ready
 echo "⏳ Waiting for PostgreSQL..."
-until pg_isready -h postgres -p 5432 -U waste_user 2>/dev/null; do
+until pg_isready -h postgres -p 5432 -U waste_user -d waste_db 2>/dev/null; do
   echo "PostgreSQL is unavailable - sleeping"
   sleep 2
 done
