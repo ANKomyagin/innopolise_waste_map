@@ -17,7 +17,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # FastAPI app initialization
-app = FastAPI(title="Innopolis Smart Waste API")
+app = FastAPI(
+    title="Innopolis Smart Waste API",
+    description="API для управления системой умных мусорных контейнеров в Иннополисе",
+    version="1.0.0",
+    openapi_version="3.1.0"
+)
 
 # CORS middleware
 app.add_middleware(

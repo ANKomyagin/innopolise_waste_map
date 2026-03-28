@@ -13,8 +13,16 @@ templates = Jinja2Templates(directory=template_dir)
 
 
 @router.get("/")
-async def serve_frontend(request: Request):
-    """Serve main frontend page"""
+async def serve_landing_page(request: Request):
+    """Serve landing page with guest access and login"""
+    return templates.TemplateResponse("landing.html", {
+        "request": request
+    })
+
+
+@router.get("/map")
+async def serve_map_page(request: Request):
+    """Serve full map page (old index.html)"""
     return templates.TemplateResponse("index.html", {
         "request": request,
         "YANDEX_API_KEY": settings.YANDEX_API_KEY,
