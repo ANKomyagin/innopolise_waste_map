@@ -3,7 +3,7 @@
 ## Обзор проекта
 Система управления отходами для города Иннополис с веб-интерфейсом, Telegram ботом и интеграцией с Яндекс.Картами.
 
-**Дата генерации:** 2026-03-28 11:20:54
+**Дата генерации:** 2026-03-28 12:13:07
 **Корневая директория:** c:\Users\Andrey\Desktop\pythonProjectS\innopolis_waste_map
 
 ## Структура проекта
@@ -14,31 +14,26 @@ innopolis_waste_map/
 │   │   ├── dependencies.py
 │   │   ├── integration
 │   │   │   └── digital_twin.py
-│   │   ├── routers
-│   │   │   ├── __init__.py
-│   │   │   ├── analytics.py
-│   │   │   ├── containers.py
-│   │   │   ├── frontend.py
-│   │   │   ├── logistics.py
-│   │   │   ├── map.py
-│   │   │   ├── sensors.py
-│   │   │   └── telegram.py
-│   │   └── routers.py
+│   │   └── routers
+│   │       ├── __init__.py
+│   │       ├── analytics.py
+│   │       ├── containers.py
+│   │       ├── frontend.py
+│   │       ├── logistics.py
+│   │       ├── map.py
+│   │       ├── sensors.py
+│   │       └── telegram.py
 │   ├── config
 │   │   ├── __init__.py
 │   │   └── settings.py
 │   ├── core
 │   │   ├── auth.py
-│   │   ├── config.py
 │   │   ├── dependencies.py
 │   │   └── interfaces.py
 │   ├── domain
-│   │   ├── exceptions.py
 │   │   └── models.py
 │   ├── frontend
-│   │   ├── index_clean.html
-│   │   ├── index_template.html
-│   │   └── template.py
+│   │   └── index.html
 │   ├── infrastructure
 │   │   ├── database
 │   │   │   ├── database.py
@@ -52,16 +47,15 @@ innopolis_waste_map/
 │   │   │   └── yandex_router.py
 │   │   └── telegram
 │   │       ├── bot.py
-│   │       ├── notifier.py
-│   │       └── tg_parser.py
+│   │       └── notifier.py
 │   ├── main.py
 │   └── services
 │       ├── analytics.py
-│       ├── logistics.py
 │       └── sensor_pipeline.py
 ├── deploy.sh
 ├── DEPLOYMENT_SUMMARY.md
 ├── docker-compose.prod.yml
+├── entrypoint.sh
 ├── frontend
 │   ├── admin.html
 │   ├── index.html
@@ -72,6 +66,11 @@ innopolis_waste_map/
 ├── generate_project_docs.py
 ├── get_project.py
 ├── init.sql
+├── migrations
+│   ├── env.py
+│   ├── README.md
+│   └── versions
+│       └── 0c5b7630f966_initial_migration_create_containers_.py
 ├── nginx.conf
 ├── project_documentation.txt
 └── requirements.txt
@@ -310,7 +309,7 @@ templates = Jinja2Templates(directory=template_dir)
 @router.get("/")
 async def serve_frontend(request: Request):
     """Serve main frontend page"""
-    return templates.TemplateResponse("index_template.html", {
+    return templates.TemplateResponse("index.html", {
         "request": request,
         "YANDEX_API_KEY": settings.YANDEX_API_KEY,
         "DEFAULT_LAT": settings.DEFAULT_LAT,
@@ -641,11 +640,6 @@ async def set_webhook(request: Request):
 
 ```
 
-### app/api/routers.py
-```
-
-```
-
 ### app/config/__init__.py
 ```
 # app/config/__init__.py
@@ -658,6 +652,10 @@ async def set_webhook(request: Request):
 import os
 import logging
 from typing import Optional
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -745,11 +743,6 @@ async def verify_admin_key(api_key: str = Security(api_key_header)):
             detail="Invalid or missing API key"
         )
     return api_key
-
-```
-
-### app/core/config.py
-```
 
 ```
 
@@ -844,11 +837,6 @@ class NotificationService(ABC):
 
 ```
 
-### app/domain/exceptions.py
-```
-
-```
-
 ### app/domain/models.py
 ```
 from pydantic import BaseModel, Field
@@ -888,114 +876,7 @@ class WebhookPayload(BaseModel):
 
 ```
 
-### app/frontend/index_clean.html
-```
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Иннополис Карта Мусора</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <!-- Подключаем API Яндекс Карт -->
-    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey={{ YANDEX_API_KEY }}" type="text/javascript"></script>
-    
-    <style>
-        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
-        #map { height: 100vh; width: 100%; }
-        .controls {
-            position: absolute; top: 10px; right: 10px; z-index: 1000;
-            background: white; padding: 15px; border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 200px;
-        }
-        .legend {
-            position: absolute; bottom: 20px; left: 20px; z-index: 1000;
-            background: white; padding: 15px; border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        .legend-item { display: flex; align-items: center; margin: 8px 0; }
-        .legend-color {
-            width: 16px; height: 16px; margin-right: 10px; border-radius: 50%;
-            border: 2px solid #333;
-        }
-        .btn-custom { margin: 5px 0; width: 100%; }
-        .stats-modal {
-            display: none; position: fixed; top: 0; left: 0;
-            width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000;
-        }
-        .stats-content {
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%); background: white;
-            padding: 30px; border-radius: 10px; min-width: 400px;
-        }
-    </style>
-</head>
-<body>
-    <div id="map"></div>
-    
-    <div class="controls">
-        <h5 class="mb-3">🎛️ Управление</h5>
-        <button class="btn btn-primary btn-custom" onclick="refreshData()">🔄 Обновить данные</button>
-        <button class="btn btn-info btn-custom" onclick="showStats()">📊 Статистика</button>
-        <button class="btn btn-success btn-custom" onclick="centerOnInnopolis()">🏙️ Центр города</button>
-    </div>
-    
-    <div class="legend">
-        <h6 class="mb-2">📋 Легенда</h6>
-        <div class="legend-item">
-            <div class="legend-color" style="background-color: #28a745;"></div>
-            <span>Менее 50% заполнения</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background-color: #ffc107;"></div>
-            <span>50-70% заполнения</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background-color: #dc3545;"></div>
-            <span>Более 70% заполнения</span>
-        </div>
-    </div>
-
-    <div id="statsModal" class="stats-modal">
-        <div class="stats-content">
-            <h5 class="mb-3">📊 Статистика контейнеров</h5>
-            <div id="statsData"></div>
-            <button class="btn btn-secondary mt-3" onclick="closeStats()">Закрыть</button>
-        </div>
-    </div>
-
-    <script>
-        let map;
-        let objects = [];
-        let defaultLat = {{ DEFAULT_LAT }};
-        let defaultLon = {{ DEFAULT_LON }};
-        let defaultZoom = {{ DEFAULT_ZOOM }};
-
-        function initMap() {
-            ymaps.ready(function() {
-                map = new ymaps.Map("map", {
-                    center: [defaultLat, defaultLon],
-                    zoom: defaultZoom,
-                    controls: ['zoomControl', 'searchControl', 'typeSelector', 'fullscreenControl']
-                });
-                map.controls.add('trafficControl');
-                loadContainers();
-            });
-        }
-
-        async function loadContainers() {
-            try {
-                const response = await fetch('/api/map/geojson');
-                const data = await response.json();
-                
-                objects.forEach(obj => map.geoObjects.remove(obj));
-
-... (пропущено 93 строк)
-
-```
-
-### app/frontend/index_template.html
+### app/frontend/index.html
 ```
 <!DOCTYPE html>
 <html lang="ru">
@@ -1099,38 +980,6 @@ class WebhookPayload(BaseModel):
             <div class="legend-color" style="background-color: #28a745;"></div>
 
 ... (пропущено 187 строк)
-
-```
-
-### app/frontend/template.py
-```
-# app/frontend/template.py
-import os
-from app.config.settings import settings
-
-def render_template(template_path: str, **kwargs) -> str:
-    """Простой шаблонизатор для подстановки переменных"""
-    with open(template_path, 'r', encoding='utf-8') as f:
-        content = f.read()
-    
-    # Подстановка переменных
-    replacements = {
-        'YANDEX_API_KEY': settings.YANDEX_API_KEY,
-        'PUBLIC_SERVER_URL': settings.PUBLIC_SERVER_URL,
-        'DEFAULT_LAT': settings.DEFAULT_LAT,
-        'DEFAULT_LON': settings.DEFAULT_LON,
-        'DEFAULT_ZOOM': settings.DEFAULT_ZOOM,
-    }
-    
-    # Добавляем пользовательские переменные
-    replacements.update(kwargs)
-    
-    # Заменяем {{ VARIABLE }} на значения
-    for key, value in replacements.items():
-        content = content.replace('{{ ' + key + ' }}', str(value))
-        content = content.replace('{{' + key + '}}', str(value))
-    
-    return content
 
 ```
 
@@ -1617,107 +1466,6 @@ class TelegramNotifier(NotificationService):
         logger.info(f"[TG БОТ -> {role}]: {message}")
 ```
 
-### app/infrastructure/telegram/tg_parser.py
-```
-# app/infrastructure/telegram/tg_parser.py
-import re
-import os
-import asyncio
-import httpx
-from datetime import datetime
-from aiogram import Bot, Dispatcher, types
-from app.config.settings import settings
-
-# ==========================================
-# ⚙️ НАСТРОЙКИ
-# ==========================================
-BOT_TOKEN = settings.BOT_TOKEN
-API_WEBHOOK_URL = os.getenv("API_WEBHOOK_URL", f"http://api:{settings.PORT}/api/sensors/webhook")
-
-# ==========================================
-# 🧩 РЕГУЛЯРНОЕ ВЫРАЖЕНИЕ ДЛЯ ПАРСИНГА
-# ==========================================
-MESSAGE_PATTERN = re.compile(
-    r'Контейнер "(?P<container_id>[^"]+)",\s*'
-    r'площадка "(?P<address>[^"]+?)\s*",\s*'
-    r'заполнение "(?P<fill_percent>\d+)%",\s*'
-    r'координаты "(?P<coords>[^"]+)",\s*'
-    r'температура (?P<temperature>[^,]+),\s*'
-    r'угол наклона (?P<tilt>[^,]+),\s*'
-    r'заряд батарейки (?P<battery>[^,]+),\s*'
-    r'время отправки (?P<timestamp>\d{2}\.\d{2}\.\d{4} \d{2}:\d{2})'
-)
-
-# Инициализируем бота и диспетчер
-bot = Bot(token=BOT_TOKEN) if BOT_TOKEN else None
-dp = Dispatcher()
-
-
-async def send_to_api(payload: dict):
-    """Отправляет распарсенные данные в наше ядро FastAPI"""
-    async with httpx.AsyncClient() as http_client:
-        try:
-            response = await http_client.post(API_WEBHOOK_URL, json=payload)
-            response.raise_for_status()
-            print(f"✅ Успешно отправлено в API: Контейнер {payload['container_id']}")
-        except httpx.HTTPError as e:
-            print(f"❌ Ошибка отправки в API: {e}")
-
-
-# Этот хэндлер будет ловить ВСЕ текстовые сообщения, которые видит бот
-@dp.message()
-async def handle_new_message(message: types.Message):
-    """Слушатель новых сообщений в чате"""
-    # Сообщение может быть просто текстом, а может быть с картинкой (caption)
-    text = message.text or message.caption
-
-    if not text:
-        return
-
-    match = MESSAGE_PATTERN.search(text)
-
-    if match:
-        data = match.groupdict()
-
-        # Преобразуем строку времени (15.03.2026 12:00) в стандартный ISO формат
-        dt_obj = datetime.strptime(data['timestamp'], "%d.%m.%Y %H:%M")
-        iso_timestamp = dt_obj.isoformat()
-
-        # Формируем JSON точно по структуре WebhookPayload
-        payload = {
-            "container_id": data['container_id'],
-            "address": data['address'],
-            "coords": data['coords'],
-            "sensor_data": {
-                "fill_percent": int(data['fill_percent']),
-                "temperature_status": data['temperature'].strip(),
-                "tilt_status": data['tilt'].strip(),
-                "battery_status": data['battery'].strip(),
-                "timestamp": iso_timestamp
-            }
-        }
-
-        print(f"🔍 Распарсены данные для {payload['container_id']}. Отправляю в API...")
-        await send_to_api(payload)
-    else:
-        # Сообщение не подошло под формат датчика
-        pass
-
-
-async def main():
-    print("🚀 Запуск Telegram Парсера (через Bot API)...")
-    if not bot:
-        print("❌ BOT_TOKEN не задан. Парсер не может быть запущен.")
-        return
-    # Запускаем поллинг (бот будет постоянно опрашивать сервера ТГ на наличие новых сообщений)
-    await dp.start_polling(bot)
-
-
-if __name__ == '__main__':
-    asyncio.run(main())
-
-```
-
 ### app/main.py
 ```
 # app/main.py
@@ -1770,14 +1518,11 @@ app.mount("/static", StaticFiles(directory="app/frontend"), name="static")
 @app.on_event("startup")
 async def startup_event():
     """Инициализация сервисов при запуске"""
-    # Database setup (async)
-    try:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        logger.info("✅ Database tables created successfully")
-    except Exception as e:
-        logger.warning(f"⚠️ Database connection failed: {e}")
-        logger.warning("🔄 Continuing without database - some features may not work")
+    # Database migrations are managed by Alembic
+    # Run: alembic upgrade head
+    # NOTE: We no longer use Base.metadata.create_all() to avoid data loss
+    # when schema changes. Use Alembic migrations instead.
+    logger.info("✅ Database ready (migrations managed by Alembic)")
     
     try:
         # Инициализация Telegram бота с таймаутом
@@ -1917,11 +1662,6 @@ class AnalyticsService:
                 })
         
         return alerts
-```
-
-### app/services/logistics.py
-```
-
 ```
 
 ### app/services/sensor_pipeline.py
@@ -2242,6 +1982,35 @@ volumes:
 networks:
   waste_network:
     driver: bridge
+
+```
+
+### entrypoint.sh
+```
+#!/bin/bash
+# Entrypoint script for production deployment
+
+set -e
+
+echo "🚀 Starting Innopolis Waste Management System..."
+
+# Wait for PostgreSQL to be ready
+echo "⏳ Waiting for PostgreSQL..."
+until pg_isready -h postgres -p 5432 -U waste_user -d waste_db 2>/dev/null; do
+  echo "PostgreSQL is unavailable - sleeping"
+  sleep 2
+done
+
+echo "✅ PostgreSQL is ready!"
+
+# Run database migrations
+echo "🔄 Running database migrations..."
+alembic upgrade head || echo "⚠️ Migration failed, continuing anyway..."
+echo "✅ Database ready!"
+
+# Start the application
+echo "🎯 Starting FastAPI application..."
+exec uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 ```
 
@@ -3046,6 +2815,245 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 ```
 
+### migrations/env.py
+```
+from logging.config import fileConfig
+import asyncio
+import os
+from dotenv import load_dotenv
+
+from sqlalchemy import pool
+from sqlalchemy.ext.asyncio import create_async_engine
+
+from alembic import context
+
+# Load environment variables
+load_dotenv()
+
+# this is the Alembic Config object, which provides
+# access to the values within the .ini file in use.
+config = context.config
+
+# Interpret the config file for Python logging.
+# This line sets up loggers basically.
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+# add your model's MetaData object here
+# for 'autogenerate' support
+from app.infrastructure.database.database import Base
+from app.infrastructure.database.models import DBContainer  # Import models to register them
+
+target_metadata = Base.metadata
+
+# other values from the config, defined by the needs of env.py,
+# can be acquired:
+# my_important_option = config.get_main_option("my_important_option")
+# ... etc.
+
+
+def run_migrations_offline() -> None:
+    """Run migrations in 'offline' mode.
+
+    This configures the context with just a URL
+    and not an Engine, though an Engine is acceptable
+    here as well.  By skipping the Engine creation
+    we don't even need a DBAPI to be available.
+
+    Calls to context.execute() here emit the given string to the
+    script output.
+
+    """
+    # Get URL from environment variable
+    url = os.getenv("DATABASE_URL", "postgresql://waste_user:waste_password@postgres:5432/waste_db")
+    # Convert to async format
+    url = url.replace("postgresql://", "postgresql+asyncpg://")
+    
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+    )
+
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def do_run_migrations(connection):
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata
+    )
+
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+async def run_async_migrations():
+    """Run migrations in 'online' mode with async engine."""
+    # Get URL from environment variable
+    url = os.getenv("DATABASE_URL", "postgresql://waste_user:waste_password@postgres:5432/waste_db")
+    # Convert to async format
+    url = url.replace("postgresql://", "postgresql+asyncpg://")
+    
+    connectable = create_async_engine(
+        url,
+        poolclass=pool.NullPool,
+    )
+
+    async with connectable.connect() as connection:
+        await connection.run_sync(do_run_migrations)
+
+    await connectable.dispose()
+
+
+def run_migrations_online() -> None:
+    """Run migrations in 'online' mode."""
+    asyncio.run(run_async_migrations())
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()
+
+```
+
+### migrations/README.md
+```
+# Database Migrations with Alembic
+
+This directory contains database migrations managed by Alembic.
+
+## Why Alembic?
+
+Previously, we used `Base.metadata.create_all()` which only creates tables if they don't exist. This approach has a critical flaw: **it cannot modify existing tables**. If you need to add a new column (e.g., "waste_type" for plastic/paper), you would have to delete the entire database and lose all data!
+
+Alembic solves this by tracking schema changes incrementally, allowing you to:
+- Add/remove columns without data loss
+- Modify column types
+- Add indexes and constraints
+- Rollback changes if needed
+
+## Common Commands
+
+### Apply migrations (run this after deployment)
+```bash
+alembic upgrade head
+```
+
+### Create a new migration after model changes
+```bash
+alembic revision --autogenerate -m "Add waste_type column"
+```
+
+### Rollback last migration
+```bash
+alembic downgrade -1
+```
+
+### View migration history
+```bash
+alembic history
+```
+
+### Check current database version
+```bash
+alembic current
+```
+
+## Deployment Workflow
+
+1. **Develop locally**: Make changes to models in `app/infrastructure/database/models.py`
+2. **Create migration**: `alembic revision --autogenerate -m "Description"`
+3. **Review migration**: Check the generated file in `migrations/versions/`
+4. **Test locally**: `alembic upgrade head`
+5. **Commit to Git**: Include the migration file
+6. **Deploy to server**: 
+   ```bash
+   git pull
+   alembic upgrade head
+   docker-compose restart app
+   ```
+
+## Important Notes
+
+- **Never delete migration files** - they are the history of your database
+- **Always review autogenerated migrations** - Alembic might miss some changes
+- **Test migrations on a copy of production data** before applying to production
+- **Migrations run automatically in Docker** via the startup script
+
+## Example: Adding a New Field
+
+1. Edit `app/infrastructure/database/models.py`:
+```python
+class DBContainer(Base):
+    __tablename__ = "containers"
+    
+    id = Column(String, primary_key=True, index=True)
+    address = Column(String)
+    coords = Column(String)
+    sensor_data = Column(JSON, nullable=True)
+    waste_type = Column(String, default="mixed")  # NEW FIELD
+```
+
+2. Create migration:
+```bash
+alembic revision --autogenerate -m "Add waste_type column to containers"
+```
+
+3. Apply migration:
+```bash
+alembic upgrade head
+```
+
+Done! Your existing data is preserved, and all containers now have a `waste_type` field.
+
+```
+
+### migrations/versions/0c5b7630f966_initial_migration_create_containers_.py
+```
+"""Initial migration: create containers table
+
+Revision ID: 0c5b7630f966
+Revises: 
+Create Date: 2026-03-28 11:54:52.467917
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
+
+# revision identifiers, used by Alembic.
+revision: str = '0c5b7630f966'
+down_revision: Union[str, Sequence[str], None] = None
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    """Upgrade schema."""
+    op.create_table(
+        'containers',
+        sa.Column('id', sa.String(), nullable=False),
+        sa.Column('address', sa.String(), nullable=True),
+        sa.Column('coords', sa.String(), nullable=True),
+        sa.Column('sensor_data', sa.JSON(), nullable=True),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_containers_id'), 'containers', ['id'], unique=False)
+
+
+def downgrade() -> None:
+    """Downgrade schema."""
+    op.drop_index(op.f('ix_containers_id'), table_name='containers')
+    op.drop_table('containers')
+
+```
+
 ### nginx.conf
 ```
 # Nginx configuration for production
@@ -3106,7 +3114,7 @@ http {
 ## Обзор проекта
 Система управления отходами для города Иннополис с веб-интерфейсом, Telegram ботом и интеграцией с Яндекс.Картами.
 
-**Дата генерации:** 2026-03-28 10:54:34
+**Дата генерации:** 2026-03-28 11:20:54
 **Корневая директория:** c:\Users\Andrey\Desktop\pythonProjectS\innopolis_waste_map
 
 ## Структура проекта
@@ -3131,6 +3139,7 @@ innopolis_waste_map/
 │   │   ├── __init__.py
 │   │   └── settings.py
 │   ├── core
+│   │   ├── auth.py
 │   │   ├── config.py
 │   │   ├── dependencies.py
 │   │   └── interfaces.py
@@ -3162,6 +3171,7 @@ innopolis_waste_map/
 │       ├── logistics.py
 │       └── sensor_pipeline.py
 ├── deploy.sh
+├── DEPLOYMENT_SUMMARY.md
 ├── docker-compose.prod.yml
 ├── frontend
 │   ├── admin.html
@@ -3199,10 +3209,8 @@ def get_routing_provider():
     return services["routing_provider"]
 
 def get_sensor_pipeline():
-    return services["sensor_pipeline"]
-```
 
-... (пропущено 2955 строк)
+... (пропущено 3122 строк)
 
 ```
 
@@ -3219,4 +3227,6 @@ qrcode[pil]
 aiohttp
 jinja2
 python-multipart
+python-dotenv
+alembic
 ```

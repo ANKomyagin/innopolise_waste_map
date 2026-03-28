@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List
 from app.api.dependencies import get_db_repo
-from app.core.auth import verify_admin_key
+from app.core.auth import verify_admin
 
 router = APIRouter(prefix="/api/containers", tags=["containers"])
 
@@ -48,7 +48,7 @@ async def get_containers(db_repo = Depends(get_db_repo)):
 async def create_container(
     data: NewContainer, 
     db_repo = Depends(get_db_repo),
-    _: str = Depends(verify_admin_key)
+    current_user: dict = Depends(verify_admin)
 ):
     """Create a new container (admin only)"""
     await db_repo.upsert_container(
@@ -65,7 +65,7 @@ async def edit_container(
     container_id: str, 
     data: EditContainer, 
     db_repo = Depends(get_db_repo),
-    _: str = Depends(verify_admin_key)
+    current_user: dict = Depends(verify_admin)
 ):
     """Edit container information (admin only)"""
     success = await db_repo.edit_container(container_id, data.address, data.coords)
@@ -78,7 +78,7 @@ async def edit_container(
 async def delete_container(
     container_id: str, 
     db_repo = Depends(get_db_repo),
-    _: str = Depends(verify_admin_key)
+    current_user: dict = Depends(verify_admin)
 ):
     """Delete a container (admin only)"""
     success = await db_repo.delete_container(container_id)

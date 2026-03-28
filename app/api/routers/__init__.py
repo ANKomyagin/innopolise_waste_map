@@ -1,6 +1,6 @@
 # app/api/routers/__init__.py
 from fastapi import APIRouter
-from app.api.routers import containers, sensors, logistics, analytics, map, frontend, telegram
+from app.api.routers import containers, sensors, logistics, analytics, map, frontend, telegram, auth
 from app.api.integration import digital_twin
 
 
@@ -9,6 +9,7 @@ def create_api_router():
     api_router = APIRouter()
     
     # Include all sub-routers
+    api_router.include_router(auth.router)  # Authentication must be first
     api_router.include_router(containers.router)
     api_router.include_router(sensors.router)
     api_router.include_router(logistics.router)
