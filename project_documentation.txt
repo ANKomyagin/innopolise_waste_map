@@ -3,7 +3,7 @@
 ## Обзор проекта
 Система управления отходами для города Иннополис с веб-интерфейсом, Telegram ботом и интеграцией с Яндекс.Картами.
 
-**Дата генерации:** 2026-03-28 10:54:34
+**Дата генерации:** 2026-03-28 11:20:54
 **Корневая директория:** c:\Users\Andrey\Desktop\pythonProjectS\innopolis_waste_map
 
 ## Структура проекта
@@ -28,6 +28,7 @@ innopolis_waste_map/
 │   │   ├── __init__.py
 │   │   └── settings.py
 │   ├── core
+│   │   ├── auth.py
 │   │   ├── config.py
 │   │   ├── dependencies.py
 │   │   └── interfaces.py
@@ -59,6 +60,7 @@ innopolis_waste_map/
 │       ├── logistics.py
 │       └── sensor_pipeline.py
 ├── deploy.sh
+├── DEPLOYMENT_SUMMARY.md
 ├── docker-compose.prod.yml
 ├── frontend
 │   ├── admin.html
@@ -167,7 +169,7 @@ router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 @router.get("/dashboard")
 async def get_dashboard(db_repo = Depends(get_db_repo)):
     """Get dashboard statistics for city administration"""
-    containers = db_repo.get_all()
+    containers = await db_repo.get_all()
     
     # Фильтруем только те, у которых есть данные датчиков
     active_containers = [c for c in containers if c.sensor_data]
@@ -204,6 +206,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List
 from app.api.dependencies import get_db_repo
+from app.core.auth import verify_admin_key
 
 router = APIRouter(prefix="/api/containers", tags=["containers"])
 
@@ -229,11 +232,11 @@ class ContainerResponse(BaseModel):
 @router.get("/", response_model=List[ContainerResponse])
 async def get_containers(db_repo = Depends(get_db_repo)):
     """Get all containers with their current fill status"""
-    containers = db_repo.get_all()
+    containers = await db_repo.get_all()
     
     result = []
     for c in containers:
-        lat, lon = map(float, c.coords.split(','))
+        lat, lon = c.lat_lon
         result.append({
             "id": c.id,
             "lat": lat,
@@ -245,9 +248,13 @@ async def get_containers(db_repo = Depends(get_db_repo)):
 
 
 @router.post("/")
-async def create_container(data: NewContainer, db_repo = Depends(get_db_repo)):
-    """Create a new container (mayor role)"""
-    db_repo.upsert_container(
+async def create_container(
+    data: NewContainer, 
+    db_repo = Depends(get_db_repo),
+    _: str = Depends(verify_admin_key)
+):
+    """Create a new container (admin only)"""
+    await db_repo.upsert_container(
         container_id=data.id,
         address=data.address,
         coords=data.coords,
@@ -257,18 +264,27 @@ async def create_container(data: NewContainer, db_repo = Depends(get_db_repo)):
 
 
 @router.put("/{container_id}")
-async def edit_container(container_id: str, data: EditContainer, db_repo = Depends(get_db_repo)):
-    """Edit container information"""
-    success = db_repo.edit_container(container_id, data.address, data.coords)
+async def edit_container(
+    container_id: str, 
+    data: EditContainer, 
+    db_repo = Depends(get_db_repo),
+    _: str = Depends(verify_admin_key)
+):
+    """Edit container information (admin only)"""
+    success = await db_repo.edit_container(container_id, data.address, data.coords)
     if not success:
         raise HTTPException(status_code=404, detail="Container not found")
     return {"status": "ok"}
 
 
 @router.delete("/{container_id}")
-async def delete_container(container_id: str, db_repo = Depends(get_db_repo)):
-    """Delete a container"""
-    success = db_repo.delete_container(container_id)
+async def delete_container(
+    container_id: str, 
+    db_repo = Depends(get_db_repo),
+    _: str = Depends(verify_admin_key)
+):
+    """Delete a container (admin only)"""
+    success = await db_repo.delete_container(container_id)
     if not success:
         raise HTTPException(status_code=404, detail="Container not found")
     return {"status": "ok"}
@@ -278,38 +294,38 @@ async def delete_container(container_id: str, db_repo = Depends(get_db_repo)):
 ### app/api/routers/frontend.py
 ```
 # app/api/routers/frontend.py
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 import os
-from app.frontend.template import render_template
+from app.config.settings import settings
 
 router = APIRouter(tags=["frontend"])
 
+# Setup Jinja2 templates
+template_dir = os.path.join(os.path.dirname(__file__), "..", "..", "frontend")
+templates = Jinja2Templates(directory=template_dir)
+
 
 @router.get("/")
-async def serve_frontend():
+async def serve_frontend(request: Request):
     """Serve main frontend page"""
-    frontend_path = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "index_template.html")
-    
-    if not os.path.exists(frontend_path):
-        return HTMLResponse(content="<h1>Frontend not found</h1>", status_code=404)
-    
-    content = render_template(frontend_path)
-    return HTMLResponse(content=content)
+    return templates.TemplateResponse("index_template.html", {
+        "request": request,
+        "YANDEX_API_KEY": settings.YANDEX_API_KEY,
+        "DEFAULT_LAT": settings.DEFAULT_LAT,
+        "DEFAULT_LON": settings.DEFAULT_LON,
+        "DEFAULT_ZOOM": settings.DEFAULT_ZOOM,
+        "PUBLIC_SERVER_URL": settings.PUBLIC_SERVER_URL
+    })
 
 
 @router.get("/qr-scan")
-async def serve_qr_page():
+async def serve_qr_page(request: Request):
     """Serve mobile QR scanning page"""
-    frontend_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "qr_scan.html")
-    
-    if not os.path.exists(frontend_path):
-        return HTMLResponse(content="<h1>QR Scan page not found</h1>", status_code=404)
-    
-    with open(frontend_path, "r", encoding="utf-8") as f:
-        content = f.read()
-    
-    return HTMLResponse(content=content)
+    return templates.TemplateResponse("qr_scan.html", {
+        "request": request
+    })
 
 ```
 
@@ -325,7 +341,7 @@ router = APIRouter(prefix="/api/logistics", tags=["logistics"])
 @router.get("/route")
 async def get_optimal_route(db_repo = Depends(get_db_repo), routing_provider = Depends(get_routing_provider)):
     """Get optimized route for waste collection"""
-    containers = db_repo.get_all()
+    containers = await db_repo.get_all()
     # Берем координаты только переполненных контейнеров
     to_collect = [c.coords for c in containers if c.sensor_data and c.sensor_data.fill_percent >= 70]
     
@@ -364,16 +380,14 @@ def haversine_distance(lat1, lon1, lat2, lon2):
 @router.get("/geojson")
 async def get_map_geojson(db_repo = Depends(get_db_repo)):
     """Get all containers in GeoJSON format with clustering by location"""
-    containers = db_repo.get_all()
+    containers = await db_repo.get_all()
     
     # Group containers by address or proximity (within 20 meters)
     location_groups = defaultdict(list)
     
     for c in containers:
         try:
-            lat_str, lon_str = c.coords.split(",")
-            lat = float(lat_str.strip())
-            lon = float(lon_str.strip())
+            lat, lon = c.lat_lon
         except (ValueError, AttributeError):
             continue
         
@@ -441,8 +455,10 @@ async def get_map_geojson(db_repo = Depends(get_db_repo)):
                 "avg_fill_percent": round(avg_fill, 1),
                 "color": color
             }
+        })
+    
 
-... (пропущено 6 строк)
+... (пропущено 4 строк)
 
 ```
 
@@ -502,7 +518,7 @@ async def receive_qr_data(report: QRManualReport, db_repo = Depends(get_db_repo)
         "timestamp": now.isoformat()
     }
     
-    success = db_repo.update_sensor_data(report.container_id, sensor_dict)
+    success = await db_repo.update_sensor_data(report.container_id, sensor_dict)
     
     if success:
         # Если мусорка переполнена - запускаем оповещение подрядчику
@@ -640,7 +656,10 @@ async def set_webhook(request: Request):
 ```
 # app/config/settings.py
 import os
+import logging
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 class Settings:
     """Конфигурация приложения с переменных окружения"""
@@ -660,7 +679,10 @@ class Settings:
     PORT: int = int(os.getenv("PORT", "8000"))
     
     # Публичный URL для API (для вебхуков и уведомлений)
-    PUBLIC_SERVER_URL: str = os.getenv("PUBLIC_SERVER_URL", f"http://194.67.122.226:{PORT}")
+    PUBLIC_SERVER_URL: str = os.getenv("PUBLIC_SERVER_URL", f"http://localhost:{PORT}")
+    
+    # Безопасность
+    ADMIN_API_KEY: str = os.getenv("ADMIN_API_KEY", "")
     
     # API ключи
     YANDEX_API_KEY: str = os.getenv("YANDEX_API_KEY", "7d253372-5194-4f00-a292-ea1d7bc18844")
@@ -692,12 +714,37 @@ class Settings:
                         role, chat_id = pair.strip().split('=', 1)
                         chat_ids[role.strip()] = chat_id.strip()
         except Exception as e:
-            print(f"Ошибка парсинга TELEGRAM_CHAT_IDS: {e}")
+            logger.error(f"Ошибка парсинга TELEGRAM_CHAT_IDS: {e}")
         
         return chat_ids
 
 # Глобальный объект настроек
 settings = Settings()
+
+```
+
+### app/core/auth.py
+```
+from fastapi import Security, HTTPException, status
+from fastapi.security import APIKeyHeader
+from app.config.settings import settings
+
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+async def verify_admin_key(api_key: str = Security(api_key_header)):
+    """Проверка API ключа для админских операций"""
+    if not settings.ADMIN_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Admin API key not configured"
+        )
+    
+    if api_key != settings.ADMIN_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid or missing API key"
+        )
+    return api_key
 
 ```
 
@@ -820,6 +867,12 @@ class Container(BaseModel):
     address: str
     coords: str
     sensor_data: Optional[SensorData] = None
+    
+    @property
+    def lat_lon(self) -> tuple[float, float]:
+        """Parse coordinates string and return (lat, lon) tuple"""
+        parts = self.coords.split(",")
+        return float(parts[0].strip()), float(parts[1].strip())
 
 class RoutePath(BaseModel):
     route_geojson: dict
@@ -1084,15 +1137,15 @@ def render_template(template_path: str, **kwargs) -> str:
 ### app/infrastructure/database/database.py
 ```
 import os
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.orm import declarative_base
 from app.config.settings import settings
 
-# Получаем URL из настроек
-DATABASE_URL = settings.DATABASE_URL
+# Получаем URL из настроек и конвертируем в async формат
+DATABASE_URL = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
 
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+engine = create_async_engine(DATABASE_URL, echo=False)
+SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 Base = declarative_base()
 
 ```
@@ -1115,6 +1168,7 @@ class DBContainer(Base):
 ### app/infrastructure/database/postgres_repo.py
 ```
 from typing import List
+from sqlalchemy import select
 from app.core.interfaces import ContainerRepository
 from app.domain.models import Container, SensorData
 from .database import SessionLocal
@@ -1123,9 +1177,10 @@ from .models import DBContainer
 
 class PostgresContainerRepo(ContainerRepository):
 
-    def get_all(self) -> List[Container]:
-        with SessionLocal() as db:
-            db_containers = db.query(DBContainer).all()
+    async def get_all(self) -> List[Container]:
+        async with SessionLocal() as db:
+            result_set = await db.execute(select(DBContainer))
+            db_containers = result_set.scalars().all()
             result = []
             for db_c in db_containers:
                 # Преобразуем данные из БД в наши чистые Pydantic модели
@@ -1140,13 +1195,14 @@ class PostgresContainerRepo(ContainerRepository):
                 )
             return result
 
-    def upsert_container(self, container_id: str, address: str, coords: str, sensor_data: dict):
+    async def upsert_container(self, container_id: str, address: str, coords: str, sensor_data: dict):
         """
         Upsert: Если контейнера нет - создаем. Если есть - обновляем его данные.
         Это решает кейс 'Учесть что контейнеры могут появляться в новых локациях'
         """
-        with SessionLocal() as db:
-            container = db.query(DBContainer).filter(DBContainer.id == container_id).first()
+        async with SessionLocal() as db:
+            result = await db.execute(select(DBContainer).filter(DBContainer.id == container_id))
+            container = result.scalar_one_or_none()
 
             if not container:
                 # Контейнер новый! Создаем
@@ -1161,20 +1217,23 @@ class PostgresContainerRepo(ContainerRepository):
             if sensor_data is not None:
                 container.sensor_data = sensor_data
 
-            db.commit()
-    def delete_container(self, container_id: str):
-        with SessionLocal() as db:
-            container = db.query(DBContainer).filter(DBContainer.id == container_id).first()
+            await db.commit()
+            
+    async def delete_container(self, container_id: str):
+        async with SessionLocal() as db:
+            result = await db.execute(select(DBContainer).filter(DBContainer.id == container_id))
+            container = result.scalar_one_or_none()
             if container:
-                db.delete(container)
-                db.commit()
+                await db.delete(container)
+                await db.commit()
                 return True
             return False
 
-    def update_sensor_data(self, container_id: str, sensor_data: dict):
+    async def update_sensor_data(self, container_id: str, sensor_data: dict):
         """Обновление данных с QR-кода с логикой УСРЕДНЕНИЯ (защита от выбросов)"""
-        with SessionLocal() as db:
-            container = db.query(DBContainer).filter(DBContainer.id == container_id).first()
+        async with SessionLocal() as db:
+            result = await db.execute(select(DBContainer).filter(DBContainer.id == container_id))
+            container = result.scalar_one_or_none()
             if container:
                 # Берем старые данные, если они есть
                 old_data = container.sensor_data or {}
@@ -1198,20 +1257,18 @@ class PostgresContainerRepo(ContainerRepository):
                 sensor_data["qr_history"] = history
 
                 container.sensor_data = sensor_data
-                db.commit()
+                await db.commit()
                 return True
             return False
 
-    def edit_container(self, old_id: str, new_address: str, new_coords: str):
+    async def edit_container(self, old_id: str, new_address: str, new_coords: str):
         """Обновление адреса и координат контейнера"""
-        with SessionLocal() as db:
-            container = db.query(DBContainer).filter(DBContainer.id == old_id).first()
+        async with SessionLocal() as db:
+            result = await db.execute(select(DBContainer).filter(DBContainer.id == old_id))
+            container = result.scalar_one_or_none()
             if container:
-                container.address = new_address
-                container.coords = new_coords
-                db.commit()
-                return True
-            return False
+
+... (пропущено 5 строк)
 
 ```
 
@@ -1240,7 +1297,7 @@ class ConsoleChannel(BaseChannel):
     """Канал для отладки (выводит в консоль Docker)"""
 
     async def send(self, message: str, role: str):
-        print(f"🖥 [CONSOLE | Роль: {role}] -> {message}")
+        logger.info(f"🖥 [CONSOLE | Роль: {role}] -> {message}")
 
 class TelegramChannel(BaseChannel):
     """Интеграция с Telegram Bot API (С кнопкой Mini App)"""
@@ -1294,7 +1351,7 @@ class VKChannel(BaseChannel):
     async def send(self, message: str, role: str):
         if not self.vk_token:
             return
-        print(f"🔵 [VK API | Роль: {role}] Отправка: {message}")
+        logger.info(f"🔵 [VK API | Роль: {role}] Отправка: {message}")
 
 class EmailChannel(BaseChannel):
     def __init__(self, smtp_server, port, login, password, to_email):
@@ -1354,9 +1411,12 @@ class UniversalNotificationDispatcher(NotificationService):
 ```
 # app/infrastructure/routing/osrm_router.py
 import httpx
+import logging
 from typing import List
 from app.core.interfaces import RoutingProvider
 from app.domain.models import RoutePath
+
+logger = logging.getLogger(__name__)
 
 
 class OSRMRoutingProvider(RoutingProvider):
@@ -1382,11 +1442,11 @@ class OSRMRoutingProvider(RoutingProvider):
         # Формируем URL. Параметр source=first гарантирует, что маршрут начнется с Депо
         url = f"{self.base_url}/{osrm_coords}?source=first&geometries=geojson&roundtrip=false"
 
-        print(f"[OSRM] Отправляю запрос на оптимизацию {len(all_points)} точек...")
+        logger.info(f"[OSRM] Отправляю запрос на оптимизацию {len(all_points)} точек...")
 
         response = httpx.get(url)
         if response.status_code != 200:
-            print(f"[OSRM ERROR] {response.text}")
+            logger.error(f"[OSRM ERROR] {response.text}")
             raise Exception("Ошибка построения маршрута")
 
         data = response.json()
@@ -1414,20 +1474,23 @@ class OSRMRoutingProvider(RoutingProvider):
 ### app/infrastructure/routing/yandex_router.py
 ```
 # app/infrastructure/routing/yandex_router.py
+import logging
 from app.core.interfaces import RoutingProvider
+
+logger = logging.getLogger(__name__)
 
 
 class YandexRoutingProvider(RoutingProvider):
     def build_route(self, origin, waypoints):
         # Здесь будет реальный HTTP запрос к API Яндекс.Маршрутизации
-        print(f"[Yandex API] Строю маршрут от {origin} через {len(waypoints)} точек...")
+        logger.info(f"[Yandex API] Строю маршрут от {origin} через {len(waypoints)} точек...")
         return {"path": [origin] + waypoints, "distance_km": 15.5}
 
 
 # Если у Яндекса упали сервера, мы можем быстро поднять Dummy:
 class DummyRoutingProvider(RoutingProvider):
     def build_route(self, origin, waypoints):
-        print("[Dummy API] Строю прямой маршрут по координатам...")
+        logger.info("[Dummy API] Строю прямой маршрут по координатам...")
         return {"path": waypoints, "distance_km": 10.0}
 
 
@@ -1542,13 +1605,16 @@ class TelegramBotService:
 
 ### app/infrastructure/telegram/notifier.py
 ```
+import logging
 from app.core.interfaces import NotificationService
+
+logger = logging.getLogger(__name__)
 
 
 class TelegramNotifier(NotificationService):
     async def send_alert(self, message: str, role: str):
         # Логика отправки через бота нужной роли
-        print(f"[TG БОТ -> {role}]: {message}")
+        logger.info(f"[TG БОТ -> {role}]: {message}")
 ```
 
 ### app/infrastructure/telegram/tg_parser.py
@@ -1658,9 +1724,10 @@ if __name__ == '__main__':
 import os
 import asyncio
 import logging
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.infrastructure.database.database import engine, Base
 from app.api.routers import create_api_router
@@ -1671,16 +1738,26 @@ from app.config.settings import settings
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Database setup (only create tables if database is available)
-try:
-    Base.metadata.create_all(bind=engine)
-    print("✅ Database tables created successfully")
-except Exception as e:
-    print(f"⚠️ Database connection failed: {e}")
-    print("🔄 Continuing without database - some features may not work")
-
 # FastAPI app initialization
 app = FastAPI(title="Innopolis Smart Waste API")
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # В продакшене укажите конкретные домены
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Глобальный обработчик ошибок
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Critical Error: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500, 
+        content={"message": "Внутренняя ошибка сервера. Инженеры уже уведомлены."}
+    )
 
 # Include API routes FIRST (before static files)
 api_router = create_api_router()
@@ -1693,6 +1770,15 @@ app.mount("/static", StaticFiles(directory="app/frontend"), name="static")
 @app.on_event("startup")
 async def startup_event():
     """Инициализация сервисов при запуске"""
+    # Database setup (async)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("✅ Database tables created successfully")
+    except Exception as e:
+        logger.warning(f"⚠️ Database connection failed: {e}")
+        logger.warning("🔄 Continuing without database - some features may not work")
+    
     try:
         # Инициализация Telegram бота с таймаутом
         telegram_initialized = await asyncio.wait_for(
@@ -1983,6 +2069,113 @@ sleep 30
 print_status "Checking service status..."
 
 ... (пропущено 92 строк)
+
+```
+
+### DEPLOYMENT_SUMMARY.md
+```
+# Deployment Summary - Critical Architectural Improvements
+
+## Deployment Date
+March 28, 2026
+
+## Server
+- **IP**: 79.137.199.5
+- **Port**: 8080 (HTTP)
+- **Status**: ✅ Successfully Deployed
+
+## Changes Implemented
+
+### 🚨 1. Critical Architectural Fixes
+
+#### 1.1 Async Database Implementation
+**Problem**: Synchronous database operations blocking FastAPI's event loop
+**Solution**: 
+- Migrated from `psycopg2-binary` to `asyncpg`
+- Updated SQLAlchemy to use `create_async_engine` and `AsyncSession`
+- Converted all repository methods to `async def` with `await`
+- Updated all router endpoints to `await` repository calls
+
+**Files Modified**:
+- `requirements.txt` - replaced psycopg2-binary with asyncpg
+- `app/infrastructure/database/database.py` - async engine setup
+- `app/infrastructure/database/postgres_repo.py` - all methods now async
+- `app/api/routers/*.py` - all repository calls now use await
+
+#### 1.2 Admin Endpoint Security
+**Problem**: Unprotected admin endpoints (POST/PUT/DELETE) vulnerable to unauthorized access
+**Solution**:
+- Created API key-based authentication system
+- Added `app/core/auth.py` with `verify_admin_key` dependency
+- Protected all admin endpoints with authentication
+
+**Protected Endpoints**:
+- `POST /api/containers/` - Create container
+- `PUT /api/containers/{id}` - Edit container
+- `DELETE /api/containers/{id}` - Delete container
+
+**Usage**: Add `X-API-Key` header with value from `ADMIN_API_KEY` environment variable
+
+#### 1.3 Removed Hardcoded IPs
+**Problem**: IP addresses hardcoded in configuration files
+**Solution**:
+- Updated `nginx.conf`: `server_name _;` (listen on all)
+- Updated `settings.py`: Use environment variables for PUBLIC_SERVER_URL
+- Updated `.env.example` with proper server IP
+
+### ✂️ 2. Code Refactoring
+
+#### 2.1 Replaced Custom Template Engine with Jinja2
+**Problem**: Custom template.py vulnerable to XSS and hard to maintain
+**Solution**:
+- Removed `app/frontend/template.py`
+- Integrated FastAPI's Jinja2Templates
+- Updated `app/api/routers/frontend.py` to use Jinja2
+
+#### 2.2 DRY Coordinate Parsing
+**Problem**: Duplicate coordinate parsing code across multiple files
+**Solution**:
+- Added `lat_lon` property to `Container` model in `app/domain/models.py`
+- Updated all routers to use `c.lat_lon` instead of manual parsing
+
+**Example**:
+```python
+# Before
+lat, lon = map(float, c.coords.split(','))
+
+# After
+lat, lon = c.lat_lon
+```
+
+### 🚀 3. Production Features
+
+#### 3.1 CORS Middleware
+Added CORS support for cross-origin requests in `app/main.py`:
+```python
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+#### 3.2 Global Exception Handler
+Added centralized error handling to prevent crashes:
+```python
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Critical Error: {exc}", exc_info=True)
+    return JSONResponse(status_code=500, content={...})
+```
+
+#### 3.3 Logging Instead of Print
+Replaced all `print()` statements with proper logging:
+- `app/config/settings.py`
+- `app/infrastructure/telegram/notifier.py`
+
+... (пропущено 115 строк)
 
 ```
 
@@ -2797,7 +2990,7 @@ def generate_tree_structure(root_path, structure):
     build_tree(path_dict)
     return '\n'.join(tree_lines)
 
-... (пропущено 83 строк)
+... (пропущено 54 строк)
 
 ```
 
@@ -2867,7 +3060,7 @@ http {
 
     server {
         listen 80;
-        server_name 194.67.122.226;
+        server_name _;
 
         # Frontend static files
         location / {
@@ -2913,8 +3106,8 @@ http {
 ## Обзор проекта
 Система управления отходами для города Иннополис с веб-интерфейсом, Telegram ботом и интеграцией с Яндекс.Картами.
 
-**Дата генерации:** 2026-03-28 10:53:35
-**Корневая директория:** C:\Users\Andrey\Desktop\pythonProjectS\innopolis_waste_map
+**Дата генерации:** 2026-03-28 10:54:34
+**Корневая директория:** c:\Users\Andrey\Desktop\pythonProjectS\innopolis_waste_map
 
 ## Структура проекта
 ```
@@ -2981,6 +3174,7 @@ innopolis_waste_map/
 ├── get_project.py
 ├── init.sql
 ├── nginx.conf
+├── project_documentation.txt
 └── requirements.txt
 ```
 
@@ -3008,8 +3202,7 @@ def get_sensor_pipeline():
     return services["sensor_pipeline"]
 ```
 
-
-... (пропущено 2847 строк)
+... (пропущено 2955 строк)
 
 ```
 
@@ -3021,35 +3214,9 @@ pydantic
 httpx
 aiogram
 sqlalchemy
-psycopg2-binary
+asyncpg
 qrcode[pil]
 aiohttp
+jinja2
+python-multipart
 ```
-
-## Архитектура и технологии
-
-### Backend:
-- **FastAPI** - веб-фреймворк
-- **SQLAlchemy** - ORM для работы с PostgreSQL
-- **Pydantic** - валидация данных
-- **Aiogram** - Telegram бот
-- **HTTPX** - HTTP клиент
-- **QRCode** - генерация QR кодов
-
-### Frontend:
-- **HTML5/CSS3/JavaScript** - основные технологии
-- **Bootstrap 5** - UI фреймворк
-- **Яндекс.Карты API** - картографическая основа
-
-### Инфраструктура:
-- **Docker & Docker Compose** - контейнеризация
-- **PostgreSQL** - база данных
-- **Nginx** - веб-сервер и reverse proxy
-
-### Основные функции:
-1. **Управление контейнерами** - отслеживание статуса, наполненности
-2. **Картографическая визуализация** - отображение контейнеров на карте
-3. **Telegram уведомления** - оповещения о критическом наполнении
-4. **Логистика** - оптимизация маршрутов сбора отходов
-5. **Аналитика** - статистика и отчеты
-6. **Ролевой доступ** - администратор, водитель, житель

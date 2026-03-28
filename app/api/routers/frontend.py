@@ -15,7 +15,7 @@ templates = Jinja2Templates(directory=template_dir)
 @router.get("/")
 async def serve_frontend(request: Request):
     """Serve main frontend page"""
-    return templates.TemplateResponse("index_template.html", {
+    return templates.TemplateResponse("index.html", {
         "request": request,
         "YANDEX_API_KEY": settings.YANDEX_API_KEY,
         "DEFAULT_LAT": settings.DEFAULT_LAT,
