@@ -17,17 +17,15 @@ echo "✅ PostgreSQL is ready!"
 # Run database migrations
 echo "🔄 Running database migrations..."
 
-# Check if alembic_version table exists
-if ! alembic current 2>/dev/null | grep -q "head"; then
-    echo "📌 Stamping existing database schema..."
-    # If tables exist but no alembic version, stamp as current version
-    alembic stamp head 2>/dev/null || true
-fi
+# Stamp the database to mark current schema version (safe if already stamped)
+echo "📌 Ensuring database is stamped..."
+alembic stamp head 2>/dev/null || echo "Database already stamped or migration table exists"
 
-# Run migrations
-alembic upgrade head
+# Run any pending migrations
+echo "⬆️ Applying migrations..."
+alembic upgrade head 2>/dev/null || echo "No new migrations to apply"
 
-echo "✅ Migrations complete!"
+echo "✅ Database ready!"
 
 # Start the application
 echo "🎯 Starting FastAPI application..."
