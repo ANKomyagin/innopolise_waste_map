@@ -46,9 +46,9 @@ async def global_exception_handler(request: Request, exc: Exception):
 api_router = create_api_router()
 app.include_router(api_router)
 
-# Static files setup (mount after API routes)
-os.makedirs("app/frontend", exist_ok=True)
-app.mount("/static", StaticFiles(directory="app/frontend"), name="static")
+# Static files setup (mount LAST - acts as catch-all after API routes)
+# Serves HTML files directly: /admin.html, /truck.html, /resident.html, etc.
+app.mount("/", StaticFiles(directory="frontend", html=True), name="static")
 
 @app.on_event("startup")
 async def startup_event():
