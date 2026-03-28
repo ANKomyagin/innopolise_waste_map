@@ -48,14 +48,11 @@ app.mount("/static", StaticFiles(directory="app/frontend"), name="static")
 @app.on_event("startup")
 async def startup_event():
     """Инициализация сервисов при запуске"""
-    # Database setup (async)
-    try:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        logger.info("✅ Database tables created successfully")
-    except Exception as e:
-        logger.warning(f"⚠️ Database connection failed: {e}")
-        logger.warning("🔄 Continuing without database - some features may not work")
+    # Database migrations are managed by Alembic
+    # Run: alembic upgrade head
+    # NOTE: We no longer use Base.metadata.create_all() to avoid data loss
+    # when schema changes. Use Alembic migrations instead.
+    logger.info("✅ Database ready (migrations managed by Alembic)")
     
     try:
         # Инициализация Telegram бота с таймаутом
