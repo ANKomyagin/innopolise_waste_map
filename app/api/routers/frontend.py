@@ -8,7 +8,8 @@ from app.config.settings import settings
 router = APIRouter(tags=["frontend"])
 
 # Setup Jinja2 templates
-template_dir = os.path.join(os.path.dirname(__file__), "..", "..", "frontend")
+# Use absolute path from project root
+template_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend")
 templates = Jinja2Templates(directory=template_dir)
 
 
