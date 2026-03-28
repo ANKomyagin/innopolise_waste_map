@@ -55,6 +55,14 @@ async def receive_qr_data(report: QRManualReport, db_repo = Depends(get_db_repo)
     success = await db_repo.update_sensor_data(report.container_id, sensor_dict)
     
     if success:
+        # Логируем сканирование
+        await db_repo.add_scan_log(
+            container_id=report.container_id,
+            fill_percent=report.fill_percent,
+            device_id=report.device_id,
+            role=report.role
+        )
+        
         # Если мусорка переполнена - запускаем оповещение подрядчику
         if report.fill_percent >= 70:
             await notifier.send_alert(
@@ -63,6 +71,13 @@ async def receive_qr_data(report: QRManualReport, db_repo = Depends(get_db_repo)
         
         return {"status": "ok", "message": "Данные успешно обновлены!"}
     return {"status": "error", "message": "Контейнер не найден"}
+
+
+@router.get("/logs")
+async def get_scan_logs(container_id: str = None, limit: int = 50, db_repo = Depends(get_db_repo)):
+    """Get scan logs for analysis"""
+    logs = await db_repo.get_scan_logs(container_id=container_id, limit=limit)
+    return {"logs": logs, "count": len(logs)}
 
 
 @router.get("/{container_id}/qr")

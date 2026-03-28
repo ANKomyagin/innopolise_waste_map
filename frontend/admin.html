@@ -227,8 +227,7 @@
                             <th>Адрес</th>
                             <th>Координаты</th>
                             <th>Заполненность</th>
-                            <th>Батарея</th>
-                            <th>Температура</th>
+                            <th>QR</th>
                             <th>Действия</th>
                         </tr>
                     </thead>
@@ -238,6 +237,26 @@
                         </tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Modal -->
+    <div class="modal fade" id="qrModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="qrModalTitle">QR-код контейнера</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img id="qrImage" src="" alt="QR Code" style="max-width:100%;image-rendering:pixelated;">
+                    <p class="mt-3 text-muted" id="qrUrl"></p>
+                </div>
+                <div class="modal-footer">
+                    <a id="qrDownload" href="" download="qr.png" class="btn btn-primary"><i class="fas fa-download"></i> Скачать</a>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                </div>
             </div>
         </div>
     </div>
@@ -454,8 +473,11 @@
                         <td>${c.address}</td>
                         <td>${c.lat.toFixed(6)}, ${c.lon.toFixed(6)}</td>
                         <td><span class="badge-fill ${badgeClass}">${c.fill_percent}%</span></td>
-                        <td>${c.battery}</td>
-                        <td>${c.temperature}</td>
+                        <td>
+                            <button class="btn btn-sm btn-info btn-action" onclick="showQR('${c.id}')" title="QR-код">
+                                <i class="fas fa-qrcode"></i>
+                            </button>
+                        </td>
                         <td>
                             <button class="btn btn-sm btn-warning btn-action" onclick="editContainer('${c.id}')">
                                 <i class="fas fa-edit"></i>
@@ -575,6 +597,24 @@
             modal.show();
         }
 
+        function getAuthHeaders() {
+            const token = localStorage.getItem('token');
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            };
+        }
+
+        function showQR(containerId) {
+            const qrUrl = `/api/sensors/${containerId}/qr`;
+            document.getElementById('qrModalTitle').textContent = `QR-код: ${containerId}`;
+            document.getElementById('qrImage').src = qrUrl;
+            document.getElementById('qrDownload').href = qrUrl;
+            document.getElementById('qrDownload').download = `qr_${containerId}.png`;
+            document.getElementById('qrUrl').textContent = `${window.location.origin}/qr-scan?id=${containerId}`;
+            new bootstrap.Modal(document.getElementById('qrModal')).show();
+        }
+
         async function saveContainer() {
             const id = document.getElementById('containerId').value;
             const address = document.getElementById('containerAddress').value;
@@ -592,7 +632,7 @@
             try {
                 const response = await fetch(url, {
                     method: method,
-                    headers: {'Content-Type': 'application/json'},
+                    headers: getAuthHeaders(),
                     body: JSON.stringify(body)
                 });
 
@@ -600,8 +640,13 @@
                     alert(isEditMode ? 'Контейнер обновлен' : 'Контейнер добавлен');
                     bootstrap.Modal.getInstance(document.getElementById('containerModal')).hide();
                     loadContainers();
+                } else if (response.status === 401) {
+                    alert('Сессия истекла. Войдите заново.');
+                    localStorage.clear();
+                    window.location.href = '/';
                 } else {
-                    alert('Ошибка сохранения');
+                    const err = await response.json().catch(() => null);
+                    alert('Ошибка сохранения: ' + (err?.detail || response.statusText));
                 }
             } catch (error) {
                 console.error('Error:', error);
@@ -614,14 +659,20 @@
 
             try {
                 const response = await fetch(`/api/containers/${id}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
                 });
 
                 if (response.ok) {
                     alert('Контейнер удален');
                     loadContainers();
+                } else if (response.status === 401) {
+                    alert('Сессия истекла. Войдите заново.');
+                    localStorage.clear();
+                    window.location.href = '/';
                 } else {
-                    alert('Ошибка удаления');
+                    const err = await response.json().catch(() => null);
+                    alert('Ошибка удаления: ' + (err?.detail || response.statusText));
                 }
             } catch (error) {
                 console.error('Error:', error);
