@@ -156,52 +156,6 @@
         }
         .route-info p strong { color: #1e293b; }
 
-        /* Stats cards */
-        .stat-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-        .stat-card {
-            background: #f8f9fa;
-            border-radius: 12px;
-            padding: 14px;
-            text-align: center;
-        }
-        .stat-card.full-width {
-            grid-column: 1 / -1;
-        }
-        .stat-value {
-            font-size: 1.8rem;
-            font-weight: 800;
-            color: #667eea;
-            line-height: 1.1;
-        }
-        .stat-value.warning { color: #f59e0b; }
-        .stat-value.danger { color: #ef4444; }
-        .stat-label {
-            font-size: 0.78rem;
-            color: #94a3b8;
-            margin-top: 4px;
-            font-weight: 500;
-        }
-
-        /* Legend */
-        .legend-items { display: flex; flex-direction: column; gap: 8px; }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 0.88rem;
-            color: #555;
-        }
-        .legend-dot {
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            border: 2px solid rgba(0,0,0,0.15);
-            flex-shrink: 0;
-        }
 
         /* ===== MAP ===== */
         #map {
@@ -357,43 +311,6 @@
             <div id="routeInfo" class="route-info"></div>
         </div>
 
-        <!-- Stats section -->
-        <div class="sidebar-section">
-            <h5><i class="fas fa-chart-bar"></i> Статистика</h5>
-            <div class="stat-row">
-                <div class="stat-card">
-                    <div class="stat-value" id="total-containers">—</div>
-                    <div class="stat-label">Всего контейнеров</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value danger" id="full-containers">—</div>
-                    <div class="stat-label">Требуют вывоза</div>
-                </div>
-                <div class="stat-card full-width">
-                    <div class="stat-value warning" id="avg-fill">—</div>
-                    <div class="stat-label">Средняя заполненность</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Legend -->
-        <div class="sidebar-section">
-            <h5><i class="fas fa-info-circle"></i> Легенда</h5>
-            <div class="legend-items">
-                <div class="legend-item">
-                    <div class="legend-dot" style="background:#28a745;"></div>
-                    <span>Свободно (&lt;50%)</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-dot" style="background:#ffc107;"></div>
-                    <span>Заполнено (50–70%)</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-dot" style="background:#dc3545;"></div>
-                    <span>Переполнено (&gt;70%)</span>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Yandex Map -->
@@ -540,10 +457,6 @@
                 map.geoObjects.add(placemark);
             });
 
-            document.getElementById('total-containers').textContent = totalCount;
-            document.getElementById('full-containers').textContent = fullCount;
-            document.getElementById('avg-fill').textContent =
-                totalCount > 0 ? Math.round(fillSum / totalCount) + '%' : '0%';
 
         } catch (err) {
             console.error('Ошибка загрузки контейнеров:', err);
