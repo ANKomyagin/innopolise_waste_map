@@ -2,9 +2,10 @@
 import os
 import asyncio
 import logging
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.infrastructure.database.database import engine, Base
 from app.api.routers import create_api_router
@@ -15,16 +16,26 @@ from app.config.settings import settings
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Database setup (only create tables if database is available)
-try:
-    Base.metadata.create_all(bind=engine)
-    print("✅ Database tables created successfully")
-except Exception as e:
-    print(f"⚠️ Database connection failed: {e}")
-    print("🔄 Continuing without database - some features may not work")
-
 # FastAPI app initialization
 app = FastAPI(title="Innopolis Smart Waste API")
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # В продакшене укажите конкретные домены
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Глобальный обработчик ошибок
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Critical Error: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500, 
+        content={"message": "Внутренняя ошибка сервера. Инженеры уже уведомлены."}
+    )
 
 # Include API routes FIRST (before static files)
 api_router = create_api_router()
@@ -37,6 +48,15 @@ app.mount("/static", StaticFiles(directory="app/frontend"), name="static")
 @app.on_event("startup")
 async def startup_event():
     """Инициализация сервисов при запуске"""
+    # Database setup (async)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("✅ Database tables created successfully")
+    except Exception as e:
+        logger.warning(f"⚠️ Database connection failed: {e}")
+        logger.warning("🔄 Continuing without database - some features may not work")
+    
     try:
         # Инициализация Telegram бота с таймаутом
         telegram_initialized = await asyncio.wait_for(

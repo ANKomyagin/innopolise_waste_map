@@ -1,8 +1,11 @@
 # app/infrastructure/routing/osrm_router.py
 import httpx
+import logging
 from typing import List
 from app.core.interfaces import RoutingProvider
 from app.domain.models import RoutePath
+
+logger = logging.getLogger(__name__)
 
 
 class OSRMRoutingProvider(RoutingProvider):
@@ -28,11 +31,11 @@ class OSRMRoutingProvider(RoutingProvider):
         # Формируем URL. Параметр source=first гарантирует, что маршрут начнется с Депо
         url = f"{self.base_url}/{osrm_coords}?source=first&geometries=geojson&roundtrip=false"
 
-        print(f"[OSRM] Отправляю запрос на оптимизацию {len(all_points)} точек...")
+        logger.info(f"[OSRM] Отправляю запрос на оптимизацию {len(all_points)} точек...")
 
         response = httpx.get(url)
         if response.status_code != 200:
-            print(f"[OSRM ERROR] {response.text}")
+            logger.error(f"[OSRM ERROR] {response.text}")
             raise Exception("Ошибка построения маршрута")
 
         data = response.json()

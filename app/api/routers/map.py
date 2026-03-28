@@ -21,16 +21,14 @@ def haversine_distance(lat1, lon1, lat2, lon2):
 @router.get("/geojson")
 async def get_map_geojson(db_repo = Depends(get_db_repo)):
     """Get all containers in GeoJSON format with clustering by location"""
-    containers = db_repo.get_all()
+    containers = await db_repo.get_all()
     
     # Group containers by address or proximity (within 20 meters)
     location_groups = defaultdict(list)
     
     for c in containers:
         try:
-            lat_str, lon_str = c.coords.split(",")
-            lat = float(lat_str.strip())
-            lon = float(lon_str.strip())
+            lat, lon = c.lat_lon
         except (ValueError, AttributeError):
             continue
         

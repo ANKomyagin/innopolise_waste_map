@@ -1,33 +1,33 @@
 # app/api/routers/frontend.py
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 import os
-from app.frontend.template import render_template
+from app.config.settings import settings
 
 router = APIRouter(tags=["frontend"])
 
+# Setup Jinja2 templates
+template_dir = os.path.join(os.path.dirname(__file__), "..", "..", "frontend")
+templates = Jinja2Templates(directory=template_dir)
+
 
 @router.get("/")
-async def serve_frontend():
+async def serve_frontend(request: Request):
     """Serve main frontend page"""
-    frontend_path = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "index_template.html")
-    
-    if not os.path.exists(frontend_path):
-        return HTMLResponse(content="<h1>Frontend not found</h1>", status_code=404)
-    
-    content = render_template(frontend_path)
-    return HTMLResponse(content=content)
+    return templates.TemplateResponse("index_template.html", {
+        "request": request,
+        "YANDEX_API_KEY": settings.YANDEX_API_KEY,
+        "DEFAULT_LAT": settings.DEFAULT_LAT,
+        "DEFAULT_LON": settings.DEFAULT_LON,
+        "DEFAULT_ZOOM": settings.DEFAULT_ZOOM,
+        "PUBLIC_SERVER_URL": settings.PUBLIC_SERVER_URL
+    })
 
 
 @router.get("/qr-scan")
-async def serve_qr_page():
+async def serve_qr_page(request: Request):
     """Serve mobile QR scanning page"""
-    frontend_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "qr_scan.html")
-    
-    if not os.path.exists(frontend_path):
-        return HTMLResponse(content="<h1>QR Scan page not found</h1>", status_code=404)
-    
-    with open(frontend_path, "r", encoding="utf-8") as f:
-        content = f.read()
-    
-    return HTMLResponse(content=content)
+    return templates.TemplateResponse("qr_scan.html", {
+        "request": request
+    })

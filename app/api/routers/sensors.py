@@ -52,7 +52,7 @@ async def receive_qr_data(report: QRManualReport, db_repo = Depends(get_db_repo)
         "timestamp": now.isoformat()
     }
     
-    success = db_repo.update_sensor_data(report.container_id, sensor_dict)
+    success = await db_repo.update_sensor_data(report.container_id, sensor_dict)
     
     if success:
         # Если мусорка переполнена - запускаем оповещение подрядчику

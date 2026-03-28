@@ -1,6 +1,9 @@
 # app/config/settings.py
 import os
+import logging
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 class Settings:
     """Конфигурация приложения с переменных окружения"""
@@ -20,7 +23,10 @@ class Settings:
     PORT: int = int(os.getenv("PORT", "8000"))
     
     # Публичный URL для API (для вебхуков и уведомлений)
-    PUBLIC_SERVER_URL: str = os.getenv("PUBLIC_SERVER_URL", f"http://194.67.122.226:{PORT}")
+    PUBLIC_SERVER_URL: str = os.getenv("PUBLIC_SERVER_URL", f"http://localhost:{PORT}")
+    
+    # Безопасность
+    ADMIN_API_KEY: str = os.getenv("ADMIN_API_KEY", "")
     
     # API ключи
     YANDEX_API_KEY: str = os.getenv("YANDEX_API_KEY", "7d253372-5194-4f00-a292-ea1d7bc18844")
@@ -52,7 +58,7 @@ class Settings:
                         role, chat_id = pair.strip().split('=', 1)
                         chat_ids[role.strip()] = chat_id.strip()
         except Exception as e:
-            print(f"Ошибка парсинга TELEGRAM_CHAT_IDS: {e}")
+            logger.error(f"Ошибка парсинга TELEGRAM_CHAT_IDS: {e}")
         
         return chat_ids
 

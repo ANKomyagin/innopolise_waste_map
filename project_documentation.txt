@@ -1,0 +1,3055 @@
+# Проект: Innopolis Smart Waste Management System
+
+## Обзор проекта
+Система управления отходами для города Иннополис с веб-интерфейсом, Telegram ботом и интеграцией с Яндекс.Картами.
+
+**Дата генерации:** 2026-03-28 10:54:34
+**Корневая директория:** c:\Users\Andrey\Desktop\pythonProjectS\innopolis_waste_map
+
+## Структура проекта
+```
+innopolis_waste_map/
+├── app
+│   ├── api
+│   │   ├── dependencies.py
+│   │   ├── integration
+│   │   │   └── digital_twin.py
+│   │   ├── routers
+│   │   │   ├── __init__.py
+│   │   │   ├── analytics.py
+│   │   │   ├── containers.py
+│   │   │   ├── frontend.py
+│   │   │   ├── logistics.py
+│   │   │   ├── map.py
+│   │   │   ├── sensors.py
+│   │   │   └── telegram.py
+│   │   └── routers.py
+│   ├── config
+│   │   ├── __init__.py
+│   │   └── settings.py
+│   ├── core
+│   │   ├── config.py
+│   │   ├── dependencies.py
+│   │   └── interfaces.py
+│   ├── domain
+│   │   ├── exceptions.py
+│   │   └── models.py
+│   ├── frontend
+│   │   ├── index_clean.html
+│   │   ├── index_template.html
+│   │   └── template.py
+│   ├── infrastructure
+│   │   ├── database
+│   │   │   ├── database.py
+│   │   │   ├── models.py
+│   │   │   └── postgres_repo.py
+│   │   ├── notifications
+│   │   │   ├── channels.py
+│   │   │   └── dispatcher.py
+│   │   ├── routing
+│   │   │   ├── osrm_router.py
+│   │   │   └── yandex_router.py
+│   │   └── telegram
+│   │       ├── bot.py
+│   │       ├── notifier.py
+│   │       └── tg_parser.py
+│   ├── main.py
+│   └── services
+│       ├── analytics.py
+│       ├── logistics.py
+│       └── sensor_pipeline.py
+├── deploy.sh
+├── docker-compose.prod.yml
+├── frontend
+│   ├── admin.html
+│   ├── index.html
+│   ├── qr_scan.html
+│   ├── resident.html
+│   ├── role-select.html
+│   └── truck.html
+├── generate_project_docs.py
+├── get_project.py
+├── init.sql
+├── nginx.conf
+├── project_documentation.txt
+└── requirements.txt
+```
+
+## Содержимое файлов
+
+### app/api/dependencies.py
+```
+# app/api/dependencies.py
+from fastapi import Depends
+from app.core.dependencies import setup_services
+
+# Global services instance
+services = setup_services()
+
+def get_db_repo():
+    return services["db_repo"]
+
+def get_notifier():
+    return services["notifier"]
+
+def get_routing_provider():
+    return services["routing_provider"]
+
+def get_sensor_pipeline():
+    return services["sensor_pipeline"]
+```
+
+### app/api/integration/digital_twin.py
+```
+from fastapi import APIRouter, Depends
+from datetime import datetime
+from app.api.dependencies import get_db_repo
+
+router = APIRouter(prefix="/api/integration", tags=["Digital Twin"])
+
+
+@router.get("/digital-twin")
+async def export_for_digital_twin(db_repo=Depends(get_db_repo)):
+    """
+    Отдает полные слепки данных всех датчиков для загрузки в 3D Цифровой Двойник Иннополиса.
+    """
+    containers = db_repo.get_all()
+    return {
+        "timestamp": datetime.utcnow().isoformat(),
+        "total_active_sensors": len([c for c in containers if c.sensor_data]),
+        "assets": [
+            {
+                "asset_id": c.id,
+                "type": "smart_waste_bin",
+                "location": {"lat": float(c.coords.split(',')[0]), "lon": float(c.coords.split(',')[1])},
+                "telemetry": c.sensor_data.model_dump() if c.sensor_data else None
+            } for c in containers
+        ]
+    }
+
+```
+
+### app/api/routers/__init__.py
+```
+# app/api/routers/__init__.py
+from fastapi import APIRouter
+from app.api.routers import containers, sensors, logistics, analytics, map, frontend, telegram
+from app.api.integration import digital_twin
+
+
+def create_api_router():
+    """Create and configure the main API router"""
+    api_router = APIRouter()
+    
+    # Include all sub-routers
+    api_router.include_router(containers.router)
+    api_router.include_router(sensors.router)
+    api_router.include_router(logistics.router)
+    api_router.include_router(analytics.router)
+    api_router.include_router(map.router)
+    api_router.include_router(frontend.router)
+    api_router.include_router(telegram.router, prefix="/telegram", tags=["telegram"])
+    api_router.include_router(digital_twin.router)
+    
+    return api_router
+
+```
+
+### app/api/routers/analytics.py
+```
+# app/api/routers/analytics.py
+from fastapi import APIRouter, Depends
+from app.api.dependencies import get_db_repo
+
+router = APIRouter(prefix="/api/analytics", tags=["analytics"])
+
+
+@router.get("/dashboard")
+async def get_dashboard(db_repo = Depends(get_db_repo)):
+    """Get dashboard statistics for city administration"""
+    containers = db_repo.get_all()
+    
+    # Фильтруем только те, у которых есть данные датчиков
+    active_containers = [c for c in containers if c.sensor_data]
+    
+    if not active_containers:
+        return {"message": "Нет данных для аналитики"}
+    
+    # Сортируем: от самых заполненных к самым пустым
+    sorted_by_fill = sorted(active_containers, key=lambda x: x.sensor_data.fill_percent, reverse=True)
+    
+    top_3_full = [{"id": c.id, "fill": c.sensor_data.fill_percent, "address": c.address} for c in sorted_by_fill[:3]]
+    top_3_empty = [{"id": c.id, "fill": c.sensor_data.fill_percent, "address": c.address} for c in
+                   reversed(sorted_by_fill[-3:])]
+    
+    # Считаем контейнеры с проблемами (села батарейка, упали, возгорание)
+    alerts = [c.id for c in active_containers if
+              c.sensor_data.battery_status != "норм." or c.sensor_data.tilt_status != "норм."]
+    
+    return {
+        "total_containers": len(containers),
+        "needs_collection_now": len([c for c in active_containers if c.sensor_data.fill_percent >= 70]),
+        "top_fastest_filling": top_3_full,
+        "least_used": top_3_empty,
+        "hardware_alerts_count": len(alerts),
+        "problematic_containers": alerts
+    }
+
+```
+
+### app/api/routers/containers.py
+```
+# app/api/routers/containers.py
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel
+from typing import List
+from app.api.dependencies import get_db_repo
+
+router = APIRouter(prefix="/api/containers", tags=["containers"])
+
+
+class NewContainer(BaseModel):
+    id: str
+    address: str
+    coords: str
+
+
+class EditContainer(BaseModel):
+    address: str
+    coords: str
+
+
+class ContainerResponse(BaseModel):
+    id: str
+    lat: float
+    lon: float
+    fill_percent: int
+
+
+@router.get("/", response_model=List[ContainerResponse])
+async def get_containers(db_repo = Depends(get_db_repo)):
+    """Get all containers with their current fill status"""
+    containers = db_repo.get_all()
+    
+    result = []
+    for c in containers:
+        lat, lon = map(float, c.coords.split(','))
+        result.append({
+            "id": c.id,
+            "lat": lat,
+            "lon": lon,
+            "fill_percent": c.sensor_data.fill_percent if c.sensor_data else 0
+        })
+    
+    return result
+
+
+@router.post("/")
+async def create_container(data: NewContainer, db_repo = Depends(get_db_repo)):
+    """Create a new container (mayor role)"""
+    db_repo.upsert_container(
+        container_id=data.id,
+        address=data.address,
+        coords=data.coords,
+        sensor_data=None
+    )
+    return {"status": "ok", "id": data.id}
+
+
+@router.put("/{container_id}")
+async def edit_container(container_id: str, data: EditContainer, db_repo = Depends(get_db_repo)):
+    """Edit container information"""
+    success = db_repo.edit_container(container_id, data.address, data.coords)
+    if not success:
+        raise HTTPException(status_code=404, detail="Container not found")
+    return {"status": "ok"}
+
+
+@router.delete("/{container_id}")
+async def delete_container(container_id: str, db_repo = Depends(get_db_repo)):
+    """Delete a container"""
+    success = db_repo.delete_container(container_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Container not found")
+    return {"status": "ok"}
+
+```
+
+### app/api/routers/frontend.py
+```
+# app/api/routers/frontend.py
+from fastapi import APIRouter
+from fastapi.responses import HTMLResponse
+import os
+from app.frontend.template import render_template
+
+router = APIRouter(tags=["frontend"])
+
+
+@router.get("/")
+async def serve_frontend():
+    """Serve main frontend page"""
+    frontend_path = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "index_template.html")
+    
+    if not os.path.exists(frontend_path):
+        return HTMLResponse(content="<h1>Frontend not found</h1>", status_code=404)
+    
+    content = render_template(frontend_path)
+    return HTMLResponse(content=content)
+
+
+@router.get("/qr-scan")
+async def serve_qr_page():
+    """Serve mobile QR scanning page"""
+    frontend_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "qr_scan.html")
+    
+    if not os.path.exists(frontend_path):
+        return HTMLResponse(content="<h1>QR Scan page not found</h1>", status_code=404)
+    
+    with open(frontend_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    
+    return HTMLResponse(content=content)
+
+```
+
+### app/api/routers/logistics.py
+```
+# app/api/routers/logistics.py
+from fastapi import APIRouter, Depends
+from app.api.dependencies import get_db_repo, get_routing_provider
+
+router = APIRouter(prefix="/api/logistics", tags=["logistics"])
+
+
+@router.get("/route")
+async def get_optimal_route(db_repo = Depends(get_db_repo), routing_provider = Depends(get_routing_provider)):
+    """Get optimized route for waste collection"""
+    containers = db_repo.get_all()
+    # Берем координаты только переполненных контейнеров
+    to_collect = [c.coords for c in containers if c.sensor_data and c.sensor_data.fill_percent >= 70]
+    
+    if not to_collect:
+        return {"message": "Нет контейнеров для вывоза (все < 70%)"}
+    
+    # Строим маршрут
+    DEPOT_COORDS = "55.753, 48.743"
+    route = routing_provider.build_route(origin=DEPOT_COORDS, waypoints=to_collect)
+    return {"route": route}
+
+```
+
+### app/api/routers/map.py
+```
+# app/api/routers/map.py
+from fastapi import APIRouter, Depends
+from app.api.dependencies import get_db_repo
+from collections import defaultdict
+from math import radians, cos, sin, asin, sqrt
+
+router = APIRouter(prefix="/api/map", tags=["map"])
+
+
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """Calculate distance between two points in meters"""
+    R = 6371000  # Earth radius in meters
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * asin(sqrt(a))
+    return R * c
+
+
+@router.get("/geojson")
+async def get_map_geojson(db_repo = Depends(get_db_repo)):
+    """Get all containers in GeoJSON format with clustering by location"""
+    containers = db_repo.get_all()
+    
+    # Group containers by address or proximity (within 20 meters)
+    location_groups = defaultdict(list)
+    
+    for c in containers:
+        try:
+            lat_str, lon_str = c.coords.split(",")
+            lat = float(lat_str.strip())
+            lon = float(lon_str.strip())
+        except (ValueError, AttributeError):
+            continue
+        
+        fill = c.sensor_data.fill_percent if c.sensor_data else 0
+        
+        # Try to find existing group at same location
+        found_group = False
+        for group_key in location_groups.keys():
+            group_lat, group_lon = group_key
+            if haversine_distance(lat, lon, group_lat, group_lon) < 20:  # 20 meters threshold
+                location_groups[group_key].append({
+                    "id": c.id,
+                    "address": c.address,
+                    "fill_percent": fill,
+                    "battery": c.sensor_data.battery_status if c.sensor_data else "неизвестно",
+                    "temperature": c.sensor_data.temperature_status if c.sensor_data else "неизвестно",
+                    "lat": lat,
+                    "lon": lon
+                })
+                found_group = True
+                break
+        
+        if not found_group:
+            location_groups[(lat, lon)].append({
+                "id": c.id,
+                "address": c.address,
+                "fill_percent": fill,
+                "battery": c.sensor_data.battery_status if c.sensor_data else "неизвестно",
+                "temperature": c.sensor_data.temperature_status if c.sensor_data else "неизвестно",
+                "lat": lat,
+                "lon": lon
+            })
+    
+    # Create features from grouped containers
+    features = []
+    for (group_lat, group_lon), group_containers in location_groups.items():
+        total_fill = sum(c["fill_percent"] for c in group_containers)
+        max_capacity = len(group_containers) * 100
+        avg_fill = total_fill / len(group_containers) if group_containers else 0
+        
+        # Determine color based on average fill percentage
+        if avg_fill >= 70:
+            color = "red"
+        elif avg_fill >= 50:
+            color = "yellow"
+        else:
+            color = "green"
+        
+        # Use first container's address as group address
+        address = group_containers[0]["address"]
+        
+        features.append({
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [group_lon, group_lat]
+            },
+            "properties": {
+                "is_cluster": len(group_containers) > 1,
+                "container_count": len(group_containers),
+                "containers": group_containers,
+                "address": address,
+                "total_fill": total_fill,
+                "max_capacity": max_capacity,
+                "avg_fill_percent": round(avg_fill, 1),
+                "color": color
+            }
+
+... (пропущено 6 строк)
+
+```
+
+### app/api/routers/sensors.py
+```
+# app/api/routers/sensors.py
+from fastapi import APIRouter, Request, Depends
+from pydantic import BaseModel
+from datetime import datetime
+from fastapi.responses import StreamingResponse
+import qrcode
+import io
+from app.api.dependencies import get_db_repo, get_notifier, get_sensor_pipeline
+from app.domain.models import WebhookPayload
+
+router = APIRouter(prefix="/api/sensors", tags=["sensors"])
+
+
+class QRManualReport(BaseModel):
+    container_id: str
+    fill_percent: int
+    device_id: str
+    role: str = "resident"
+
+
+# Простой словарь для защиты от спама (в проде используют Redis)
+anti_spam_cache = {}
+
+
+@router.post("/webhook")
+async def receive_sensor_data(payload: WebhookPayload, sensor_pipeline = Depends(get_sensor_pipeline)):
+    """Receive sensor data from IoT devices"""
+    await sensor_pipeline.process_new_data(payload)
+    return {"status": "ok", "container_id": payload.container_id, "saved_to_db": True}
+
+
+@router.post("/manual")
+async def receive_qr_data(report: QRManualReport, db_repo = Depends(get_db_repo), notifier = Depends(get_notifier)):
+    """Receive manual reports from residents/contractors via QR codes"""
+    now = datetime.utcnow()
+    spam_key = f"{report.device_id}_{report.container_id}"
+    
+    # 🛡 Антиспам: разрешаем отправлять статус не чаще раза в 5 минут
+    if spam_key in anti_spam_cache:
+        delta = (now - anti_spam_cache[spam_key]).total_seconds()
+        if delta < 300:
+            return {"status": "error", "message": "Вы уже отправляли данные недавно. Спасибо!"}
+    
+    anti_spam_cache[spam_key] = now
+    
+    # Формируем псевдо-данные "датчика"
+    sensor_dict = {
+        "fill_percent": report.fill_percent,
+        "temperature_status": "норм. (QR)",
+        "tilt_status": "норм. (QR)",
+        "battery_status": "не применимо",
+        "timestamp": now.isoformat()
+    }
+    
+    success = db_repo.update_sensor_data(report.container_id, sensor_dict)
+    
+    if success:
+        # Если мусорка переполнена - запускаем оповещение подрядчику
+        if report.fill_percent >= 70:
+            await notifier.send_alert(
+                f"📱 [QR-Crowdsourcing] Жители сообщают: Контейнер {report.container_id} переполнен ({report.fill_percent}%)!",
+                role="Подрядчик")
+        
+        return {"status": "ok", "message": "Данные успешно обновлены!"}
+    return {"status": "error", "message": "Контейнер не найден"}
+
+
+@router.get("/{container_id}/qr")
+async def generate_qr(container_id: str, request: Request):
+    """Generate QR code for a specific container"""
+    base_url = str(request.base_url).rstrip("/")
+    target_url = f"{base_url}/qr-scan?id={container_id}"
+    
+    qr = qrcode.make(target_url)
+    buf = io.BytesIO()
+    qr.save(buf, format="PNG")
+    buf.seek(0)
+    
+    return StreamingResponse(buf, media_type="image/png")
+
+```
+
+### app/api/routers/telegram.py
+```
+# app/api/routers/telegram.py
+from fastapi import APIRouter, Request, Response, HTTPException
+from fastapi.responses import JSONResponse
+from app.infrastructure.telegram.bot import telegram_bot_service
+import logging
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(tags=["telegram"])
+
+
+@router.post("/webhook")
+async def telegram_webhook(request: Request):
+    """Webhook для Telegram бота"""
+    try:
+        # Проверяем, что сервис инициализирован
+        if not telegram_bot_service.get_dispatcher():
+            logger.warning("Telegram бот не инициализирован")
+            raise HTTPException(status_code=503, detail="Telegram бот не доступен")
+        
+        # Получаем данные от Telegram
+        update_data = await request.json()
+        
+        # Обновляем секретный токен (если нужен)
+        # if request.headers.get("X-Telegram-Bot-Api-Secret-Token") != "waste_map_secret":
+        #     raise HTTPException(status_code=403, detail="Invalid secret token")
+        
+        # Обрабатываем обновление
+        from aiogram import types
+        update = types.Update.model_validate(update_data, context={"bot": telegram_bot_service.get_bot()})
+        
+        await telegram_bot_service.get_dispatcher().feed_update(
+            bot=telegram_bot_service.get_bot(),
+            update=update
+        )
+        
+        return JSONResponse(content={"status": "ok"})
+        
+    except Exception as e:
+        logger.error(f"Ошибка обработки webhook: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/info")
+async def telegram_info():
+    """Информация о Telegram боте"""
+    bot = telegram_bot_service.get_bot()
+    if not bot:
+        return {"status": "not_initialized", "message": "Telegram бот не настроен"}
+    
+    try:
+        bot_info = await bot.get_me()
+        return {
+            "status": "initialized",
+            "bot": {
+                "id": bot_info.id,
+                "username": bot_info.username,
+                "first_name": bot_info.first_name,
+                "is_bot": bot_info.is_bot
+            }
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e)
+        }
+
+
+@router.post("/set-webhook")
+async def set_webhook(request: Request):
+    """Установка webhook для Telegram бота"""
+    try:
+        # Получаем URL webhook из запроса
+        data = await request.json()
+        webhook_url = data.get("webhook_url")
+        
+        if not webhook_url:
+            raise HTTPException(status_code=400, detail="webhook_url required")
+        
+        # Устанавливаем webhook
+        success = await telegram_bot_service.set_webhook(webhook_url)
+        
+        if success:
+            return {"status": "success", "webhook_url": webhook_url}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to set webhook")
+            
+    except Exception as e:
+        logger.error(f"Ошибка установки webhook: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+```
+
+### app/api/routers.py
+```
+
+```
+
+### app/config/__init__.py
+```
+# app/config/__init__.py
+
+```
+
+### app/config/settings.py
+```
+# app/config/settings.py
+import os
+from typing import Optional
+
+class Settings:
+    """Конфигурация приложения с переменных окружения"""
+    
+    # База данных
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://waste_user:waste_password@postgres:5432/waste_db")
+    
+    # Telegram
+    BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")
+    TELEGRAM_CHAT_IDS: str = os.getenv("TELEGRAM_CHAT_IDS", "")
+    
+    # VK (опционально)
+    VK_TOKEN: Optional[str] = os.getenv("VK_TOKEN")
+    
+    # Сервер
+    HOST: str = os.getenv("HOST", "0.0.0.0")
+    PORT: int = int(os.getenv("PORT", "8000"))
+    
+    # Публичный URL для API (для вебхуков и уведомлений)
+    PUBLIC_SERVER_URL: str = os.getenv("PUBLIC_SERVER_URL", f"http://194.67.122.226:{PORT}")
+    
+    # API ключи
+    YANDEX_API_KEY: str = os.getenv("YANDEX_API_KEY", "7d253372-5194-4f00-a292-ea1d7bc18844")
+    
+    # Настройки приложения
+    DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "production")
+    
+    # Координаты Иннополиса (по умолчанию)
+    DEFAULT_LAT: float = float(os.getenv("DEFAULT_LAT", "55.753"))
+    DEFAULT_LON: float = float(os.getenv("DEFAULT_LON", "48.743"))
+    DEFAULT_ZOOM: int = int(os.getenv("DEFAULT_ZOOM", "13"))
+    
+    # Пороги для уведомлений
+    FILL_THRESHOLD_HIGH: int = int(os.getenv("FILL_THRESHOLD_HIGH", "70"))
+    FILL_THRESHOLD_MEDIUM: int = int(os.getenv("FILL_THRESHOLD_MEDIUM", "50"))
+    
+    # Защита от спама (секунды)
+    ANTI_SPAM_SECONDS: int = int(os.getenv("ANTI_SPAM_SECONDS", "300"))
+    
+    @classmethod
+    def get_telegram_chat_ids(cls) -> dict:
+        """Получить словарь Chat ID для разных ролей"""
+        chat_ids = {}
+        try:
+            if cls.TELEGRAM_CHAT_IDS:
+                for pair in cls.TELEGRAM_CHAT_IDS.split(','):
+                    if '=' in pair:
+                        role, chat_id = pair.strip().split('=', 1)
+                        chat_ids[role.strip()] = chat_id.strip()
+        except Exception as e:
+            print(f"Ошибка парсинга TELEGRAM_CHAT_IDS: {e}")
+        
+        return chat_ids
+
+# Глобальный объект настроек
+settings = Settings()
+
+```
+
+### app/core/config.py
+```
+
+```
+
+### app/core/dependencies.py
+```
+# app/core/dependencies.py
+import os
+from app.services.sensor_pipeline import SensorProcessingPipeline
+from app.infrastructure.routing.osrm_router import OSRMRoutingProvider
+from app.infrastructure.database.postgres_repo import PostgresContainerRepo
+from app.infrastructure.notifications.dispatcher import UniversalNotificationDispatcher
+from app.infrastructure.notifications.channels import ConsoleChannel, TelegramChannel, VKChannel
+from app.config.settings import settings
+
+
+def setup_notification_channels():
+    """Setup and configure notification channels"""
+    active_channels = [
+        ConsoleChannel(),  # Всегда выводим в консоль для дебага
+    ]
+    
+    # Если в переменных окружения есть токен ТГ - включаем ТГ канал
+    tg_token = settings.BOT_TOKEN
+    if tg_token:
+        active_channels.append(TelegramChannel(bot_token=tg_token))
+    
+    # Если есть токен VK - включаем VK канал
+    vk_token = os.getenv("VK_TOKEN")
+    if vk_token:
+        active_channels.append(VKChannel(vk_token=vk_token))
+    
+    return active_channels
+
+
+def setup_services():
+    """Setup and configure all application services"""
+    # Database repository
+    db_repo = PostgresContainerRepo()
+    
+    # Notification system
+    active_channels = setup_notification_channels()
+    notifier = UniversalNotificationDispatcher(channels=active_channels)
+    
+    # Routing service
+    routing_provider = OSRMRoutingProvider()
+    
+    # Sensor processing pipeline
+    sensor_pipeline = SensorProcessingPipeline(
+        repo=db_repo,
+        notifier=notifier,
+        enable_alerts=True
+    )
+    
+    return {
+        "db_repo": db_repo,
+        "notifier": notifier,
+        "routing_provider": routing_provider,
+        "sensor_pipeline": sensor_pipeline
+    }
+
+```
+
+### app/core/interfaces.py
+```
+from abc import ABC, abstractmethod
+from typing import List
+from app.domain.models import Container, RoutePath
+
+
+# Интерфейс для работы с базой данных
+class ContainerRepository(ABC):
+    @abstractmethod
+    def get_all(self) -> List[Container]: pass
+
+    @abstractmethod
+    def upsert_container(self, container_id: str, address: str, coords: str, sensor_data: dict): pass
+
+    @abstractmethod
+    def update_sensor_data(self, container_id: str, sensor_data: dict): pass
+
+
+# Интерфейс для построителя маршрутов (можно будет подключать разные)
+class RoutingProvider(ABC):
+    @abstractmethod
+    def build_route(self, origin: str, waypoints: List[str]) -> RoutePath: pass
+
+
+# Интерфейс для уведомлений
+class NotificationService(ABC):
+    @abstractmethod
+    async def send_alert(self, message: str, role: str): pass
+
+```
+
+### app/domain/exceptions.py
+```
+
+```
+
+### app/domain/models.py
+```
+from pydantic import BaseModel, Field
+from typing import Optional, List
+from datetime import datetime
+
+class SensorData(BaseModel):
+    fill_percent: int
+    temperature_status: str
+    tilt_status: str
+    battery_status: str
+    timestamp: datetime
+
+class Container(BaseModel):
+    id: str
+    address: str
+    coords: str
+    sensor_data: Optional[SensorData] = None
+
+class RoutePath(BaseModel):
+    route_geojson: dict
+    distance_km: float
+    duration_min: float
+    optimized_waypoints_order: List[str]
+
+class WebhookPayload(BaseModel):
+    container_id: str
+    address: str
+    coords: str
+    sensor_data: SensorData
+
+```
+
+### app/frontend/index_clean.html
+```
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Иннополис Карта Мусора</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Подключаем API Яндекс Карт -->
+    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey={{ YANDEX_API_KEY }}" type="text/javascript"></script>
+    
+    <style>
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        #map { height: 100vh; width: 100%; }
+        .controls {
+            position: absolute; top: 10px; right: 10px; z-index: 1000;
+            background: white; padding: 15px; border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 200px;
+        }
+        .legend {
+            position: absolute; bottom: 20px; left: 20px; z-index: 1000;
+            background: white; padding: 15px; border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .legend-item { display: flex; align-items: center; margin: 8px 0; }
+        .legend-color {
+            width: 16px; height: 16px; margin-right: 10px; border-radius: 50%;
+            border: 2px solid #333;
+        }
+        .btn-custom { margin: 5px 0; width: 100%; }
+        .stats-modal {
+            display: none; position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000;
+        }
+        .stats-content {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); background: white;
+            padding: 30px; border-radius: 10px; min-width: 400px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    
+    <div class="controls">
+        <h5 class="mb-3">🎛️ Управление</h5>
+        <button class="btn btn-primary btn-custom" onclick="refreshData()">🔄 Обновить данные</button>
+        <button class="btn btn-info btn-custom" onclick="showStats()">📊 Статистика</button>
+        <button class="btn btn-success btn-custom" onclick="centerOnInnopolis()">🏙️ Центр города</button>
+    </div>
+    
+    <div class="legend">
+        <h6 class="mb-2">📋 Легенда</h6>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #28a745;"></div>
+            <span>Менее 50% заполнения</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #ffc107;"></div>
+            <span>50-70% заполнения</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #dc3545;"></div>
+            <span>Более 70% заполнения</span>
+        </div>
+    </div>
+
+    <div id="statsModal" class="stats-modal">
+        <div class="stats-content">
+            <h5 class="mb-3">📊 Статистика контейнеров</h5>
+            <div id="statsData"></div>
+            <button class="btn btn-secondary mt-3" onclick="closeStats()">Закрыть</button>
+        </div>
+    </div>
+
+    <script>
+        let map;
+        let objects = [];
+        let defaultLat = {{ DEFAULT_LAT }};
+        let defaultLon = {{ DEFAULT_LON }};
+        let defaultZoom = {{ DEFAULT_ZOOM }};
+
+        function initMap() {
+            ymaps.ready(function() {
+                map = new ymaps.Map("map", {
+                    center: [defaultLat, defaultLon],
+                    zoom: defaultZoom,
+                    controls: ['zoomControl', 'searchControl', 'typeSelector', 'fullscreenControl']
+                });
+                map.controls.add('trafficControl');
+                loadContainers();
+            });
+        }
+
+        async function loadContainers() {
+            try {
+                const response = await fetch('/api/map/geojson');
+                const data = await response.json();
+                
+                objects.forEach(obj => map.geoObjects.remove(obj));
+
+... (пропущено 93 строк)
+
+```
+
+### app/frontend/index_template.html
+```
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Иннополис Карта Мусора</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Подключаем API Яндекс Карт -->
+    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey={{ YANDEX_API_KEY }}" type="text/javascript"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+        .controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            min-width: 200px;
+        }
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+        }
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            margin-right: 10px;
+            border-radius: 50%;
+            border: 2px solid #333;
+        }
+        .btn-custom {
+            margin: 5px 0;
+            width: 100%;
+        }
+        .stats-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+        }
+        .stats-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            min-width: 400px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    
+    <div class="controls">
+        <h5 class="mb-3">🎛️ Управление</h5>
+        <button class="btn btn-primary btn-custom" onclick="refreshData()">
+            🔄 Обновить данные
+        </button>
+        <button class="btn btn-info btn-custom" onclick="showStats()">
+            📊 Статистика
+        </button>
+        <button class="btn btn-success btn-custom" onclick="centerOnInnopolis()">
+            🏙️ Центр города
+        </button>
+    </div>
+    
+    <div class="legend">
+        <h6 class="mb-2">📋 Легенда</h6>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #28a745;"></div>
+
+... (пропущено 187 строк)
+
+```
+
+### app/frontend/template.py
+```
+# app/frontend/template.py
+import os
+from app.config.settings import settings
+
+def render_template(template_path: str, **kwargs) -> str:
+    """Простой шаблонизатор для подстановки переменных"""
+    with open(template_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+    
+    # Подстановка переменных
+    replacements = {
+        'YANDEX_API_KEY': settings.YANDEX_API_KEY,
+        'PUBLIC_SERVER_URL': settings.PUBLIC_SERVER_URL,
+        'DEFAULT_LAT': settings.DEFAULT_LAT,
+        'DEFAULT_LON': settings.DEFAULT_LON,
+        'DEFAULT_ZOOM': settings.DEFAULT_ZOOM,
+    }
+    
+    # Добавляем пользовательские переменные
+    replacements.update(kwargs)
+    
+    # Заменяем {{ VARIABLE }} на значения
+    for key, value in replacements.items():
+        content = content.replace('{{ ' + key + ' }}', str(value))
+        content = content.replace('{{' + key + '}}', str(value))
+    
+    return content
+
+```
+
+### app/infrastructure/database/database.py
+```
+import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
+from app.config.settings import settings
+
+# Получаем URL из настроек
+DATABASE_URL = settings.DATABASE_URL
+
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+```
+
+### app/infrastructure/database/models.py
+```
+from sqlalchemy import Column, String, JSON
+from .database import Base
+
+class DBContainer(Base):
+    __tablename__ = "containers"
+
+    id = Column(String, primary_key=True, index=True)
+    address = Column(String)
+    coords = Column(String)
+    # Сохраняем все данные датчика в виде JSON-объекта
+    sensor_data = Column(JSON, nullable=True)
+```
+
+### app/infrastructure/database/postgres_repo.py
+```
+from typing import List
+from app.core.interfaces import ContainerRepository
+from app.domain.models import Container, SensorData
+from .database import SessionLocal
+from .models import DBContainer
+
+
+class PostgresContainerRepo(ContainerRepository):
+
+    def get_all(self) -> List[Container]:
+        with SessionLocal() as db:
+            db_containers = db.query(DBContainer).all()
+            result = []
+            for db_c in db_containers:
+                # Преобразуем данные из БД в наши чистые Pydantic модели
+                sensor = SensorData(**db_c.sensor_data) if db_c.sensor_data else None
+                result.append(
+                    Container(
+                        id=db_c.id,
+                        address=db_c.address,
+                        coords=db_c.coords,
+                        sensor_data=sensor
+                    )
+                )
+            return result
+
+    def upsert_container(self, container_id: str, address: str, coords: str, sensor_data: dict):
+        """
+        Upsert: Если контейнера нет - создаем. Если есть - обновляем его данные.
+        Это решает кейс 'Учесть что контейнеры могут появляться в новых локациях'
+        """
+        with SessionLocal() as db:
+            container = db.query(DBContainer).filter(DBContainer.id == container_id).first()
+
+            if not container:
+                # Контейнер новый! Создаем
+                container = DBContainer(id=container_id, address=address, coords=coords)
+                db.add(container)
+            else:
+                # Контейнер существует! Обновляем адрес и координаты на случай перемещения
+                container.address = address
+                container.coords = coords
+
+            # Обновляем показания датчика (только если переданы)
+            if sensor_data is not None:
+                container.sensor_data = sensor_data
+
+            db.commit()
+    def delete_container(self, container_id: str):
+        with SessionLocal() as db:
+            container = db.query(DBContainer).filter(DBContainer.id == container_id).first()
+            if container:
+                db.delete(container)
+                db.commit()
+                return True
+            return False
+
+    def update_sensor_data(self, container_id: str, sensor_data: dict):
+        """Обновление данных с QR-кода с логикой УСРЕДНЕНИЯ (защита от выбросов)"""
+        with SessionLocal() as db:
+            container = db.query(DBContainer).filter(DBContainer.id == container_id).first()
+            if container:
+                # Берем старые данные, если они есть
+                old_data = container.sensor_data or {}
+
+                # Достаем историю последних сканирований (сохраняем до 5 последних оценок)
+                history = old_data.get("qr_history", [])
+
+                # Добавляем новую оценку
+                new_fill = sensor_data["fill_percent"]
+                history.append(new_fill)
+
+                # Храним только последние 4 оценки (чтобы старые данные забывались)
+                if len(history) > 4:
+                    history.pop(0)
+
+                # Считаем среднее арифметическое
+                avg_fill = int(sum(history) / len(history))
+
+                # Обновляем словарь
+                sensor_data["fill_percent"] = avg_fill
+                sensor_data["qr_history"] = history
+
+                container.sensor_data = sensor_data
+                db.commit()
+                return True
+            return False
+
+    def edit_container(self, old_id: str, new_address: str, new_coords: str):
+        """Обновление адреса и координат контейнера"""
+        with SessionLocal() as db:
+            container = db.query(DBContainer).filter(DBContainer.id == old_id).first()
+            if container:
+                container.address = new_address
+                container.coords = new_coords
+                db.commit()
+                return True
+            return False
+
+```
+
+### app/infrastructure/notifications/channels.py
+```
+# app/infrastructure/notifications/channels.py
+import os
+import httpx
+import logging
+from abc import ABC, abstractmethod
+
+import smtplib
+from email.message import EmailMessage
+from app.config.settings import settings
+
+logger = logging.getLogger("Notifications")
+
+class BaseChannel(ABC):
+    """Базовый класс для всех мессенджеров"""
+
+    @abstractmethod
+    async def send(self, message: str, role: str):
+        pass
+
+class ConsoleChannel(BaseChannel):
+    """Канал для отладки (выводит в консоль Docker)"""
+
+    async def send(self, message: str, role: str):
+        print(f"🖥 [CONSOLE | Роль: {role}] -> {message}")
+
+class TelegramChannel(BaseChannel):
+    """Интеграция с Telegram Bot API (С кнопкой Mini App)"""
+
+    def __init__(self, bot_token: str):
+        self.bot_token = bot_token
+        self.api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+
+        # В реальной системе здесь будет маппинг ролей на ID чатов.
+        self.role_to_chat_id = {
+            "Мэрия": "1530085496",
+            "Подрядчик": "473829505"
+        }
+
+    async def send(self, message: str, role: str):
+        if not self.bot_token:
+            return
+
+        chat_id = settings.get_telegram_chat_ids().get(role) or os.getenv("DEFAULT_TG_CHAT_ID")
+        if not chat_id:
+            logger.warning(f"Не найден Chat ID для роли {role} в Telegram")
+            return
+
+        map_url = settings.PUBLIC_SERVER_URL
+
+        payload = {
+            "chat_id": chat_id,
+            "text": f"<b>[{role}]</b>\n{message}",
+            "parse_mode": "HTML",
+            "reply_markup": {
+                "inline_keyboard": [[
+                    {"text": "🗺 Открыть Карту", "url": map_url}
+                ]]
+            }
+        }
+
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.post(self.api_url, json=payload)
+                if response.status_code != 200:
+                    logger.error(f"TG Error: {response.text}")
+            except Exception as e:
+                logger.error(f"TG Connection Error: {e}")
+
+class VKChannel(BaseChannel):
+    """Заготовка для ВКонтакте"""
+
+    def __init__(self, vk_token: str):
+        self.vk_token = vk_token
+
+    async def send(self, message: str, role: str):
+        if not self.vk_token:
+            return
+        print(f"🔵 [VK API | Роль: {role}] Отправка: {message}")
+
+class EmailChannel(BaseChannel):
+    def __init__(self, smtp_server, port, login, password, to_email):
+        self.smtp = smtp_server
+        self.port = port
+        self.login = login
+        self.password = password
+        self.to_email = to_email
+
+    async def send(self, message: str, role: str):
+        if role != "Подрядчик": return
+
+        msg = EmailMessage()
+        msg.set_content(message)
+        msg['Subject'] = "🚚 Маршрут вывоза мусора на сегодня"
+        msg['From'] = self.login
+        msg['To'] = self.to_email
+
+        with smtplib.SMTP_SSL(self.smtp, self.port) as server:
+            server.login(self.login, self.password)
+            server.send_message(msg)
+```
+
+### app/infrastructure/notifications/dispatcher.py
+```
+# app/infrastructure/notifications/dispatcher.py
+import asyncio
+from typing import List
+from app.core.interfaces import NotificationService
+from app.infrastructure.notifications.channels import BaseChannel
+
+
+class UniversalNotificationDispatcher(NotificationService):
+    def __init__(self, channels: List[BaseChannel]):
+        self.channels = channels
+
+    async def send_alert(self, message: str, role: str):
+        """
+        Берет сообщение и асинхронно рассылает его по всем подключенным каналам.
+        """
+        # Создаем список задач (чтобы отправка в VK не ждала отправку в ТГ)
+        tasks = []
+        for channel in self.channels:
+            tasks.append(channel.send(message, role))
+
+        # Запускаем все задачи параллельно (Fire and Forget)
+        if tasks:
+            asyncio.create_task(self._gather_tasks(tasks))
+
+    async def _gather_tasks(self, tasks):
+        # Выполняем рассылку без блокировки основного потока API
+        await asyncio.gather(*tasks, return_exceptions=True)
+        
+```
+
+### app/infrastructure/routing/osrm_router.py
+```
+# app/infrastructure/routing/osrm_router.py
+import httpx
+from typing import List
+from app.core.interfaces import RoutingProvider
+from app.domain.models import RoutePath
+
+
+class OSRMRoutingProvider(RoutingProvider):
+    def __init__(self):
+        # Используем публичный бесплатный сервер OSRM (для хакатона - идеально)
+        self.base_url = "http://router.project-osrm.org/trip/v1/driving"
+
+    def build_route(self, origin: str, waypoints: List[str]) -> RoutePath:
+        """
+        origin: "Широта,Долгота"
+        waypoints: ["Широта,Долгота", ...]
+        """
+
+        # OSRM требует координаты в формате "Долгота,Широта" (Внимание: перевернуто!)
+        def flip_coords(coord_str: str) -> str:
+            lat, lon = coord_str.split(',')
+            return f"{lon.strip()},{lat.strip()}"
+
+        # Собираем все точки в один список: Депо + Контейнеры
+        all_points = [origin] + waypoints
+        osrm_coords = ";".join([flip_coords(p) for p in all_points])
+
+        # Формируем URL. Параметр source=first гарантирует, что маршрут начнется с Депо
+        url = f"{self.base_url}/{osrm_coords}?source=first&geometries=geojson&roundtrip=false"
+
+        print(f"[OSRM] Отправляю запрос на оптимизацию {len(all_points)} точек...")
+
+        response = httpx.get(url)
+        if response.status_code != 200:
+            print(f"[OSRM ERROR] {response.text}")
+            raise Exception("Ошибка построения маршрута")
+
+        data = response.json()
+
+        # OSRM возвращает оптимизированный маршрут (Trip)
+        trip = data['trips'][0]
+
+        # Получаем порядок, в котором алгоритм решил объехать точки
+        # (Исключаем самую первую точку, так как это Депо)
+        ordered_waypoints = []
+        for wp in sorted(data['waypoints'], key=lambda x: x['waypoint_index']):
+            if wp['waypoint_index'] != 0:
+                # Возвращаем в нормальный формат "Широта, Долгота"
+                ordered_waypoints.append(f"{wp['location'][1]}, {wp['location'][0]}")
+
+        return RoutePath(
+            route_geojson=trip['geometry'],  # Геометрия линии для карты!
+            distance_km=round(trip['distance'] / 1000, 2),  # переводим метры в км
+            duration_min=round(trip['duration'] / 60, 1),  # переводим секунды в минуты
+            optimized_waypoints_order=ordered_waypoints
+        )
+
+```
+
+### app/infrastructure/routing/yandex_router.py
+```
+# app/infrastructure/routing/yandex_router.py
+from app.core.interfaces import RoutingProvider
+
+
+class YandexRoutingProvider(RoutingProvider):
+    def build_route(self, origin, waypoints):
+        # Здесь будет реальный HTTP запрос к API Яндекс.Маршрутизации
+        print(f"[Yandex API] Строю маршрут от {origin} через {len(waypoints)} точек...")
+        return {"path": [origin] + waypoints, "distance_km": 15.5}
+
+
+# Если у Яндекса упали сервера, мы можем быстро поднять Dummy:
+class DummyRoutingProvider(RoutingProvider):
+    def build_route(self, origin, waypoints):
+        print("[Dummy API] Строю прямой маршрут по координатам...")
+        return {"path": waypoints, "distance_km": 10.0}
+
+
+```
+
+### app/infrastructure/telegram/bot.py
+```
+# app/infrastructure/telegram/bot.py
+import asyncio
+import logging
+from typing import Optional
+from aiogram import Bot, Dispatcher, types
+from aiogram.client.session.aiohttp import AiohttpSession
+from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties
+from app.config.settings import settings
+
+logger = logging.getLogger(__name__)
+
+class TelegramBotService:
+    """Сервис Telegram бота с поддержкой webhook"""
+    
+    def __init__(self):
+        self.bot: Optional[Bot] = None
+        self.dp: Optional[Dispatcher] = None
+        self.webhook_url: Optional[str] = None
+        
+    async def initialize(self):
+        """Инициализация бота"""
+        if not settings.BOT_TOKEN:
+            logger.warning("BOT_TOKEN не найден, Telegram бот не будет запущен")
+            return False
+            
+        try:
+            # Создаем бота с правильной конфигурацией
+            self.bot = Bot(
+                token=settings.BOT_TOKEN,
+                session=AiohttpSession(),
+                default=DefaultBotProperties(
+                    parse_mode=ParseMode.HTML,
+                    link_preview_is_disabled=True
+                )
+            )
+            
+            self.dp = Dispatcher()
+            self._setup_handlers()
+            
+            logger.info("Telegram бот успешно инициализирован")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Ошибка инициализации Telegram бота: {e}")
+            return False
+    
+    def _setup_handlers(self):
+        """Настройка обработчиков сообщений"""
+        
+        @self.dp.message()
+        async def handle_message(message: types.Message):
+            """Обработчик всех текстовых сообщений"""
+            await self._process_sensor_message(message)
+        
+        @self.dp.channel_post()
+        async def handle_channel_post(message: types.Message):
+            """Обработчик сообщений в канале"""
+            await self._process_sensor_message(message)
+        
+        @self.dp.my_chat_member()
+        async def handle_my_chat_member(event: types.ChatMemberUpdated):
+            """Обработчик добавления/удаления бота из чата"""
+            logger.info(f"Бот {event.new_chat_member.status} в чате {event.chat.id}")
+    
+    async def _process_sensor_message(self, message: types.Message):
+        """Обработка сообщений от датчиков"""
+        import re
+        import httpx
+        from datetime import datetime
+        
+        # Паттерн для парсинга сообщений от датчиков
+        pattern = re.compile(
+            r'Контейнер "(?P<container_id>[^"]+)",\s*'
+            r'площадка "(?P<address>[^"]+?)\s*",\s*'
+            r'заполнение "(?P<fill_percent>\d+)%",\s*'
+            r'координаты "(?P<coords>[^"]+)",\s*'
+            r'температура (?P<temperature>[^,]+),\s*'
+            r'угол наклона (?P<tilt>[^,]+),\s*'
+            r'заряд батарейки (?P<battery>[^,]+),\s*'
+            r'время отправки (?P<timestamp>\d{2}\.\d{2}\.\d{4} \d{2}:\d{2})'
+        )
+        
+        text = message.text or message.caption
+        if not text:
+            return
+        
+        match = pattern.search(text)
+        if not match:
+            logger.info(f"Сообщение не соответствует формату датчика: {text[:50]}...")
+            return
+        
+        data = match.groupdict()
+        
+        try:
+            # Конвертация времени
+            dt_obj = datetime.strptime(data['timestamp'], "%d.%m.%Y %H:%M")
+            iso_timestamp = dt_obj.isoformat()
+            
+            # Формирование payload для API
+
+... (пропущено 76 строк)
+
+```
+
+### app/infrastructure/telegram/notifier.py
+```
+from app.core.interfaces import NotificationService
+
+
+class TelegramNotifier(NotificationService):
+    async def send_alert(self, message: str, role: str):
+        # Логика отправки через бота нужной роли
+        print(f"[TG БОТ -> {role}]: {message}")
+```
+
+### app/infrastructure/telegram/tg_parser.py
+```
+# app/infrastructure/telegram/tg_parser.py
+import re
+import os
+import asyncio
+import httpx
+from datetime import datetime
+from aiogram import Bot, Dispatcher, types
+from app.config.settings import settings
+
+# ==========================================
+# ⚙️ НАСТРОЙКИ
+# ==========================================
+BOT_TOKEN = settings.BOT_TOKEN
+API_WEBHOOK_URL = os.getenv("API_WEBHOOK_URL", f"http://api:{settings.PORT}/api/sensors/webhook")
+
+# ==========================================
+# 🧩 РЕГУЛЯРНОЕ ВЫРАЖЕНИЕ ДЛЯ ПАРСИНГА
+# ==========================================
+MESSAGE_PATTERN = re.compile(
+    r'Контейнер "(?P<container_id>[^"]+)",\s*'
+    r'площадка "(?P<address>[^"]+?)\s*",\s*'
+    r'заполнение "(?P<fill_percent>\d+)%",\s*'
+    r'координаты "(?P<coords>[^"]+)",\s*'
+    r'температура (?P<temperature>[^,]+),\s*'
+    r'угол наклона (?P<tilt>[^,]+),\s*'
+    r'заряд батарейки (?P<battery>[^,]+),\s*'
+    r'время отправки (?P<timestamp>\d{2}\.\d{2}\.\d{4} \d{2}:\d{2})'
+)
+
+# Инициализируем бота и диспетчер
+bot = Bot(token=BOT_TOKEN) if BOT_TOKEN else None
+dp = Dispatcher()
+
+
+async def send_to_api(payload: dict):
+    """Отправляет распарсенные данные в наше ядро FastAPI"""
+    async with httpx.AsyncClient() as http_client:
+        try:
+            response = await http_client.post(API_WEBHOOK_URL, json=payload)
+            response.raise_for_status()
+            print(f"✅ Успешно отправлено в API: Контейнер {payload['container_id']}")
+        except httpx.HTTPError as e:
+            print(f"❌ Ошибка отправки в API: {e}")
+
+
+# Этот хэндлер будет ловить ВСЕ текстовые сообщения, которые видит бот
+@dp.message()
+async def handle_new_message(message: types.Message):
+    """Слушатель новых сообщений в чате"""
+    # Сообщение может быть просто текстом, а может быть с картинкой (caption)
+    text = message.text or message.caption
+
+    if not text:
+        return
+
+    match = MESSAGE_PATTERN.search(text)
+
+    if match:
+        data = match.groupdict()
+
+        # Преобразуем строку времени (15.03.2026 12:00) в стандартный ISO формат
+        dt_obj = datetime.strptime(data['timestamp'], "%d.%m.%Y %H:%M")
+        iso_timestamp = dt_obj.isoformat()
+
+        # Формируем JSON точно по структуре WebhookPayload
+        payload = {
+            "container_id": data['container_id'],
+            "address": data['address'],
+            "coords": data['coords'],
+            "sensor_data": {
+                "fill_percent": int(data['fill_percent']),
+                "temperature_status": data['temperature'].strip(),
+                "tilt_status": data['tilt'].strip(),
+                "battery_status": data['battery'].strip(),
+                "timestamp": iso_timestamp
+            }
+        }
+
+        print(f"🔍 Распарсены данные для {payload['container_id']}. Отправляю в API...")
+        await send_to_api(payload)
+    else:
+        # Сообщение не подошло под формат датчика
+        pass
+
+
+async def main():
+    print("🚀 Запуск Telegram Парсера (через Bot API)...")
+    if not bot:
+        print("❌ BOT_TOKEN не задан. Парсер не может быть запущен.")
+        return
+    # Запускаем поллинг (бот будет постоянно опрашивать сервера ТГ на наличие новых сообщений)
+    await dp.start_polling(bot)
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
+
+```
+
+### app/main.py
+```
+# app/main.py
+import os
+import asyncio
+import logging
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
+
+from app.infrastructure.database.database import engine, Base
+from app.api.routers import create_api_router
+from app.infrastructure.telegram.bot import telegram_bot_service
+from app.config.settings import settings
+
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Database setup (only create tables if database is available)
+try:
+    Base.metadata.create_all(bind=engine)
+    print("✅ Database tables created successfully")
+except Exception as e:
+    print(f"⚠️ Database connection failed: {e}")
+    print("🔄 Continuing without database - some features may not work")
+
+# FastAPI app initialization
+app = FastAPI(title="Innopolis Smart Waste API")
+
+# Include API routes FIRST (before static files)
+api_router = create_api_router()
+app.include_router(api_router)
+
+# Static files setup (mount after API routes)
+os.makedirs("app/frontend", exist_ok=True)
+app.mount("/static", StaticFiles(directory="app/frontend"), name="static")
+
+@app.on_event("startup")
+async def startup_event():
+    """Инициализация сервисов при запуске"""
+    try:
+        # Инициализация Telegram бота с таймаутом
+        telegram_initialized = await asyncio.wait_for(
+            telegram_bot_service.initialize(), timeout=10
+        )
+        if telegram_initialized:
+            logger.info("✅ Telegram бот успешно инициализирован")
+            
+            # Установка webhook с таймаутом
+            webhook_url = f"{settings.PUBLIC_SERVER_URL}/telegram/webhook"
+            try:
+                webhook_success = await asyncio.wait_for(
+                    telegram_bot_service.set_webhook(webhook_url), timeout=10
+                )
+                if webhook_success:
+                    logger.info(f"✅ Telegram webhook установлен: {webhook_url}")
+                else:
+                    logger.warning("⚠️ Не удалось установить webhook, используем polling")
+                    asyncio.create_task(telegram_bot_service.start_polling())
+            except asyncio.TimeoutError:
+                logger.warning("⚠️ Таймаут установки webhook, используем polling")
+                asyncio.create_task(telegram_bot_service.start_polling())
+        else:
+            logger.warning("⚠️ Telegram бот не инициализирован")
+    except asyncio.TimeoutError:
+        logger.warning("⚠️ Таймаут инициализации Telegram бота")
+    except Exception as e:
+        logger.warning(f"⚠️ Ошибка инициализации Telegram: {e}")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Очистка при остановке"""
+    logger.info("🔄 Завершение работы приложения...")
+
+```
+
+### app/services/analytics.py
+```
+# app/services/analytics.py
+from typing import List, Dict, Any
+from app.domain.models import Container
+
+
+class AnalyticsService:
+    """Service for processing analytics and generating insights"""
+    
+    def __init__(self, db_repo):
+        self.db_repo = db_repo
+    
+    def get_container_statistics(self) -> Dict[str, Any]:
+        """Get comprehensive container statistics"""
+        containers = self.db_repo.get_all()
+        active_containers = [c for c in containers if c.sensor_data]
+        
+        if not active_containers:
+            return {"message": "Нет данных для аналитики"}
+        
+        return {
+            "total_containers": len(containers),
+            "active_containers": len(active_containers),
+            "average_fill_percent": self._calculate_average_fill(active_containers),
+            "containers_needing_collection": self._get_containers_needing_collection(active_containers),
+            "hardware_alerts": self._get_hardware_alerts(active_containers)
+        }
+    
+    def get_fill_trends(self, container_id: str, days: int = 7) -> Dict[str, Any]:
+        """Get fill level trends for a specific container"""
+        # This would require historical data - placeholder for future implementation
+        return {
+            "container_id": container_id,
+            "trend": "stable",
+            "average_fill": 45,
+            "projection_days_until_full": 8
+        }
+    
+    def get_optimization_suggestions(self) -> List[Dict[str, Any]]:
+        """Get suggestions for route optimization and container placement"""
+        containers = self.db_repo.get_all()
+        active_containers = [c for c in containers if c.sensor_data]
+        
+        suggestions = []
+        
+        # Find frequently overflowing containers
+        overflow_containers = [c for c in active_containers if c.sensor_data.fill_percent >= 80]
+        if overflow_containers:
+            suggestions.append({
+                "type": "capacity_increase",
+                "containers": [c.id for c in overflow_containers],
+                "reason": "Частое переполнение контейнеров"
+            })
+        
+        # Find underutilized containers
+        underutilized = [c for c in active_containers if c.sensor_data.fill_percent <= 20]
+        if len(underutilized) > len(active_containers) * 0.3:
+            suggestions.append({
+                "type": "relocation",
+                "containers": [c.id for c in underutilized[:3]],
+                "reason": "Низкая утилизация контейнеров"
+            })
+        
+        return suggestions
+    
+    def _calculate_average_fill(self, containers: List[Container]) -> float:
+        """Calculate average fill percentage across containers"""
+        if not containers:
+            return 0.0
+        total_fill = sum(c.sensor_data.fill_percent for c in containers)
+        return round(total_fill / len(containers), 1)
+    
+    def _get_containers_needing_collection(self, containers: List[Container]) -> List[Dict[str, Any]]:
+        """Get containers that need immediate collection"""
+        return [
+            {
+                "id": c.id,
+                "fill_percent": c.sensor_data.fill_percent,
+                "address": c.address
+            }
+            for c in containers if c.sensor_data.fill_percent >= 70
+        ]
+    
+    def _get_hardware_alerts(self, containers: List[Container]) -> List[Dict[str, Any]]:
+        """Get containers with hardware issues"""
+        alerts = []
+        for c in containers:
+            issues = []
+            if c.sensor_data.battery_status != "норм.":
+                issues.append("battery")
+            if c.sensor_data.tilt_status != "норм.":
+                issues.append("tilt")
+            
+            if issues:
+                alerts.append({
+                    "container_id": c.id,
+                    "issues": issues,
+                    "address": c.address
+                })
+        
+        return alerts
+```
+
+### app/services/logistics.py
+```
+
+```
+
+### app/services/sensor_pipeline.py
+```
+from app.core.interfaces import ContainerRepository, NotificationService
+from app.domain.models import SensorData, WebhookPayload
+
+
+class SensorProcessingPipeline:
+    def __init__(self, repo: ContainerRepository, notifier: NotificationService, enable_alerts: bool = True):
+        self.repo = repo
+        self.notifier = notifier
+        self.enable_alerts = enable_alerts
+
+    async def process_new_data(self, payload: WebhookPayload):
+        sensor_dict = payload.sensor_data.model_dump()
+        sensor_dict['timestamp'] = sensor_dict['timestamp'].isoformat()
+
+        self.repo.upsert_container(
+            container_id=payload.container_id,
+            address=payload.address,
+            coords=payload.coords,
+            sensor_data=sensor_dict
+        )
+
+        if self.enable_alerts:
+            # ИЗМЕНЕНИЕ: добавили await
+            await self._check_hardware_alerts(payload.container_id, payload.sensor_data)
+            await self._check_fill_level(payload.container_id, payload.sensor_data)
+
+    # ИЗМЕНЕНИЕ: Сделали методы async
+    async def _check_hardware_alerts(self, container_id: str, data: SensorData):
+        if data.battery_status == "заряд батарейки низкий":
+            await self.notifier.send_alert(f"⚠️ Контейнер {container_id}: Низкий заряд!", role="Мэрия")
+        if data.tilt_status != "угол наклона норм.":
+            await self.notifier.send_alert(f"🚨 Контейнер {container_id}: Опрокинут!", role="Мэрия")
+
+    async def _check_fill_level(self, container_id: str, data: SensorData):
+        if data.fill_percent >= 70:
+            await self.notifier.send_alert(f"🗑 Контейнер {container_id} переполнен ({data.fill_percent}%)!", role="Подрядчик")
+            
+```
+
+### deploy.sh
+```
+#!/bin/bash
+
+# Deployment script for Debian server
+# Usage: ./deploy.sh
+
+set -e
+
+echo "🚀 Starting deployment of Innopolis Waste Map..."
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Function to print colored output
+print_status() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Check if running as root
+if [ "$EUID" -ne 0 ]; then
+    print_error "Please run as root (use sudo)"
+    exit 1
+fi
+
+print_status "Updating system packages..."
+apt update && apt upgrade -y
+
+print_status "Installing required packages..."
+apt install -y \
+    curl \
+    wget \
+    git \
+    docker.io \
+    docker-compose \
+    nginx \
+    certbot \
+    python3-certbot-nginx \
+    htop \
+    ufw
+
+print_status "Starting and enabling Docker..."
+systemctl start docker
+systemctl enable docker
+
+print_status "Adding user to docker group..."
+usermod -aG docker $USER
+usermod -aG docker root
+
+print_status "Configuring firewall..."
+ufw allow ssh
+ufw allow 80
+ufw allow 443
+ufw --force enable
+
+print_status "Creating application directory..."
+mkdir -p /opt/waste_map
+cd /opt/waste_map
+
+print_status "Cloning repository..."
+git clone https://github.com/ANKomyagin/innopolise_waste_map.git .
+
+print_status "Setting up environment variables..."
+cat > .env << EOF
+# Database configuration
+DATABASE_URL=postgresql://waste_user:waste_password@postgres:5432/waste_db
+
+# Telegram Bot Token (replace with your actual token)
+BOT_TOKEN=your_telegram_bot_token_here
+
+# VK Token (optional)
+VK_TOKEN=your_vk_token_here
+
+# Other environment variables
+ENVIRONMENT=production
+DEBUG=false
+EOF
+
+print_warning "Please edit .env file and set your actual BOT_TOKEN and VK_TOKEN"
+print_warning "Press Enter to continue or Ctrl+C to exit..."
+read
+
+print_status "Building and starting containers..."
+docker-compose -f docker-compose.prod.yml down
+docker-compose -f docker-compose.prod.yml build
+docker-compose -f docker-compose.prod.yml up -d
+
+print_status "Waiting for services to start..."
+sleep 30
+
+print_status "Checking service status..."
+
+... (пропущено 92 строк)
+
+```
+
+### docker-compose.prod.yml
+```
+# Production docker-compose.yml
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    ports:
+      - "8001:8000"
+    environment:
+      - DATABASE_URL=postgresql://waste_user:waste_password@postgres:5432/waste_db
+      - BOT_TOKEN=${BOT_TOKEN}
+      - VK_TOKEN=${VK_TOKEN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - waste_network
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=waste_db
+      - POSTGRES_USER=waste_user
+      - POSTGRES_PASSWORD=waste_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5433:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U waste_user -d waste_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - waste_network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./frontend:/usr/share/nginx/html
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - waste_network
+
+volumes:
+  postgres_data:
+
+networks:
+  waste_network:
+    driver: bridge
+
+```
+
+### frontend/admin.html
+```
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель администратора</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=7d253372-5194-4f00-a292-ea1d7bc18844" type="text/javascript"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+        }
+        .top-bar {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            padding: 15px 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        .top-bar h4 {
+            color: white;
+            margin: 0;
+            font-weight: 600;
+        }
+        .btn-back {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 8px 20px;
+            border-radius: 20px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        .btn-back:hover {
+            background: rgba(255,255,255,0.3);
+            color: white;
+        }
+        .container-fluid {
+            padding: 30px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-card h3 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 10px 0;
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .stat-card p {
+            color: #666;
+            margin: 0;
+            font-size: 0.95rem;
+        }
+        .stat-card i {
+            font-size: 2rem;
+            color: #fa709a;
+        }
+        .section-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+        }
+        .section-card h5 {
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        #map {
+            height: 500px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+... (пропущено 523 строк)
+
+```
+
+### frontend/index.html
+```
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="0; url=role-select.html">
+    <title>Иннополис Умная Система Управления Отходами</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Подключаем API Яндекс Карт -->
+    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=7d253372-5194-4f00-a292-ea1d7bc18844" type="text/javascript"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+        .controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            min-width: 200px;
+        }
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+        }
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            margin-right: 10px;
+            border-radius: 50%;
+            border: 2px solid #333;
+        }
+        .cluster-badge {
+            background: #fff;
+            border: 2px solid #333;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            position: absolute;
+            top: -8px;
+            right: -8px;
+        }
+        .btn-custom {
+            margin: 5px 0;
+            width: 100%;
+        }
+        .stats-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+        }
+        .stats-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            min-width: 400px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    
+    <div class="controls">
+
+... (пропущено 302 строк)
+
+```
+
+### frontend/qr_scan.html
+```
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Сканирование - Иннополис Карта Мусора</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .form-group {
+            margin: 20px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        select, input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .message {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .fill-indicator {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
+        .fill-bar {
+            flex: 1;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-right: 10px;
+        }
+        .fill-level {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        .fill-low { background-color: #28a745; }
+        .fill-medium { background-color: #ffc107; }
+        .fill-high { background-color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗑️ QR Сканирование Контейнера</h1>
+        
+        <form id="reportForm">
+            <div class="form-group">
+                <label for="containerId">ID Контейнера:</label>
+                <input type="text" id="containerId" required readonly>
+            </div>
+            
+
+... (пропущено 123 строк)
+
+```
+
+### frontend/resident.html
+```
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карта контейнеров - Житель</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=7d253372-5194-4f00-a292-ea1d7bc18844" type="text/javascript"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+        .top-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            padding: 15px 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .top-bar h4 {
+            color: white;
+            margin: 0;
+            font-weight: 600;
+        }
+        .btn-back {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 8px 20px;
+            border-radius: 20px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        .btn-back:hover {
+            background: rgba(255,255,255,0.3);
+            color: white;
+        }
+        .controls {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            min-width: 300px;
+        }
+        .controls h5 {
+            margin-bottom: 15px;
+            color: #333;
+            font-weight: 600;
+        }
+        .btn-custom {
+            width: 100%;
+            margin: 8px 0;
+            padding: 12px;
+            border-radius: 10px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .btn-find-nearest {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            border: none;
+            color: white;
+        }
+        .btn-find-nearest:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4);
+        }
+        .btn-my-location {
+            background: #fff;
+            border: 2px solid #4facfe;
+            color: #4facfe;
+        }
+        .btn-my-location:hover {
+            background: #f0f9ff;
+        }
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 15px;
+
+... (пропущено 394 строк)
+
+```
+
+### frontend/role-select.html
+```
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Иннополис Умная Система Управления Отходами</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container-main {
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 50px;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .roles-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .role-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            position: relative;
+            overflow: hidden;
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        .role-card:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .role-card:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        .role-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: linear-gradient(90deg, var(--card-color-1), var(--card-color-2));
+        }
+
+        .role-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+
+        .role-card.resident {
+            --card-color-1: #4facfe;
+            --card-color-2: #00f2fe;
+        }
+
+        .role-card.truck {
+            --card-color-1: #43e97b;
+            --card-color-2: #38f9d7;
+
+... (пропущено 176 строк)
+
+```
+
+### frontend/truck.html
+```
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Маршрут мусоровоза</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=7d253372-5194-4f00-a292-ea1d7bc18844" type="text/javascript"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+        .top-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            padding: 15px 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .top-bar h4 {
+            color: white;
+            margin: 0;
+            font-weight: 600;
+        }
+        .btn-back {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 8px 20px;
+            border-radius: 20px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        .btn-back:hover {
+            background: rgba(255,255,255,0.3);
+            color: white;
+        }
+        .controls {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            min-width: 320px;
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+        }
+        .controls h5 {
+            margin-bottom: 15px;
+            color: #333;
+            font-weight: 600;
+        }
+        .btn-custom {
+            width: 100%;
+            margin: 8px 0;
+            padding: 12px;
+            border-radius: 10px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .btn-build-route {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            border: none;
+            color: white;
+        }
+        .btn-build-route:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(67, 233, 123, 0.4);
+        }
+        .route-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+        .route-info h6 {
+            color: #43e97b;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        .container-list {
+            margin-top: 15px;
+        }
+
+... (пропущено 355 строк)
+
+```
+
+### generate_project_docs.py
+```
+#!/usr/bin/env python3
+"""
+Генератор документации проекта Innopolis Smart Waste Management System
+Создает текстовый файл с полной структурой и содержимым проекта
+"""
+
+import os
+from pathlib import Path
+from datetime import datetime
+
+# Исключения - файлы и папки, которые не нужно включать в документацию
+EXCLUDE_DIRS = {
+    '__pycache__', '.git', '.vscode', 'node_modules', '.pytest_cache',
+    'venv', 'env', '.env', 'migrations'
+}
+
+EXCLUDE_FILES = {
+    '.gitignore', '.dockerignore', '.DS_Store', 'Thumbs.db',
+    '*.pyc', '*.pyo', '*.pyd', '.env', '*.log'
+}
+
+# Расширения файлов, которые нужно включать в документацию
+INCLUDE_EXTENSIONS = {
+    '.py', '.html', '.css', '.js', '.yml', '.yaml', '.txt', '.md',
+    '.sql', '.conf', '.sh', '.json', '.xml'
+}
+
+def should_include_file(file_path):
+    """Проверить, нужно ли включать файл в документацию"""
+    file_name = os.path.basename(file_path)
+    
+    # Проверить исключения по имени
+    for exclude in EXCLUDE_FILES:
+        if exclude.startswith('*'):
+            if file_name.endswith(exclude[1:]):
+                return False
+        elif file_name == exclude:
+            return False
+    
+    # Проверить расширение
+    ext = os.path.splitext(file_name)[1].lower()
+    return ext in INCLUDE_EXTENSIONS
+
+def should_include_dir(dir_name):
+    """Проверить, нужно ли включать директорию в документацию"""
+    return dir_name not in EXCLUDE_DIRS
+
+def get_project_structure(root_path):
+    """Получить структуру проекта"""
+    structure = []
+    root_path = Path(root_path)
+    
+    for item in sorted(root_path.rglob('*')):
+        if item.is_file() and should_include_file(item):
+            relative_path = item.relative_to(root_path)
+            structure.append(relative_path)
+    
+    return structure
+
+def read_file_content(file_path, max_lines=100):
+    """Прочитать содержимое файла с ограничением по строкам"""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            if len(lines) > max_lines:
+                lines = lines[:max_lines] + [f"\n... (пропущено {len(lines) - max_lines} строк)\n"]
+            return ''.join(lines)
+    except Exception as e:
+        return f"[Ошибка чтения файла: {e}]"
+
+def generate_tree_structure(root_path, structure):
+    """Сгенерировать текстовое представление дерева структуры"""
+    tree_lines = []
+    path_dict = {}
+    
+    # Построить словарь путей
+    for file_path in structure:
+        parts = file_path.parts
+        current = path_dict
+        for part in parts[:-1]:
+            if part not in current:
+                current[part] = {}
+            current = current[part]
+        current[parts[-1]] = None
+    
+    # Рекурсивная функция для построения дерева
+    def build_tree(d, prefix='', is_last=True):
+        items = list(d.items())
+        for i, (name, subdict) in enumerate(items):
+            is_last_item = i == len(items) - 1
+            current_prefix = '└── ' if is_last_item else '├── '
+            tree_lines.append(f"{prefix}{current_prefix}{name}")
+            
+            if subdict is not None:  # Это директория
+                next_prefix = prefix + ('    ' if is_last_item else '│   ')
+                build_tree(subdict, next_prefix)
+    
+    tree_lines.append(root_path.name + '/')
+    build_tree(path_dict)
+    return '\n'.join(tree_lines)
+
+... (пропущено 83 строк)
+
+```
+
+### get_project.py
+```
+import os
+
+OUTPUT_FILE = 'project.txt'
+EXCLUDED_DIRS = {'venv', 'bin', 'reports', 'utils', 'additions'}
+EXCLUDED_FILES = {'get_project.py', 'project.txt', 'llm_test.py', 'environment.py'}
+ROOT_DIR = os.path.abspath(os.path.dirname(__file__))
+
+with open(OUTPUT_FILE, 'w', encoding='utf-8') as output:
+    for dirpath, dirnames, filenames in os.walk(ROOT_DIR):
+        # Удаляем исключённые директории из списка для обхода
+        dirnames[:] = [d for d in dirnames if d not in EXCLUDED_DIRS]
+
+        for filename in filenames:
+            # Проверяем, не находится ли файл в списке исключенных
+            if filename in EXCLUDED_FILES:
+                continue  # Пропускаем исключенные файлы
+
+            if filename.endswith('.py'):
+                file_path = os.path.join(dirpath, filename)
+                # Относительный путь от корня, используем его для форматирования
+                rel_path = os.path.relpath(file_path, ROOT_DIR)
+                dotted_path = rel_path.replace(os.sep, '.')
+
+                output.write(f"{dotted_path}\n")
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    output.write(content + "\n\n")
+                except Exception as e:
+                    output.write(f"# Ошибка при чтении {dotted_path}: {e}\n\n")
+
+```
+
+### init.sql
+```
+-- Database initialization script
+-- This will be executed when PostgreSQL container starts first time
+
+-- Create database extensions if needed
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Create tables (SQLAlchemy will handle this, but we can add initial data here)
+
+-- You can add initial data here if needed
+-- INSERT INTO containers (id, address, coords) VALUES 
+-- ('container_001', 'Университет Иннополис, корпус 1', '55.754, 48.744'),
+-- ('container_002', 'Университет Иннополис, корпус 2', '55.755, 48.745');
+
+```
+
+### nginx.conf
+```
+# Nginx configuration for production
+events {
+    worker_connections 1024;
+}
+
+http {
+    upstream app_backend {
+        server app:8000;
+    }
+
+    server {
+        listen 80;
+        server_name 194.67.122.226;
+
+        # Frontend static files
+        location / {
+            root /usr/share/nginx/html;
+            try_files $uri $uri/ /index.html;
+        }
+
+        # API endpoints
+        location /api/ {
+            proxy_pass http://app_backend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # FastAPI docs
+        location /docs {
+            proxy_pass http://app_backend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # Static files from app
+        location /static/ {
+            proxy_pass http://app_backend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+}
+
+```
+
+### project_documentation.txt
+```
+# Проект: Innopolis Smart Waste Management System
+
+## Обзор проекта
+Система управления отходами для города Иннополис с веб-интерфейсом, Telegram ботом и интеграцией с Яндекс.Картами.
+
+**Дата генерации:** 2026-03-28 10:53:35
+**Корневая директория:** C:\Users\Andrey\Desktop\pythonProjectS\innopolis_waste_map
+
+## Структура проекта
+```
+innopolis_waste_map/
+├── app
+│   ├── api
+│   │   ├── dependencies.py
+│   │   ├── integration
+│   │   │   └── digital_twin.py
+│   │   ├── routers
+│   │   │   ├── __init__.py
+│   │   │   ├── analytics.py
+│   │   │   ├── containers.py
+│   │   │   ├── frontend.py
+│   │   │   ├── logistics.py
+│   │   │   ├── map.py
+│   │   │   ├── sensors.py
+│   │   │   └── telegram.py
+│   │   └── routers.py
+│   ├── config
+│   │   ├── __init__.py
+│   │   └── settings.py
+│   ├── core
+│   │   ├── config.py
+│   │   ├── dependencies.py
+│   │   └── interfaces.py
+│   ├── domain
+│   │   ├── exceptions.py
+│   │   └── models.py
+│   ├── frontend
+│   │   ├── index_clean.html
+│   │   ├── index_template.html
+│   │   └── template.py
+│   ├── infrastructure
+│   │   ├── database
+│   │   │   ├── database.py
+│   │   │   ├── models.py
+│   │   │   └── postgres_repo.py
+│   │   ├── notifications
+│   │   │   ├── channels.py
+│   │   │   └── dispatcher.py
+│   │   ├── routing
+│   │   │   ├── osrm_router.py
+│   │   │   └── yandex_router.py
+│   │   └── telegram
+│   │       ├── bot.py
+│   │       ├── notifier.py
+│   │       └── tg_parser.py
+│   ├── main.py
+│   └── services
+│       ├── analytics.py
+│       ├── logistics.py
+│       └── sensor_pipeline.py
+├── deploy.sh
+├── docker-compose.prod.yml
+├── frontend
+│   ├── admin.html
+│   ├── index.html
+│   ├── qr_scan.html
+│   ├── resident.html
+│   ├── role-select.html
+│   └── truck.html
+├── generate_project_docs.py
+├── get_project.py
+├── init.sql
+├── nginx.conf
+└── requirements.txt
+```
+
+## Содержимое файлов
+
+### app/api/dependencies.py
+```
+# app/api/dependencies.py
+from fastapi import Depends
+from app.core.dependencies import setup_services
+
+# Global services instance
+services = setup_services()
+
+def get_db_repo():
+    return services["db_repo"]
+
+def get_notifier():
+    return services["notifier"]
+
+def get_routing_provider():
+    return services["routing_provider"]
+
+def get_sensor_pipeline():
+    return services["sensor_pipeline"]
+```
+
+
+... (пропущено 2847 строк)
+
+```
+
+### requirements.txt
+```
+fastapi
+uvicorn
+pydantic
+httpx
+aiogram
+sqlalchemy
+psycopg2-binary
+qrcode[pil]
+aiohttp
+```
+
+## Архитектура и технологии
+
+### Backend:
+- **FastAPI** - веб-фреймворк
+- **SQLAlchemy** - ORM для работы с PostgreSQL
+- **Pydantic** - валидация данных
+- **Aiogram** - Telegram бот
+- **HTTPX** - HTTP клиент
+- **QRCode** - генерация QR кодов
+
+### Frontend:
+- **HTML5/CSS3/JavaScript** - основные технологии
+- **Bootstrap 5** - UI фреймворк
+- **Яндекс.Карты API** - картографическая основа
+
+### Инфраструктура:
+- **Docker & Docker Compose** - контейнеризация
+- **PostgreSQL** - база данных
+- **Nginx** - веб-сервер и reverse proxy
+
+### Основные функции:
+1. **Управление контейнерами** - отслеживание статуса, наполненности
+2. **Картографическая визуализация** - отображение контейнеров на карте
+3. **Telegram уведомления** - оповещения о критическом наполнении
+4. **Логистика** - оптимизация маршрутов сбора отходов
+5. **Аналитика** - статистика и отчеты
+6. **Ролевой доступ** - администратор, водитель, житель

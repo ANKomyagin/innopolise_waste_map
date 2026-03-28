@@ -8,7 +8,7 @@ router = APIRouter(prefix="/api/logistics", tags=["logistics"])
 @router.get("/route")
 async def get_optimal_route(db_repo = Depends(get_db_repo), routing_provider = Depends(get_routing_provider)):
     """Get optimized route for waste collection"""
-    containers = db_repo.get_all()
+    containers = await db_repo.get_all()
     # Берем координаты только переполненных контейнеров
     to_collect = [c.coords for c in containers if c.sensor_data and c.sensor_data.fill_percent >= 70]
     

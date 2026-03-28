@@ -1,4 +1,5 @@
 from typing import List
+from sqlalchemy import select
 from app.core.interfaces import ContainerRepository
 from app.domain.models import Container, SensorData
 from .database import SessionLocal
@@ -7,9 +8,10 @@ from .models import DBContainer
 
 class PostgresContainerRepo(ContainerRepository):
 
-    def get_all(self) -> List[Container]:
-        with SessionLocal() as db:
-            db_containers = db.query(DBContainer).all()
+    async def get_all(self) -> List[Container]:
+        async with SessionLocal() as db:
+            result_set = await db.execute(select(DBContainer))
+            db_containers = result_set.scalars().all()
             result = []
             for db_c in db_containers:
                 # Преобразуем данные из БД в наши чистые Pydantic модели
@@ -24,13 +26,14 @@ class PostgresContainerRepo(ContainerRepository):
                 )
             return result
 
-    def upsert_container(self, container_id: str, address: str, coords: str, sensor_data: dict):
+    async def upsert_container(self, container_id: str, address: str, coords: str, sensor_data: dict):
         """
         Upsert: Если контейнера нет - создаем. Если есть - обновляем его данные.
         Это решает кейс 'Учесть что контейнеры могут появляться в новых локациях'
         """
-        with SessionLocal() as db:
-            container = db.query(DBContainer).filter(DBContainer.id == container_id).first()
+        async with SessionLocal() as db:
+            result = await db.execute(select(DBContainer).filter(DBContainer.id == container_id))
+            container = result.scalar_one_or_none()
 
             if not container:
                 # Контейнер новый! Создаем
@@ -45,20 +48,23 @@ class PostgresContainerRepo(ContainerRepository):
             if sensor_data is not None:
                 container.sensor_data = sensor_data
 
-            db.commit()
-    def delete_container(self, container_id: str):
-        with SessionLocal() as db:
-            container = db.query(DBContainer).filter(DBContainer.id == container_id).first()
+            await db.commit()
+            
+    async def delete_container(self, container_id: str):
+        async with SessionLocal() as db:
+            result = await db.execute(select(DBContainer).filter(DBContainer.id == container_id))
+            container = result.scalar_one_or_none()
             if container:
-                db.delete(container)
-                db.commit()
+                await db.delete(container)
+                await db.commit()
                 return True
             return False
 
-    def update_sensor_data(self, container_id: str, sensor_data: dict):
+    async def update_sensor_data(self, container_id: str, sensor_data: dict):
         """Обновление данных с QR-кода с логикой УСРЕДНЕНИЯ (защита от выбросов)"""
-        with SessionLocal() as db:
-            container = db.query(DBContainer).filter(DBContainer.id == container_id).first()
+        async with SessionLocal() as db:
+            result = await db.execute(select(DBContainer).filter(DBContainer.id == container_id))
+            container = result.scalar_one_or_none()
             if container:
                 # Берем старые данные, если они есть
                 old_data = container.sensor_data or {}
@@ -82,17 +88,18 @@ class PostgresContainerRepo(ContainerRepository):
                 sensor_data["qr_history"] = history
 
                 container.sensor_data = sensor_data
-                db.commit()
+                await db.commit()
                 return True
             return False
 
-    def edit_container(self, old_id: str, new_address: str, new_coords: str):
+    async def edit_container(self, old_id: str, new_address: str, new_coords: str):
         """Обновление адреса и координат контейнера"""
-        with SessionLocal() as db:
-            container = db.query(DBContainer).filter(DBContainer.id == old_id).first()
+        async with SessionLocal() as db:
+            result = await db.execute(select(DBContainer).filter(DBContainer.id == old_id))
+            container = result.scalar_one_or_none()
             if container:
                 container.address = new_address
                 container.coords = new_coords
-                db.commit()
+                await db.commit()
                 return True
             return False

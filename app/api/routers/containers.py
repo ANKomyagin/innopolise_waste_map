@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List
 from app.api.dependencies import get_db_repo
+from app.core.auth import verify_admin_key
 
 router = APIRouter(prefix="/api/containers", tags=["containers"])
 
@@ -28,11 +29,11 @@ class ContainerResponse(BaseModel):
 @router.get("/", response_model=List[ContainerResponse])
 async def get_containers(db_repo = Depends(get_db_repo)):
     """Get all containers with their current fill status"""
-    containers = db_repo.get_all()
+    containers = await db_repo.get_all()
     
     result = []
     for c in containers:
-        lat, lon = map(float, c.coords.split(','))
+        lat, lon = c.lat_lon
         result.append({
             "id": c.id,
             "lat": lat,
@@ -44,9 +45,13 @@ async def get_containers(db_repo = Depends(get_db_repo)):
 
 
 @router.post("/")
-async def create_container(data: NewContainer, db_repo = Depends(get_db_repo)):
-    """Create a new container (mayor role)"""
-    db_repo.upsert_container(
+async def create_container(
+    data: NewContainer, 
+    db_repo = Depends(get_db_repo),
+    _: str = Depends(verify_admin_key)
+):
+    """Create a new container (admin only)"""
+    await db_repo.upsert_container(
         container_id=data.id,
         address=data.address,
         coords=data.coords,
@@ -56,18 +61,27 @@ async def create_container(data: NewContainer, db_repo = Depends(get_db_repo)):
 
 
 @router.put("/{container_id}")
-async def edit_container(container_id: str, data: EditContainer, db_repo = Depends(get_db_repo)):
-    """Edit container information"""
-    success = db_repo.edit_container(container_id, data.address, data.coords)
+async def edit_container(
+    container_id: str, 
+    data: EditContainer, 
+    db_repo = Depends(get_db_repo),
+    _: str = Depends(verify_admin_key)
+):
+    """Edit container information (admin only)"""
+    success = await db_repo.edit_container(container_id, data.address, data.coords)
     if not success:
         raise HTTPException(status_code=404, detail="Container not found")
     return {"status": "ok"}
 
 
 @router.delete("/{container_id}")
-async def delete_container(container_id: str, db_repo = Depends(get_db_repo)):
-    """Delete a container"""
-    success = db_repo.delete_container(container_id)
+async def delete_container(
+    container_id: str, 
+    db_repo = Depends(get_db_repo),
+    _: str = Depends(verify_admin_key)
+):
+    """Delete a container (admin only)"""
+    success = await db_repo.delete_container(container_id)
     if not success:
         raise HTTPException(status_code=404, detail="Container not found")
     return {"status": "ok"}
