@@ -15,11 +15,8 @@ done
 echo "✅ PostgreSQL is ready!"
 
 # Run database migrations
-echo "🔄 Checking database migrations..."
-
-# TEMPORARY: Skip migrations to restore service
-# TODO: Properly stamp existing database
-echo "⚠️ Skipping migrations (tables already exist from create_all)"
+echo "🔄 Running database migrations..."
+alembic upgrade head || echo "⚠️ Migration failed, continuing anyway..."
 echo "✅ Database ready!"
 
 # Start the application
