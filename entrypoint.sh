@@ -15,16 +15,11 @@ done
 echo "✅ PostgreSQL is ready!"
 
 # Run database migrations
-echo "🔄 Running database migrations..."
+echo "🔄 Checking database migrations..."
 
-# Stamp the database to mark current schema version (safe if already stamped)
-echo "📌 Ensuring database is stamped..."
-alembic stamp head 2>/dev/null || echo "Database already stamped or migration table exists"
-
-# Run any pending migrations
-echo "⬆️ Applying migrations..."
-alembic upgrade head 2>/dev/null || echo "No new migrations to apply"
-
+# TEMPORARY: Skip migrations to restore service
+# TODO: Properly stamp existing database
+echo "⚠️ Skipping migrations (tables already exist from create_all)"
 echo "✅ Database ready!"
 
 # Start the application
