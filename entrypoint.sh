@@ -16,6 +16,15 @@ echo "✅ PostgreSQL is ready!"
 
 # Run database migrations
 echo "🔄 Running database migrations..."
+
+# Check if alembic_version table exists
+if ! alembic current 2>/dev/null | grep -q "head"; then
+    echo "📌 Stamping existing database schema..."
+    # If tables exist but no alembic version, stamp as current version
+    alembic stamp head 2>/dev/null || true
+fi
+
+# Run migrations
 alembic upgrade head
 
 echo "✅ Migrations complete!"
