@@ -16,8 +16,8 @@ templates = Jinja2Templates(directory=template_dir)
 async def serve_landing_page(request: Request):
     """Serve landing page with guest access and login"""
     return templates.TemplateResponse(
-        name="landing.html",
-        context={"request": request}
+        request=request,
+        name="landing.html"
     )
 
 
@@ -25,9 +25,9 @@ async def serve_landing_page(request: Request):
 async def serve_map_page(request: Request):
     """Serve full map page (old index.html)"""
     return templates.TemplateResponse(
+        request=request,
         name="index.html",
         context={
-            "request": request,
             "YANDEX_API_KEY": settings.YANDEX_API_KEY,
             "DEFAULT_LAT": settings.DEFAULT_LAT,
             "DEFAULT_LON": settings.DEFAULT_LON,
@@ -41,6 +41,6 @@ async def serve_map_page(request: Request):
 async def serve_qr_page(request: Request):
     """Serve mobile QR scanning page"""
     return templates.TemplateResponse(
-        name="qr_scan.html",
-        context={"request": request}
+        request=request,
+        name="qr_scan.html"
     )
