@@ -2,50 +2,63 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Сканирование - Иннополис Карта Мусора</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>QR Сканирование - Innopolis Eco</title>
     <link rel="stylesheet" href="css/qr_scan.css">
 </head>
 <body>
-    <div class="container">
-        <h1>🗑️ QR Сканирование Контейнера</h1>
-        
-        <form id="reportForm">
-            <div class="form-group">
-                <label for="containerId">ID Контейнера:</label>
-                <input type="text" id="containerId" required readonly>
+    <div class="app-container">
+        <div class="card">
+            <div class="header">
+                <div class="icon-circle">🗑️</div>
+                <h1>Заполненность контейнера</h1>
+                <p class="subtitle">Иннополис: Умная экология</p>
             </div>
-            
-            <div class="form-group">
-                <label for="fillPercent">Уровень заполнения:</label>
-                <input type="range" id="fillPercent" min="0" max="100" value="50" required>
-                <div class="fill-indicator">
-                    <div class="fill-bar">
-                        <div id="fillLevel" class="fill-level fill-low" style="width: 50%"></div>
-                    </div>
-                    <span id="fillText">50%</span>
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label for="role">Ваша роль:</label>
-                <select id="role" required>
-                    <option value="resident">Житель</option>
-                    <option value="contractor">Сотрудник подрядчика</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label for="deviceId">ID Устройства:</label>
-                <input type="text" id="deviceId" required placeholder="Уникальный ID вашего телефона">
-            </div>
-            
-            <button type="submit">Отправить данные</button>
-        </form>
-        
-        <div id="message" class="message"></div>
-    </div>
 
+            <form id="reportForm">
+                <div class="form-group">
+                    <label for="containerId">ID Контейнера</label>
+                    <div class="input-wrapper">
+                        <span class="input-icon">#</span>
+                        <input type="text" id="containerId" required readonly placeholder="ID контейнера">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="slider-header">
+                        <label>Уровень заполнения</label>
+                        <span class="fill-percent-value" id="fillText">50%</span>
+                    </div>
+
+                    <div class="slider-container">
+                        <div class="custom-slider" id="customSlider">
+                            <div class="slider-track"></div>
+                            <div class="slider-fill" id="sliderFill"></div>
+                            <div class="slider-thumb" id="sliderThumb"></div>
+                        </div>
+                    </div>
+
+                    <div class="slider-markers">
+                        <span>Пусто</span>
+                        <span>Половина</span>
+                        <span>Полный</span>
+                    </div>
+
+                    <input type="range" id="fillPercent" min="0" max="100" value="50" style="display:none">
+                </div>
+
+                <input type="hidden" id="role" value="resident">
+                <input type="hidden" id="deviceId">
+
+                <button type="submit" id="submitBtn">
+                    <span class="btn-text">Отправить</span>
+                    <div class="loader"></div>
+                </button>
+            </form>
+
+            <div id="message" class="message"></div>
+        </div>
+    </div>
     <script src="js/qr_scan.js"></script>
 </body>
 </html>

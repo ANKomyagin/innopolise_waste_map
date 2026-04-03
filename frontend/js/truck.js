@@ -258,7 +258,7 @@ function displayRouteInfo(distance, duration, containers) {
         const className = c.fill >= 70 ? '' : 'medium';
         listHtml += `
             <div class="container-item ${className}">
-                <strong>${index + 1}. ${c.id}</strong><br>
+                <strong>${c.id}</strong><br>
                 ${c.address}<br>
                 Заполненность: ${c.fill}%
             </div>
