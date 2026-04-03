@@ -1,0 +1,130 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f5f7fa;
+}
+.top-bar {
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    padding: 15px 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+.top-bar h4 {
+    color: white;
+    margin: 0;
+    font-weight: 600;
+}
+.btn-back {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 8px 20px;
+    border-radius: 20px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+.btn-back:hover {
+    background: rgba(255,255,255,0.3);
+    color: white;
+}
+.container-fluid {
+    padding: 30px;
+}
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+.stat-card {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease;
+}
+.stat-card:hover {
+    transform: translateY(-5px);
+}
+.stat-card h3 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 10px 0;
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.stat-card p {
+    color: #666;
+    margin: 0;
+    font-size: 0.95rem;
+}
+.stat-card i {
+    font-size: 2rem;
+    color: #fa709a;
+}
+.section-card {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    margin-bottom: 25px;
+}
+.section-card h5 {
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: #333;
+}
+#map {
+    height: 500px;
+    border-radius: 10px;
+    overflow: hidden;
+}
+.container-table {
+    overflow-x: auto;
+}
+.table {
+    margin: 0;
+}
+.table thead {
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    color: white;
+}
+.btn-action {
+    padding: 5px 12px;
+    border-radius: 5px;
+    font-size: 0.85rem;
+    margin: 2px;
+}
+.modal-header {
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    color: white;
+}
+.chart-container {
+    position: relative;
+    height: 300px;
+    margin-top: 20px;
+}
+.badge-fill {
+    padding: 5px 10px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+}
+.badge-low {
+    background: #d4edda;
+    color: #155724;
+}
+.badge-medium {
+    background: #fff3cd;
+    color: #856404;
+}
+.badge-high {
+    background: #f8d7da;
+    color: #721c24;
+}
