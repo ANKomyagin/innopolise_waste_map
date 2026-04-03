@@ -8,7 +8,7 @@ router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 @router.get("/dashboard")
 async def get_dashboard(db_repo = Depends(get_db_repo)):
     """Get dashboard statistics for city administration"""
-    containers = db_repo.get_all()
+    containers = await db_repo.get_all()
     
     # Фильтруем только те, у которых есть данные датчиков
     active_containers = [c for c in containers if c.sensor_data]

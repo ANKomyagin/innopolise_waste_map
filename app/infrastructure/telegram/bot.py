@@ -112,7 +112,7 @@ class TelegramBotService:
             }
             
             # Отправка в API
-            api_url = f"http://api:{settings.PORT}/api/sensors/webhook"
+            api_url = f"http://localhost:{settings.PORT}/api/sensors/webhook"
             async with httpx.AsyncClient() as client:
                 response = await client.post(api_url, json=payload, timeout=10.0)
                 response.raise_for_status()

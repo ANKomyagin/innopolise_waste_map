@@ -4,6 +4,11 @@ pydantic
 httpx
 aiogram
 sqlalchemy
-psycopg2-binary
+asyncpg
 qrcode[pil]
 aiohttp
+jinja2
+python-multipart
+python-dotenv
+alembic
+PyJWT

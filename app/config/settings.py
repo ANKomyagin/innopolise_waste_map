@@ -1,6 +1,13 @@
 # app/config/settings.py
 import os
+import logging
 from typing import Optional
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 class Settings:
     """Конфигурация приложения с переменных окружения"""
@@ -20,7 +27,22 @@ class Settings:
     PORT: int = int(os.getenv("PORT", "8000"))
     
     # Публичный URL для API (для вебхуков и уведомлений)
-    PUBLIC_SERVER_URL: str = os.getenv("PUBLIC_SERVER_URL", f"http://194.67.122.226:{PORT}")
+    PUBLIC_SERVER_URL: str = os.getenv("PUBLIC_SERVER_URL", f"http://localhost:{PORT}")
+    
+    # Безопасность (старый API ключ - deprecated)
+    ADMIN_API_KEY: str = os.getenv("ADMIN_API_KEY", "")
+    
+    # JWT Authentication
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "super-secret-key-change-me")
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # Токен живет 7 дней
+    
+    # Учетные данные пользователей (хардкод для MVP)
+    ADMIN_USERNAME: str = os.getenv("ADMIN_USERNAME", "admin")
+    ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "admin123")
+    
+    CONTRACTOR_USERNAME: str = os.getenv("CONTRACTOR_USERNAME", "driver")
+    CONTRACTOR_PASSWORD: str = os.getenv("CONTRACTOR_PASSWORD", "driver123")
     
     # API ключи
     YANDEX_API_KEY: str = os.getenv("YANDEX_API_KEY", "7d253372-5194-4f00-a292-ea1d7bc18844")
@@ -52,7 +74,7 @@ class Settings:
                         role, chat_id = pair.strip().split('=', 1)
                         chat_ids[role.strip()] = chat_id.strip()
         except Exception as e:
-            print(f"Ошибка парсинга TELEGRAM_CHAT_IDS: {e}")
+            logger.error(f"Ошибка парсинга TELEGRAM_CHAT_IDS: {e}")
         
         return chat_ids
 

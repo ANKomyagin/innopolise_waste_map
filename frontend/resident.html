@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карта контейнеров - Житель</title>
+    
+    <!-- External Libraries -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/resident.css">
+    
+    <!-- Yandex Maps API -->
+    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=7d253372-5194-4f00-a292-ea1d7bc18844" type="text/javascript"></script>
+</head>
+<body>
+    <div class="top-bar">
+        <h4><i class="fas fa-user"></i> Режим жителя</h4>
+        <a href="/" class="btn-back"><i class="fas fa-arrow-left"></i> На главную</a>
+    </div>
+
+    <div id="map"></div>
+    
+    <div class="controls">
+        <h5><i class="fas fa-map-marker-alt"></i> Найти контейнер</h5>
+        <div class="d-grid gap-2">
+            <button class="btn btn-custom btn-my-location" onclick="setMyLocation()">
+                <i class="fas fa-crosshairs"></i> Моя геолокация
+            </button>
+            <button class="btn btn-custom btn-find-nearest" onclick="findNearestContainer()">
+                <i class="fas fa-route"></i> Маршрут до ближайшего
+            </button>
+            <button class="btn btn-custom btn-secondary" onclick="clearRoute()">
+                <i class="fas fa-times"></i> Очистить маршрут
+            </button>
+        </div>
+        <div id="routeInfo" class="route-info"></div>
+    </div>
+    
+    <div class="legend">
+        <h6 class="mb-2"><i class="fas fa-info-circle"></i> Легенда</h6>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #28a745;"></div>
+            <span>Свободно (&lt;50%)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #ffc107;"></div>
+            <span>Заполнено (50-70%)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #dc3545;"></div>
+            <span>Переполнено (&gt;70%)</span>
+        </div>
+    </div>
+
+    <!-- Custom JS -->
+    <script src="js/resident.js"></script>
+</body>
+</html>

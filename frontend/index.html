@@ -3,285 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Иннополис Карта Мусора</title>
+    <title>Иннополис Умная Система Управления Отходами</title>
+    
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     
-    <!-- Подключаем API Яндекс Карт -->
-    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=7d253372-5194-4f00-a292-ea1d7bc18844" type="text/javascript"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/main.css">
     
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-        }
-        #map {
-            height: 100vh;
-            width: 100%;
-        }
-        .controls {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1000;
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            min-width: 200px;
-        }
-        .legend {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            z-index: 1000;
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            margin: 8px 0;
-        }
-        .legend-color {
-            width: 16px;
-            height: 16px;
-            margin-right: 10px;
-            border-radius: 50%;
-            border: 2px solid #333;
-        }
-        .btn-custom {
-            margin: 5px 0;
-            width: 100%;
-        }
-        .stats-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 2000;
-        }
-        .stats-content {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            min-width: 400px;
-        }
-    </style>
+    <!-- Yandex Maps API -->
+    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=7d253372-5194-4f00-a292-ea1d7bc18844" type="text/javascript"></script>
 </head>
 <body>
     <div id="map"></div>
     
-    <div class="controls">
+    <div class="controls p-3 rounded-3 shadow-sm">
         <h5 class="mb-3">🎛️ Управление</h5>
-        <button class="btn btn-primary btn-custom" onclick="refreshData()">
-            🔄 Обновить данные
-        </button>
-        <button class="btn btn-info btn-custom" onclick="showStats()">
-            📊 Статистика
-        </button>
-        <button class="btn btn-success btn-custom" onclick="centerOnInnopolis()">
-            🏙️ Центр города
-        </button>
+        <div class="d-grid gap-2">
+            <button class="btn btn-primary" onclick="refreshData()">🔄 Обновить данные</button>
+            <button class="btn btn-info" onclick="showStats()">📊 Статистика</button>
+            <button class="btn btn-success" onclick="centerOnInnopolis()">🏙️ Центр города</button>
+        </div>
     </div>
     
-    <div class="legend">
+    <div class="legend p-3 rounded-3 shadow-sm">
         <h6 class="mb-2">📋 Легенда</h6>
         <div class="legend-item">
             <div class="legend-color" style="background-color: #28a745;"></div>
-            <span>Менее 50% заполнения</span>
+            <span>< 50%</span>
         </div>
         <div class="legend-item">
             <div class="legend-color" style="background-color: #ffc107;"></div>
-            <span>50-70% заполнения</span>
+            <span>50-70%</span>
         </div>
         <div class="legend-item">
             <div class="legend-color" style="background-color: #dc3545;"></div>
-            <span>Более 70% заполнения</span>
+            <span>> 70%</span>
         </div>
     </div>
 
-    <!-- Модальное окно для статистики -->
-    <div id="statsModal" class="stats-modal">
-        <div class="stats-content">
-            <h5 class="mb-3">📊 Статистика контейнеров</h5>
-            <div id="statsData"></div>
-            <button class="btn btn-secondary mt-3" onclick="closeStats()">Закрыть</button>
+    <!-- Stats Modal -->
+    <div id="statsModal" class="modal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">📊 Статистика контейнеров</h5>
+                    <button type="button" class="btn-close" onclick="closeStats()"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="statsData"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeStats()">Закрыть</button>
+                </div>
+            </div>
         </div>
     </div>
 
-    <script>
-        let map;
-        let objects = [];
-        let currentStats = null;
-
-        // Инициализация Яндекс.Карты
-        function initMap() {
-            ymaps.ready(function() {
-                map = new ymaps.Map("map", {
-                    center: [55.753, 48.743], // Координаты Иннополиса
-                    zoom: 13,
-                    controls: ['zoomControl', 'searchControl', 'typeSelector', 'fullscreenControl']
-                });
-
-                // Добавляем слой пробок (опционально)
-                map.controls.add('trafficControl');
-
-                loadContainers();
-            });
-        }
-
-        // Загрузка данных о контейнерах
-        async function loadContainers() {
-            try {
-                const response = await fetch('/api/map/geojson');
-                const data = await response.json();
-                
-                // Очистка старых объектов
-                objects.forEach(obj => map.geoObjects.remove(obj));
-                objects = [];
-
-                // Добавление новых меток
-                data.features.forEach(feature => {
-                    const coords = feature.geometry.coordinates;
-                    const props = feature.properties;
-                    
-                    // Определяем цвет в зависимости от заполненности
-                    let fillColor = '#28a745'; // зеленый
-                    if (props.fill_percent >= 70) {
-                        fillColor = '#dc3545'; // красный
-                    } else if (props.fill_percent >= 50) {
-                        fillColor = '#ffc107'; // желтый
-                    }
-
-                    // Создание метки контейнера
-                    const placemark = new ymaps.Placemark(
-                        [coords[1], coords[0]], // Яндекс принимает [широта, долгота]
-                        {
-                            balloonContentHeader: `<b>Контейнер: ${props.id}</b>`,
-                            balloonContentBody: `
-                                <div style="padding: 10px;">
-                                    <p><strong>Адрес:</strong> ${props.address}</p>
-                                    <p><strong>Заполненность:</strong> ${props.fill_percent}%</p>
-                                    <p><strong>Батарея:</strong> ${props.battery}</p>
-                                    <p><strong>Температура:</strong> ${props.temperature}</p>
-                                    <p><strong>Последнее обновление:</strong> ${new Date().toLocaleString()}</p>
-                                </div>
-                            `,
-                            hintContent: `Контейнер ${props.id}: ${props.fill_percent}%`
-                        },
-                        {
-                            preset: 'islands#redFoodCircleIcon',
-                            iconColor: fillColor,
-                            iconLayout: 'default#image',
-                            iconImageHref: 'data:image/svg+xml;base64,' + btoa(`
-                                <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-                                    <circle cx="16" cy="16" r="12" fill="${fillColor}" stroke="#333" stroke-width="2"/>
-                                    <text x="16" y="20" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${props.fill_percent}%</text>
-                                </svg>
-                            `),
-                            iconImageSize: [32, 32],
-                            iconImageOffset: [-16, -16]
-                        }
-                    );
-
-                    map.geoObjects.add(placemark);
-                    objects.push(placemark);
-                });
-
-                console.log(`Загружено ${data.features.length} контейнеров`);
-            } catch (error) {
-                console.error('Ошибка загрузки данных:', error);
-                alert('Не удалось загрузить данные о контейнерах. Попробуйте обновить страницу.');
-            }
-        }
-
-        // Обновление данных
-        function refreshData() {
-            console.log('Обновление данных...');
-            loadContainers();
-        }
-
-        // Центрирование на Иннополисе
-        function centerOnInnopolis() {
-            map.setCenter([55.753, 48.743], 13);
-        }
-
-        // Показ статистики
-        async function showStats() {
-            try {
-                const response = await fetch('/api/analytics/dashboard');
-                const stats = await response.json();
-                currentStats = stats;
-                
-                const statsHtml = `
-                    <div class="row">
-                        <div class="col-md-6">
-                            <p><strong>📦 Всего контейнеров:</strong> ${stats.total_containers || 0}</p>
-                            <p><strong>🚛 Требуют вывоза:</strong> ${stats.needs_collection_now || 0}</p>
-                        </div>
-                        <div class="col-md-6">
-                            <p><strong>⚠️ Аппаратных сбоев:</strong> ${stats.hardware_alerts_count || 0}</p>
-                            <p><strong>🟢 Активных контейнеров:</strong> ${stats.total_containers - (stats.hardware_alerts_count || 0)}</p>
-                        </div>
-                    </div>
-                    ${stats.top_fastest_filling && stats.top_fastest_filling.length > 0 ? `
-                        <h6 class="mt-3">🔥 Самые быстрые по наполнению:</h6>
-                        <ul>
-                            ${stats.top_fastest_filling.map(c => `<li>${c.id}: ${c.fill}% (${c.address})</li>`).join('')}
-                        </ul>
-                    ` : ''}
-                `;
-                
-                document.getElementById('statsData').innerHTML = statsHtml;
-                document.getElementById('statsModal').style.display = 'block';
-            } catch (error) {
-                console.error('Ошибка загрузки статистики:', error);
-                alert('Не удалось загрузить статистику');
-            }
-        }
-
-        // Закрытие модального окна
-        function closeStats() {
-            document.getElementById('statsModal').style.display = 'none';
-        }
-
-        // Закрытие модального окна при клике вне его
-        document.getElementById('statsModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeStats();
-            }
-        });
-
-        // Инициализация при загрузке страницы
-        document.addEventListener('DOMContentLoaded', function() {
-            // Проверяем доступность Яндекс.Карт API
-            if (typeof ymaps !== 'undefined') {
-                initMap();
-            } else {
-                // Если API не загрузился, пробуем снова через 1 секунду
-                setTimeout(initMap, 1000);
-            }
-        });
-
-        // Автоматическое обновление каждые 5 минут
-        setInterval(loadContainers, 300000);
-
-        // Обработка ошибок API
-        window.addEventListener('error', function(e) {
-            if (e.message.includes('ymaps')) {
-                console.error('Ошибка загрузки Яндекс.Карт:', e.message);
-            }
-        });
-    </script>
+    <!-- Custom JS -->
+    <script src="js/map.js"></script>
 </body>
 </html>

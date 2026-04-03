@@ -21,7 +21,7 @@ class ConsoleChannel(BaseChannel):
     """Канал для отладки (выводит в консоль Docker)"""
 
     async def send(self, message: str, role: str):
-        print(f"🖥 [CONSOLE | Роль: {role}] -> {message}")
+        logger.info(f"🖥 [CONSOLE | Роль: {role}] -> {message}")
 
 class TelegramChannel(BaseChannel):
     """Интеграция с Telegram Bot API (С кнопкой Mini App)"""
@@ -75,7 +75,7 @@ class VKChannel(BaseChannel):
     async def send(self, message: str, role: str):
         if not self.vk_token:
             return
-        print(f"🔵 [VK API | Роль: {role}] Отправка: {message}")
+        logger.info(f"🔵 [VK API | Роль: {role}] Отправка: {message}")
 
 class EmailChannel(BaseChannel):
     def __init__(self, smtp_server, port, login, password, to_email):

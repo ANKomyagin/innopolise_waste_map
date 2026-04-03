@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Иннополис Умная Система Управления Отходами</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/role-select.css">
+</head>
+<body>
+    <div class="container-main">
+        <div class="header">
+            <h1>🌱 Умная Система Управления Отходами</h1>
+            <p>Иннополис - Город Будущего</p>
+        </div>
+
+        <div class="roles-container">
+            <!-- Житель -->
+            <div class="role-card resident">
+                <div class="role-icon">
+                    <i class="fas fa-user"></i>
+                </div>
+                <h3>Житель</h3>
+                <p>Найдите ближайший свободный контейнер</p>
+                <ul>
+                    <li>Карта наполненности контейнеров</li>
+                    <li>Пеший маршрут до ближайшей мусорки</li>
+                    <li>Информация о заполненности</li>
+                    <li>Без регистрации</li>
+                </ul>
+                <a href="resident.html" class="btn-role">Открыть карту</a>
+            </div>
+
+            <!-- Мусоровоз -->
+            <div class="role-card truck">
+                <div class="role-icon">
+                    <i class="fas fa-truck"></i>
+                </div>
+                <h3>Мусоровоз</h3>
+                <p>Оптимальный маршрут сбора отходов</p>
+                <ul>
+                    <li>Карта контейнеров с мусором</li>
+                    <li>Автоматический расчет маршрута</li>
+                    <li>Оптимизация по времени и расстоянию</li>
+                    <li>Приоритет переполненных контейнеров</li>
+                </ul>
+                <a href="truck.html" class="btn-role">Построить маршрут</a>
+            </div>
+
+            <!-- Администратор -->
+            <div class="role-card admin">
+                <div class="role-icon">
+                    <i class="fas fa-user-shield"></i>
+                </div>
+                <h3>Администрация</h3>
+                <p>Управление системой и аналитика</p>
+                <ul>
+                    <li>Добавление/удаление контейнеров</li>
+                    <li>Редактирование данных</li>
+                    <li>Статистика и аналитика</li>
+                    <li>Мониторинг системы</li>
+                </ul>
+                <a href="admin.html" class="btn-role">Панель управления</a>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>© 2026 Иннополис Smart Waste Management System</p>
+        </div>
+    </div>
+</body>
+</html>
