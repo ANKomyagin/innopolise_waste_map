@@ -1,4 +1,11 @@
-// ... (начало кода с URLSearchParams остается без изменений) ...
+const urlParams = new URLSearchParams(window.location.search);
+const containerId = urlParams.get('id');
+
+if (containerId) {
+    document.getElementById('containerId').value = containerId;
+} else {
+    document.getElementById('containerId').placeholder = 'Отсканируйте QR-код контейнера';
+}
 
 const fillText = document.getElementById('fillText');
 const sliderFill = document.getElementById('sliderFill');
