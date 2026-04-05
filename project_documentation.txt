@@ -2913,47 +2913,95 @@ exec uvicorn app.main:app --host 0.0.0.0 --port 8000
             {% endblock %}
         </div>
         
-        <!-- Container Details Modal (shared across all pages) -->
-        <div x-data="{ selectedFeature: null }" 
+        <!-- Super Container Details Modal -->
+        <div x-data="{ selectedFeature: null, role: localStorage.getItem('role') || 'resident' }" 
              @container-selected.window="selectedFeature = $event.detail" 
              x-show="selectedFeature" 
              style="display: none;" 
-             class="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" 
-             @click="selectedFeature = null">
+             class="fixed inset-0 bg-black/60 z-[100] flex items-end md:items-center justify-center md:p-4" 
+             @click="selectedFeature = null"
+             x-transition.opacity>
             
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-md relative" @click.stop>
-                <!-- Header -->
-                <div class="flex items-center justify-between mb-6">
-                    <h3 class="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                        <i class="fas fa-map-marker-alt text-green-600"></i>
-                        Детали площадки
-                    </h3>
-                    <button @click="selectedFeature = null" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white text-2xl">&times;</button>
+            <div class="bg-white dark:bg-gray-800 w-full md:max-w-md rounded-t-2xl md:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" 
+                 @click.stop
+                 x-show="selectedFeature"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="transform translate-y-full md:scale-95"
+                 x-transition:enter-end="transform translate-y-0 md:scale-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="transform translate-y-0 md:scale-100"
+                 x-transition:leave-end="transform translate-y-full md:scale-95">
+                
+                <!-- "Cover" Image Header -->
+                <div class="h-32 bg-green-600 relative shrink-0">
+                    <!-- Pattern overlay -->
+                    <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(circle at 2px 2px, white 1px, transparent 0); background-size: 20px 20px;"></div>
+                    
+                    <button @click="selectedFeature = null" class="absolute top-4 right-4 bg-black/30 hover:bg-black/50 text-white rounded-full w-8 h-8 flex items-center justify-center backdrop-blur transition-colors z-10">&times;</button>
+                    
+                    <div class="absolute bottom-4 left-4 right-4 text-white">
+                        <span class="bg-black/40 backdrop-blur px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider mb-2 inline-block shadow-sm" x-text="selectedFeature?.is_cluster ? 'Мусорная площадка' : 'Одиночный контейнер'"></span>
+                        <h3 class="text-xl font-bold truncate drop-shadow-md" x-text="selectedFeature?.address"></h3>
+                    </div>
                 </div>
                 
-                <!-- Content -->
-                <div class="space-y-4">
-                    <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Адрес:</p>
-                        <p class="text-gray-800 dark:text-white font-medium" x-text="selectedFeature?.address"></p>
+                <!-- Content Body -->
+                <div class="p-5 overflow-y-auto overscroll-none flex-1">
+                    <!-- Overall Status -->
+                    <div class="mb-6">
+                        <div class="flex justify-between items-end mb-2">
+                            <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Общая заполненность</span>
+                            <span class="text-3xl font-bold leading-none" 
+                                  :class="selectedFeature?.avg_fill_percent >= 70 ? 'text-red-500' : (selectedFeature?.avg_fill_percent >= 50 ? 'text-yellow-500' : 'text-green-500')" 
+                                  x-text="selectedFeature?.avg_fill_percent + '%'"></span>
+                        </div>
+                        <div class="w-full h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden shadow-inner">
+                            <div class="h-full transition-all duration-700 ease-out rounded-full" 
+                                 :class="selectedFeature?.avg_fill_percent >= 70 ? 'bg-red-500' : (selectedFeature?.avg_fill_percent >= 50 ? 'bg-yellow-500' : 'bg-green-500')" 
+                                 :style="`width: ${selectedFeature?.avg_fill_percent}%`"></div>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-400 mt-2 font-medium" x-show="selectedFeature?.is_cluster">
+                            <span>Всего баков: <span x-text="selectedFeature?.container_count" class="text-gray-600 dark:text-gray-300"></span></span>
+                            <span>Вместимость: <span x-text="selectedFeature?.total_fill" class="text-gray-600 dark:text-gray-300"></span> / <span x-text="selectedFeature?.max_capacity"></span>%</span>
+                        </div>
                     </div>
                     
-                    <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                        <div>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Контейнеров:</p>
-                            <p class="text-xl font-bold text-gray-800 dark:text-white" x-text="selectedFeature?.container_count"></p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Средняя заполненность:</p>
-                            <p class="text-xl font-bold" 
-                               :class="selectedFeature?.avg_fill_percent >= 70 ? 'text-red-500' : (selectedFeature?.avg_fill_percent >= 50 ? 'text-yellow-500' : 'text-green-500')" 
-                               x-text="selectedFeature?.avg_fill_percent + '%'"></p>
-                        </div>
+                    <!-- Individual Containers -->
+                    <h4 class="text-xs font-bold text-gray-400 dark:text-gray-500 mb-3 uppercase tracking-widest" x-show="selectedFeature?.is_cluster">Состав площадки</h4>
+                    <div class="space-y-3">
+                        <template x-for="c in selectedFeature?.containers" :key="c.id">
+                            <div class="bg-gray-50 dark:bg-gray-700/30 p-3.5 rounded-xl border border-gray-100 dark:border-gray-600 shadow-sm">
+                                <div class="flex justify-between items-center mb-2.5">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs shadow-sm"
+                                             :class="c.fill_percent >= 70 ? 'bg-red-500' : (c.fill_percent >= 50 ? 'bg-yellow-500' : 'bg-green-500')">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </div>
+                                        <span class="font-bold text-gray-800 dark:text-gray-200 text-sm" x-text="c.id"></span>
+                                    </div>
+                                    <span class="font-bold text-lg" 
+                                          :class="c.fill_percent >= 70 ? 'text-red-500' : (c.fill_percent >= 50 ? 'text-yellow-500' : 'text-green-500')" 
+                                          x-text="c.fill_percent + '%'"></span>
+                                </div>
+                                
+                                <div class="w-full h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden mb-2">
+                                    <div class="h-full transition-all" 
+                                         :class="c.fill_percent >= 70 ? 'bg-red-500' : (c.fill_percent >= 50 ? 'bg-yellow-500' : 'bg-green-500')" 
+                                         :style="`width: ${c.fill_percent}%`"></div>
+                                </div>
+                                
+                                <!-- Admin/Truck Details (Hidden from Residents) -->
+                                <div class="flex flex-wrap gap-3 text-[11px] font-medium text-gray-500 dark:text-gray-400 mt-3 pt-2 border-t border-gray-200 dark:border-gray-600" x-show="role !== 'resident'">
+                                    <span class="flex items-center gap-1.5 bg-white dark:bg-gray-800 px-2 py-1 rounded-md" :class="c.battery !== 'норм.' ? 'text-red-500' : ''">
+                                        <i class="fas" :class="c.battery !== 'норм.' ? 'fa-battery-quarter' : 'fa-battery-full'"></i> <span x-text="c.battery"></span>
+                                    </span>
+                                    <span class="flex items-center gap-1.5 bg-white dark:bg-gray-800 px-2 py-1 rounded-md" :class="c.temperature !== 'норм.' ? 'text-orange-500' : ''">
+                                        <i class="fas fa-thermometer-half"></i> <span x-text="c.temperature"></span>
+                                    </span>
+                                </div>
+                            </div>
+                        </template>
                     </div>
-                    
-                    <button @click="selectedFeature = null" class="w-full mt-4 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-medium py-3 rounded-lg transition-colors">
-                        Закрыть
-                    </button>
                 </div>
             </div>
         </div>
@@ -2966,6 +3014,23 @@ exec uvicorn app.main:app --host 0.0.0.0 --port 8000
     <script src="https://unpkg.com/maplibre-gl@4.0.0/dist/maplibre-gl.js"></script>
     
     <script>
+        async function loadMapIcons(map) {
+            const createIcon = (color) => {
+                const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="42" viewBox="0 0 36 42">
+                    <path d="M18 42 C 18 42, 36 28, 36 15 C 36 6.716, 27.941 0, 18 0 C 8.059 0, 0 6.716, 0 15 C 0 28, 18 42, 18 42 Z" fill="${color}" stroke="#ffffff" stroke-width="2"/>
+                    <path d="M12 12 L12 10 C12 8.895 12.895 8 14 8 L22 8 C23.105 8 24 8.895 24 10 L24 12 M9 12 L27 12 M13 15 L13 24 M18 15 L18 24 M23 15 L23 24 M11 12 L25 12 L24 28 C24 29.105 23.105 30 22 30 L14 30 C12.895 30 12 29.105 12 28 L11 12 Z" fill="#ffffff"/>
+                </svg>`;
+                return new Promise((resolve) => {
+                    const img = new Image(36, 42);
+                    img.onload = () => resolve(img);
+                    img.src = 'data:image/svg+xml;base64,' + btoa(svg);
+                });
+            };
+            map.addImage('bin-green', await createIcon('#22c55e'));
+            map.addImage('bin-yellow', await createIcon('#eab308'));
+            map.addImage('bin-red', await createIcon('#ef4444'));
+        }
+
         // Alpine.js component for header scroll behavior and theme toggle
         function headerScroll() {
             return {
@@ -3044,8 +3109,9 @@ exec uvicorn app.main:app --host 0.0.0.0 --port 8000
                 maxZoom: 18
             });
             
-            map.on('load', function() {
-                console.log('Map loaded successfully');
+            map.on('load', async function() {
+                await loadMapIcons(map);
+                console.log('Map & Icons loaded successfully');
                 window.dispatchEvent(new Event('map-loaded'));
             });
         });
@@ -3349,46 +3415,30 @@ async function loadContainers() {
                 data: data
             });
 
-            // Add clusters layer
+            // SVG pin icons layer
+            const sourceName = map.getSource('containers-source') ? 'containers-source' : 'containers';
+            
             map.addLayer({
                 id: 'clusters',
-                type: 'circle',
-                source: 'containers-source',
-                paint: {
-                    'circle-color': [
-                        'case',
-                        ['>=', ['get', 'avg_fill_percent'], 70],
-                        '#dc3545',
-                        ['>=', ['get', 'avg_fill_percent'], 50],
-                        '#ffc107',
-                        '#28a745'
-                    ],
-                    'circle-radius': [
-                        'case',
-                        ['>', ['get', 'container_count'], 1],
-                        20,
-                        15
-                    ],
-                    'circle-opacity': 0.8,
-                    'circle-stroke-width': 2,
-                    'circle-stroke-color': '#fff'
-                }
-            });
-
-            // Add cluster count layer
-            map.addLayer({
-                id: 'cluster-count',
                 type: 'symbol',
-                source: 'containers-source',
+                source: sourceName,
                 layout: {
-                    'text-field': ['get', 'avg_fill_percent'],
+                    'icon-image': [
+                        'case',
+                        ['>=', ['get', 'avg_fill_percent'], 70], 'bin-red',
+                        ['>=', ['get', 'avg_fill_percent'], 50], 'bin-yellow',
+                        'bin-green'
+                    ],
+                    'icon-size': 1,
+                    'icon-anchor': 'bottom',
+                    'text-field': ['concat', ['get', 'avg_fill_percent'], '%'],
                     'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                    'text-size': 14,
-                    'text-offset': [0, 0]
+                    'text-size': 11,
+                    'text-offset': [0, -2.6]
                 },
                 paint: {
-                    'text-color': '#fff',
-                    'text-halo-color': 'rgba(0, 0, 0, 0.5)',
+                    'text-color': '#ffffff',
+                    'text-halo-color': 'rgba(0,0,0,0.3)',
                     'text-halo-width': 1
                 }
             });
@@ -3575,36 +3625,31 @@ async function loadMapData() {
             data: geojsonData
         });
 
-        // Add circle layer with color-coded fill levels
+        // SVG pin icons layer
+        const sourceName = map.getSource('containers-source') ? 'containers-source' : 'containers';
+        
         map.addLayer({
             id: 'clusters',
-            type: 'circle',
-            source: 'containers-source',
-            paint: {
-                'circle-color': [
-                    'case',
-                    ['>=', ['get', 'avg_fill_percent'], 70], '#dc3545',
-                    ['>=', ['get', 'avg_fill_percent'], 50], '#ffc107',
-                    '#28a745'
-                ],
-                'circle-radius': 18,
-                'circle-stroke-width': 3,
-                'circle-stroke-color': '#ffffff'
-            }
-        });
-
-        // Add text layer showing fill percentage
-        map.addLayer({
-            id: 'cluster-count',
             type: 'symbol',
-            source: 'containers-source',
+            source: sourceName,
             layout: {
+                'icon-image': [
+                    'case',
+                    ['>=', ['get', 'avg_fill_percent'], 70], 'bin-red',
+                    ['>=', ['get', 'avg_fill_percent'], 50], 'bin-yellow',
+                    'bin-green'
+                ],
+                'icon-size': 1,
+                'icon-anchor': 'bottom',
                 'text-field': ['concat', ['get', 'avg_fill_percent'], '%'],
                 'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                'text-size': 12
+                'text-size': 11,
+                'text-offset': [0, -2.6]
             },
             paint: {
-                'text-color': '#ffffff'
+                'text-color': '#ffffff',
+                'text-halo-color': 'rgba(0,0,0,0.3)',
+                'text-halo-width': 1
             }
         });
 
@@ -3994,14 +4039,12 @@ document.getElementById('reportForm').addEventListener('submit', async function(
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
 
-    // Получаем выбранную роль из radio кнопок
-    const roleRadio = document.querySelector('input[name="role"]:checked');
-
+    // Собираем данные формы
     const formData = {
         container_id: document.getElementById('containerId').value,
         fill_percent: parseInt(fillPercent.value),
         device_id: document.getElementById('deviceId').value,
-        role: roleRadio ? roleRadio.value : 'resident'
+        role: 'resident' // Жестко задаем роль для всех сканирований
     };
 
     // Если удалось получить гео, можно будет добавить в запрос в будущем
@@ -4071,30 +4114,32 @@ async function loadContainers() {
 
     map.addSource('containers', { type: 'geojson', data: data });
     
-    // Рисуем кружки
+    // SVG pin icons layer
+    const sourceName = map.getSource('containers') ? 'containers' : 'containers-source';
+    
     map.addLayer({
         id: 'clusters',
-        type: 'circle',
-        source: 'containers',
-        paint: {
-            'circle-color': ['case', ['>=', ['get', 'avg_fill_percent'], 70], '#dc3545', ['>=', ['get', 'avg_fill_percent'], 50], '#ffc107', '#28a745'],
-            'circle-radius': 14,
-            'circle-stroke-width': 2,
-            'circle-stroke-color': '#fff'
-        }
-    });
-
-    // Добавляем текст с процентами (как на лендинге)
-    map.addLayer({
-        id: 'cluster-count',
         type: 'symbol',
-        source: 'containers',
+        source: sourceName,
         layout: {
+            'icon-image': [
+                'case',
+                ['>=', ['get', 'avg_fill_percent'], 70], 'bin-red',
+                ['>=', ['get', 'avg_fill_percent'], 50], 'bin-yellow',
+                'bin-green'
+            ],
+            'icon-size': 1,
+            'icon-anchor': 'bottom',
             'text-field': ['concat', ['get', 'avg_fill_percent'], '%'],
             'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-            'text-size': 12
+            'text-size': 11,
+            'text-offset': [0, -2.6]
         },
-        paint: { 'text-color': '#ffffff' }
+        paint: {
+            'text-color': '#ffffff',
+            'text-halo-color': 'rgba(0,0,0,0.3)',
+            'text-halo-width': 1
+        }
     });
 
     // Обработка клика по контейнеру
@@ -4288,46 +4333,30 @@ async function loadContainers() {
                 data: data
             });
 
-            // Add clusters layer
+            // SVG pin icons layer
+            const sourceName = map.getSource('containers-source') ? 'containers-source' : 'containers';
+            
             map.addLayer({
                 id: 'clusters',
-                type: 'circle',
-                source: 'containers-source',
-                paint: {
-                    'circle-color': [
-                        'case',
-                        ['>=', ['get', 'avg_fill_percent'], 70],
-                        '#dc3545',
-                        ['>=', ['get', 'avg_fill_percent'], 50],
-                        '#ffc107',
-                        '#28a745'
-                    ],
-                    'circle-radius': [
-                        'case',
-                        ['>', ['get', 'container_count'], 1],
-                        20,
-                        15
-                    ],
-                    'circle-opacity': 0.8,
-                    'circle-stroke-width': 2,
-                    'circle-stroke-color': '#fff'
-                }
-            });
-
-            // Add cluster count layer
-            map.addLayer({
-                id: 'cluster-count',
                 type: 'symbol',
-                source: 'containers-source',
+                source: sourceName,
                 layout: {
-                    'text-field': ['get', 'avg_fill_percent'],
+                    'icon-image': [
+                        'case',
+                        ['>=', ['get', 'avg_fill_percent'], 70], 'bin-red',
+                        ['>=', ['get', 'avg_fill_percent'], 50], 'bin-yellow',
+                        'bin-green'
+                    ],
+                    'icon-size': 1,
+                    'icon-anchor': 'bottom',
+                    'text-field': ['concat', ['get', 'avg_fill_percent'], '%'],
                     'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                    'text-size': 14,
-                    'text-offset': [0, 0]
+                    'text-size': 11,
+                    'text-offset': [0, -2.6]
                 },
                 paint: {
-                    'text-color': '#fff',
-                    'text-halo-color': 'rgba(0, 0, 0, 0.5)',
+                    'text-color': '#ffffff',
+                    'text-halo-color': 'rgba(0,0,0,0.3)',
                     'text-halo-width': 1
                 }
             });
@@ -4651,45 +4680,25 @@ async function emptyRouteContainers() {
             <p class="text-green-100 text-sm mt-1">Помогите городу стать чище</p>
         </div>
         
-        <form id="reportForm" class="p-6 space-y-6">
-            <div>
-                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">ID Контейнера</label>
-                <div class="relative">
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <i class="fas fa-trash-alt text-gray-400"></i>
-                    </div>
-                    <input type="text" id="containerId" required readonly class="w-full pl-10 pr-4 py-3 bg-gray-100 dark:bg-gray-700 border-0 rounded-xl font-mono text-lg text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-green-500 outline-none">
-                </div>
+        <form id="reportForm" class="p-6 space-y-8">
+            <div class="text-center">
+                <h2 class="text-xl font-medium text-gray-800 dark:text-gray-200 mb-2">Оцените заполненность</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Передвиньте ползунок, чтобы указать, насколько заполнен бак прямо сейчас.</p>
             </div>
 
-            <div>
-                <div class="flex justify-between items-end mb-2">
-                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Уровень заполнения</label>
-                    <span id="fillText" class="text-2xl font-bold text-yellow-500">50%</span>
+            <!-- Скрытый ID контейнера -->
+            <input type="hidden" id="containerId" required readonly>
+
+            <div class="pt-4 pb-8">
+                <div class="flex justify-between items-end mb-4">
+                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Уровень:</span>
+                    <span id="fillText" class="text-4xl font-bold text-yellow-500">50%</span>
                 </div>
-                <input type="range" id="fillPercent" min="0" max="100" step="10" value="50" class="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-600">
-                <div class="flex justify-between text-xs text-gray-400 mt-2">
+                <input type="range" id="fillPercent" min="0" max="100" step="10" value="50" class="w-full h-4 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-600">
+                <div class="flex justify-between text-sm text-gray-400 mt-3 font-medium">
                     <span>Пустой</span>
                     <span>Половина</span>
                     <span>Полный</span>
-                </div>
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Вы здесь как:</label>
-                <div class="grid grid-cols-2 gap-3">
-                    <label class="cursor-pointer">
-                        <input type="radio" name="role" value="resident" checked class="peer sr-only">
-                        <div class="text-center py-2 rounded-xl border-2 border-gray-200 dark:border-gray-600 peer-checked:border-green-500 peer-checked:bg-green-50 dark:peer-checked:bg-green-900/30 peer-checked:text-green-700 dark:peer-checked:text-green-400 transition-all">
-                            <i class="fas fa-user mb-1 block"></i> Житель
-                        </div>
-                    </label>
-                    <label class="cursor-pointer">
-                        <input type="radio" name="role" value="contractor" class="peer sr-only">
-                        <div class="text-center py-2 rounded-xl border-2 border-gray-200 dark:border-gray-600 peer-checked:border-green-500 peer-checked:bg-green-50 dark:peer-checked:bg-green-900/30 peer-checked:text-green-700 dark:peer-checked:text-green-400 transition-all">
-                            <i class="fas fa-hard-hat mb-1 block"></i> Сотрудник
-                        </div>
-                    </label>
                 </div>
             </div>
 
@@ -4697,8 +4706,8 @@ async function emptyRouteContainers() {
             <input type="hidden" id="userLat">
             <input type="hidden" id="userLon">
 
-            <button type="submit" id="submitBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2">
-                <i class="fas fa-paper-plane"></i> Отправить отчет
+            <button type="submit" id="submitBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-[0_4px_14px_0_rgba(22,163,74,0.39)] hover:shadow-[0_6px_20px_rgba(22,163,74,0.23)] transition-all active:scale-95 flex items-center justify-center gap-2 text-lg">
+                <i class="fas fa-paper-plane"></i> Отправить
             </button>
         </form>
 

@@ -1,8 +1,8 @@
 # Отчет об изменениях проекта
-Дата: 2026-04-05 20:21:08
+Дата: 2026-04-05 20:43:43
 
 ## Статистика
-- Измененные файлы: 2
+- Измененные файлы: 7
 - Новые файлы: 0
 - Удаленные файлы: 0
 
@@ -10,188 +10,344 @@
 ```
 innopolis_waste_map_test/
 └── frontend
+    ├── base.html
     ├── js
-    │   └── qr_scan.js
+    │   ├── admin.js
+    │   ├── landing.js
+    │   ├── qr_scan.js
+    │   ├── resident.js
+    │   └── truck.js
     └── qr_scan.html
 ```
 
 ## Измененные файлы
 
-### frontend/js/qr_scan.js
+### frontend/base.html
 ```diff
- const urlParams = new URLSearchParams(window.location.search);
- const containerId = urlParams.get('id');
- 
- if (containerId) {
-     document.getElementById('containerId').value = containerId;
- } else {
-+    document.getElementById('containerId').value = 'НЕИЗВЕСТНО';
- }
- 
- const fillPercent = document.getElementById('fillPercent');
- const fillText = document.getElementById('fillText');
+             {% endblock %}
+         </div>
+         
++        <!-- Super Container Details Modal -->
++        <div x-data="{ selectedFeature: null, role: localStorage.getItem('role') || 'resident' }" 
+              @container-selected.window="selectedFeature = $event.detail" 
+              x-show="selectedFeature" 
+              style="display: none;" 
++             class="fixed inset-0 bg-black/60 z-[100] flex items-end md:items-center justify-center md:p-4" 
++             @click="selectedFeature = null"
++             x-transition.opacity>
+             
++            <div class="bg-white dark:bg-gray-800 w-full md:max-w-md rounded-t-2xl md:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" 
++                 @click.stop
++                 x-show="selectedFeature"
++                 x-transition:enter="transition ease-out duration-300"
++                 x-transition:enter-start="transform translate-y-full md:scale-95"
++                 x-transition:enter-end="transform translate-y-0 md:scale-100"
++                 x-transition:leave="transition ease-in duration-200"
++                 x-transition:leave-start="transform translate-y-0 md:scale-100"
++                 x-transition:leave-end="transform translate-y-full md:scale-95">
++                
++                <!-- "Cover" Image Header -->
++                <div class="h-32 bg-green-600 relative shrink-0">
++                    <!-- Pattern overlay -->
++                    <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(circle at 2px 2px, white 1px, transparent 0); background-size: 20px 20px;"></div>
++                    
++                    <button @click="selectedFeature = null" class="absolute top-4 right-4 bg-black/30 hover:bg-black/50 text-white rounded-full w-8 h-8 flex items-center justify-center backdrop-blur transition-colors z-10">&times;</button>
++                    
++                    <div class="absolute bottom-4 left-4 right-4 text-white">
++                        <span class="bg-black/40 backdrop-blur px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider mb-2 inline-block shadow-sm" x-text="selectedFeature?.is_cluster ? 'Мусорная площадка' : 'Одиночный контейнер'"></span>
++                        <h3 class="text-xl font-bold truncate drop-shadow-md" x-text="selectedFeature?.address"></h3>
++                    </div>
+                 </div>
+                 
++                <!-- Content Body -->
++                <div class="p-5 overflow-y-auto overscroll-none flex-1">
++                    <!-- Overall Status -->
++                    <div class="mb-6">
++                        <div class="flex justify-between items-end mb-2">
++                            <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Общая заполненность</span>
++                            <span class="text-3xl font-bold leading-none" 
++                                  :class="selectedFeature?.avg_fill_percent >= 70 ? 'text-red-500' : (selectedFeature?.avg_fill_percent >= 50 ? 'text-yellow-500' : 'text-green-500')" 
++                                  x-text="selectedFeature?.avg_fill_percent + '%'"></span>
+                         </div>
++                        <div class="w-full h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden shadow-inner">
++                            <div class="h-full transition-all duration-700 ease-out rounded-full" 
++                                 :class="selectedFeature?.avg_fill_percent >= 70 ? 'bg-red-500' : (selectedFeature?.avg_fill_percent >= 50 ? 'bg-yellow-500' : 'bg-green-500')" 
++                                 :style="`width: ${selectedFeature?.avg_fill_percent}%`"></div>
++                        </div>
++                        <div class="flex justify-between text-xs text-gray-400 mt-2 font-medium" x-show="selectedFeature?.is_cluster">
++                            <span>Всего баков: <span x-text="selectedFeature?.container_count" class="text-gray-600 dark:text-gray-300"></span></span>
++                            <span>Вместимость: <span x-text="selectedFeature?.total_fill" class="text-gray-600 dark:text-gray-300"></span> / <span x-text="selectedFeature?.max_capacity"></span>%</span>
+                         </div>
+                     </div>
+                     
++                    <!-- Individual Containers -->
++                    <h4 class="text-xs font-bold text-gray-400 dark:text-gray-500 mb-3 uppercase tracking-widest" x-show="selectedFeature?.is_cluster">Состав площадки</h4>
++                    <div class="space-y-3">
++                        <template x-for="c in selectedFeature?.containers" :key="c.id">
++                            <div class="bg-gray-50 dark:bg-gray-700/30 p-3.5 rounded-xl border border-gray-100 dark:border-gray-600 shadow-sm">
++                                <div class="flex justify-between items-center mb-2.5">
++                                    <div class="flex items-center gap-2.5">
++                                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs shadow-sm"
++                                             :class="c.fill_percent >= 70 ? 'bg-red-500' : (c.fill_percent >= 50 ? 'bg-yellow-500' : 'bg-green-500')">
++                                            <i class="fas fa-trash-alt"></i>
++                                        </div>
++                                        <span class="font-bold text-gray-800 dark:text-gray-200 text-sm" x-text="c.id"></span>
++                                    </div>
++                                    <span class="font-bold text-lg" 
++                                          :class="c.fill_percent >= 70 ? 'text-red-500' : (c.fill_percent >= 50 ? 'text-yellow-500' : 'text-green-500')" 
++                                          x-text="c.fill_percent + '%'"></span>
++                                </div>
++                                
++                                <div class="w-full h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden mb-2">
++                                    <div class="h-full transition-all" 
++                                         :class="c.fill_percent >= 70 ? 'bg-red-500' : (c.fill_percent >= 50 ? 'bg-yellow-500' : 'bg-green-500')" 
++                                         :style="`width: ${c.fill_percent}%`"></div>
++                                </div>
++                                
++                                <!-- Admin/Truck Details (Hidden from Residents) -->
++                                <div class="flex flex-wrap gap-3 text-[11px] font-medium text-gray-500 dark:text-gray-400 mt-3 pt-2 border-t border-gray-200 dark:border-gray-600" x-show="role !== 'resident'">
++                                    <span class="flex items-center gap-1.5 bg-white dark:bg-gray-800 px-2 py-1 rounded-md" :class="c.battery !== 'норм.' ? 'text-red-500' : ''">
++                                        <i class="fas" :class="c.battery !== 'норм.' ? 'fa-battery-quarter' : 'fa-battery-full'"></i> <span x-text="c.battery"></span>
++                                    </span>
++                                    <span class="flex items-center gap-1.5 bg-white dark:bg-gray-800 px-2 py-1 rounded-md" :class="c.temperature !== 'норм.' ? 'text-orange-500' : ''">
++                                        <i class="fas fa-thermometer-half"></i> <span x-text="c.temperature"></span>
++                                    </span>
++                                </div>
++                            </div>
++                        </template>
++                    </div>
+                 </div>
+             </div>
+         </div>
+     <script src="https://unpkg.com/maplibre-gl@4.0.0/dist/maplibre-gl.js"></script>
+     
+     <script>
++        async function loadMapIcons(map) {
++            const createIcon = (color) => {
++                const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="42" viewBox="0 0 36 42">
++                    <path d="M18 42 C 18 42, 36 28, 36 15 C 36 6.716, 27.941 0, 18 0 C 8.059 0, 0 6.716, 0 15 C 0 28, 18 42, 18 42 Z" fill="${color}" stroke="#ffffff" stroke-width="2"/>
++                    <path d="M12 12 L12 10 C12 8.895 12.895 8 14 8 L22 8 C23.105 8 24 8.895 24 10 L24 12 M9 12 L27 12 M13 15 L13 24 M18 15 L18 24 M23 15 L23 24 M11 12 L25 12 L24 28 C24 29.105 23.105 30 22 30 L14 30 C12.895 30 12 29.105 12 28 L11 12 Z" fill="#ffffff"/>
++                </svg>`;
++                return new Promise((resolve) => {
++                    const img = new Image(36, 42);
++                    img.onload = () => resolve(img);
++                    img.src = 'data:image/svg+xml;base64,' + btoa(svg);
++                });
++            };
++            map.addImage('bin-green', await createIcon('#22c55e'));
++            map.addImage('bin-yellow', await createIcon('#eab308'));
++            map.addImage('bin-red', await createIcon('#ef4444'));
++        }
 +
-+function updateColor(value) {
-+    if (value < 50) return 'text-green-500';
-+    if (value < 80) return 'text-yellow-500';
-+    return 'text-red-500';
-+}
+         // Alpine.js component for header scroll behavior and theme toggle
+         function headerScroll() {
+             return {
+                 maxZoom: 18
+             });
+             
++            map.on('load', async function() {
++                await loadMapIcons(map);
++                console.log('Map & Icons loaded successfully');
+                 window.dispatchEvent(new Event('map-loaded'));
+             });
+         });
+
+```
+
+### frontend/js/admin.js
+```diff
+                 data: data
+             });
  
- fillPercent.addEventListener('input', function() {
-     const value = this.value;
-     fillText.textContent = value + '%';
-+    fillText.className = `text-2xl font-bold ${updateColor(value)}`;
- });
- 
-+// Геолокация пользователя
-+if ("geolocation" in navigator) {
-+    navigator.geolocation.getCurrentPosition(
-+        (position) => {
-+            document.getElementById('userLat').value = position.coords.latitude;
-+            document.getElementById('userLon').value = position.coords.longitude;
-+        },
-+        (error) => console.warn("Геолокация недоступна", error),
-+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
-+    );
-+}
-+
- document.getElementById('reportForm').addEventListener('submit', async function(e) {
-     e.preventDefault();
-+    const btn = document.getElementById('submitBtn');
-+    btn.disabled = true;
-+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
-+
-+    // Получаем выбранную роль из radio кнопок
-+    const roleRadio = document.querySelector('input[name="role"]:checked');
- 
-     const formData = {
-         container_id: document.getElementById('containerId').value,
-+        fill_percent: parseInt(fillPercent.value),
-         device_id: document.getElementById('deviceId').value,
-+        role: roleRadio ? roleRadio.value : 'resident'
-     };
-+
-+    // Если удалось получить гео, можно будет добавить в запрос в будущем
-+    const lat = document.getElementById('userLat').value;
-+    const lon = document.getElementById('userLon').value;
- 
-     try {
-         const response = await fetch('/api/sensors/manual', {
-             method: 'POST',
-+            headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify(formData)
++            // SVG pin icons layer
++            const sourceName = map.getSource('containers-source') ? 'containers-source' : 'containers';
++            
+             map.addLayer({
+                 id: 'clusters',
++                type: 'symbol',
++                source: sourceName,
++                layout: {
++                    'icon-image': [
+                         'case',
++                        ['>=', ['get', 'avg_fill_percent'], 70], 'bin-red',
++                        ['>=', ['get', 'avg_fill_percent'], 50], 'bin-yellow',
++                        'bin-green'
+                     ],
++                    'icon-size': 1,
++                    'icon-anchor': 'bottom',
++                    'text-field': ['concat', ['get', 'avg_fill_percent'], '%'],
+                     'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
++                    'text-size': 11,
++                    'text-offset': [0, -2.6]
+                 },
+                 paint: {
++                    'text-color': '#ffffff',
++                    'text-halo-color': 'rgba(0,0,0,0.3)',
+                     'text-halo-width': 1
+                 }
+             });
+
+```
+
+### frontend/js/landing.js
+```diff
+             data: geojsonData
          });
  
-         const result = await response.json();
-+        const messageDiv = document.getElementById('message');
++        // SVG pin icons layer
++        const sourceName = map.getSource('containers-source') ? 'containers-source' : 'containers';
 +        
-+        messageDiv.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800');
-+        
-+        if (response.ok && result.status === 'ok') {
-+            messageDiv.classList.add('bg-green-100', 'text-green-800');
-+            messageDiv.innerHTML = `<i class="fas fa-check-circle"></i> ${result.message}`;
-+        } else {
-+            messageDiv.classList.add('bg-red-100', 'text-red-800');
-+            messageDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${result.message || 'Ошибка сервера'}`;
+         map.addLayer({
+             id: 'clusters',
++            type: 'symbol',
++            source: sourceName,
++            layout: {
++                'icon-image': [
+                     'case',
++                    ['>=', ['get', 'avg_fill_percent'], 70], 'bin-red',
++                    ['>=', ['get', 'avg_fill_percent'], 50], 'bin-yellow',
++                    'bin-green'
+                 ],
++                'icon-size': 1,
++                'icon-anchor': 'bottom',
+                 'text-field': ['concat', ['get', 'avg_fill_percent'], '%'],
+                 'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
++                'text-size': 11,
++                'text-offset': [0, -2.6]
+             },
+             paint: {
++                'text-color': '#ffffff',
++                'text-halo-color': 'rgba(0,0,0,0.3)',
++                'text-halo-width': 1
+             }
+         });
+ 
+
+```
+
+### frontend/js/qr_scan.js
+```diff
+     btn.disabled = true;
+     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
+ 
++    // Собираем данные формы
+     const formData = {
+         container_id: document.getElementById('containerId').value,
+         fill_percent: parseInt(fillPercent.value),
+         device_id: document.getElementById('deviceId').value,
++        role: 'resident' // Жестко задаем роль для всех сканирований
+     };
+ 
+     // Если удалось получить гео, можно будет добавить в запрос в будущем
+
+```
+
+### frontend/js/resident.js
+```diff
+ 
+     map.addSource('containers', { type: 'geojson', data: data });
+     
++    // SVG pin icons layer
++    const sourceName = map.getSource('containers') ? 'containers' : 'containers-source';
++    
+     map.addLayer({
+         id: 'clusters',
+         type: 'symbol',
++        source: sourceName,
+         layout: {
++            'icon-image': [
++                'case',
++                ['>=', ['get', 'avg_fill_percent'], 70], 'bin-red',
++                ['>=', ['get', 'avg_fill_percent'], 50], 'bin-yellow',
++                'bin-green'
++            ],
++            'icon-size': 1,
++            'icon-anchor': 'bottom',
+             'text-field': ['concat', ['get', 'avg_fill_percent'], '%'],
+             'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
++            'text-size': 11,
++            'text-offset': [0, -2.6]
+         },
++        paint: {
++            'text-color': '#ffffff',
++            'text-halo-color': 'rgba(0,0,0,0.3)',
++            'text-halo-width': 1
 +        }
+     });
  
-         setTimeout(() => {
-+            messageDiv.classList.add('hidden');
-+            btn.disabled = false;
-+            btn.innerHTML = '<i class="fas fa-paper-plane"></i> Отправить отчет';
-         }, 3000);
+     // Обработка клика по контейнеру
+
+```
+
+### frontend/js/truck.js
+```diff
+                 data: data
+             });
  
-     } catch (error) {
-+        btn.disabled = false;
-+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Отправить отчет';
-+        alert('Ошибка сети. Проверьте подключение.');
-     }
- });
- 
- if (!localStorage.getItem('deviceId')) {
-+    localStorage.setItem('deviceId', 'device_' + Math.random().toString(36).substr(2, 9));
- }
-+document.getElementById('deviceId').value = localStorage.getItem('deviceId');
++            // SVG pin icons layer
++            const sourceName = map.getSource('containers-source') ? 'containers-source' : 'containers';
++            
+             map.addLayer({
+                 id: 'clusters',
++                type: 'symbol',
++                source: sourceName,
++                layout: {
++                    'icon-image': [
+                         'case',
++                        ['>=', ['get', 'avg_fill_percent'], 70], 'bin-red',
++                        ['>=', ['get', 'avg_fill_percent'], 50], 'bin-yellow',
++                        'bin-green'
+                     ],
++                    'icon-size': 1,
++                    'icon-anchor': 'bottom',
++                    'text-field': ['concat', ['get', 'avg_fill_percent'], '%'],
+                     'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
++                    'text-size': 11,
++                    'text-offset': [0, -2.6]
+                 },
+                 paint: {
++                    'text-color': '#ffffff',
++                    'text-halo-color': 'rgba(0,0,0,0.3)',
+                     'text-halo-width': 1
+                 }
+             });
 
 ```
 
 ### frontend/qr_scan.html
 ```diff
- <!DOCTYPE html>
-+<html lang="ru" data-theme="light">
- <head>
-     <meta charset="UTF-8">
-+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-+    <title>Сообщить о заполнении</title>
-+    <script src="https://cdn.tailwindcss.com"></script>
-+    <script>tailwind.config = { darkMode: 'class' }</script>
-+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-+    <link rel="stylesheet" href="css/theme.css">
- </head>
-+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen flex items-center justify-center p-4 text-gray-800 dark:text-gray-200">
-+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-+        <div class="bg-green-600 p-6 text-center text-white">
-+            <i class="fas fa-qrcode text-4xl mb-2"></i>
-+            <h1 class="text-2xl font-bold">QRBIN Иннополис</h1>
-+            <p class="text-green-100 text-sm mt-1">Помогите городу стать чище</p>
-+        </div>
-+        
-+        <form id="reportForm" class="p-6 space-y-6">
-+            <div>
-+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">ID Контейнера</label>
-+                <div class="relative">
-+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-+                        <i class="fas fa-trash-alt text-gray-400"></i>
-                     </div>
-+                    <input type="text" id="containerId" required readonly class="w-full pl-10 pr-4 py-3 bg-gray-100 dark:bg-gray-700 border-0 rounded-xl font-mono text-lg text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-green-500 outline-none">
+             <p class="text-green-100 text-sm mt-1">Помогите городу стать чище</p>
+         </div>
+         
++        <form id="reportForm" class="p-6 space-y-8">
++            <div class="text-center">
++                <h2 class="text-xl font-medium text-gray-800 dark:text-gray-200 mb-2">Оцените заполненность</h2>
++                <p class="text-sm text-gray-500 dark:text-gray-400">Передвиньте ползунок, чтобы указать, насколько заполнен бак прямо сейчас.</p>
+             </div>
+ 
++            <!-- Скрытый ID контейнера -->
++            <input type="hidden" id="containerId" required readonly>
++
++            <div class="pt-4 pb-8">
++                <div class="flex justify-between items-end mb-4">
++                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Уровень:</span>
++                    <span id="fillText" class="text-4xl font-bold text-yellow-500">50%</span>
+                 </div>
++                <input type="range" id="fillPercent" min="0" max="100" step="10" value="50" class="w-full h-4 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-600">
++                <div class="flex justify-between text-sm text-gray-400 mt-3 font-medium">
+                     <span>Пустой</span>
+                     <span>Половина</span>
+                     <span>Полный</span>
                  </div>
              </div>
  
-+            <div>
-+                <div class="flex justify-between items-end mb-2">
-+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Уровень заполнения</label>
-+                    <span id="fillText" class="text-2xl font-bold text-yellow-500">50%</span>
-+                </div>
-+                <input type="range" id="fillPercent" min="0" max="100" step="10" value="50" class="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-600">
-+                <div class="flex justify-between text-xs text-gray-400 mt-2">
-+                    <span>Пустой</span>
-+                    <span>Половина</span>
-+                    <span>Полный</span>
-+                </div>
-             </div>
+             <input type="hidden" id="userLat">
+             <input type="hidden" id="userLon">
  
-+            <div>
-+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Вы здесь как:</label>
-+                <div class="grid grid-cols-2 gap-3">
-+                    <label class="cursor-pointer">
-+                        <input type="radio" name="role" value="resident" checked class="peer sr-only">
-+                        <div class="text-center py-2 rounded-xl border-2 border-gray-200 dark:border-gray-600 peer-checked:border-green-500 peer-checked:bg-green-50 dark:peer-checked:bg-green-900/30 peer-checked:text-green-700 dark:peer-checked:text-green-400 transition-all">
-+                            <i class="fas fa-user mb-1 block"></i> Житель
-+                        </div>
-+                    </label>
-+                    <label class="cursor-pointer">
-+                        <input type="radio" name="role" value="contractor" class="peer sr-only">
-+                        <div class="text-center py-2 rounded-xl border-2 border-gray-200 dark:border-gray-600 peer-checked:border-green-500 peer-checked:bg-green-50 dark:peer-checked:bg-green-900/30 peer-checked:text-green-700 dark:peer-checked:text-green-400 transition-all">
-+                            <i class="fas fa-hard-hat mb-1 block"></i> Сотрудник
-+                        </div>
-+                    </label>
-+                </div>
-             </div>
- 
-+            <input type="hidden" id="deviceId">
-+            <input type="hidden" id="userLat">
-+            <input type="hidden" id="userLon">
-+
-+            <button type="submit" id="submitBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2">
-+                <i class="fas fa-paper-plane"></i> Отправить отчет
-+            </button>
++            <button type="submit" id="submitBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-[0_4px_14px_0_rgba(22,163,74,0.39)] hover:shadow-[0_6px_20px_rgba(22,163,74,0.23)] transition-all active:scale-95 flex items-center justify-center gap-2 text-lg">
++                <i class="fas fa-paper-plane"></i> Отправить
+             </button>
          </form>
  
-+        <div id="message" class="hidden mx-6 mb-6 p-4 rounded-xl text-center font-medium"></div>
-     </div>
- 
-     <script src="js/qr_scan.js"></script>
- </body>
-+</html>
 
 ```

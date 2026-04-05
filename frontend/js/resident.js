@@ -19,9 +19,12 @@ async function loadContainers() {
 
     map.addSource('containers', { type: 'geojson', data: data });
     
-    // SVG pin icons layer
     const sourceName = map.getSource('containers') ? 'containers' : 'containers-source';
     
+    // Очищаем старые слои, если они были
+    if (map.getLayer('cluster-count')) map.removeLayer('cluster-count');
+    if (map.getLayer('clusters')) map.removeLayer('clusters');
+
     map.addLayer({
         id: 'clusters',
         type: 'symbol',
@@ -35,14 +38,16 @@ async function loadContainers() {
             ],
             'icon-size': 1,
             'icon-anchor': 'bottom',
+            'icon-allow-overlap': true,
             'text-field': ['concat', ['get', 'avg_fill_percent'], '%'],
             'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
             'text-size': 11,
-            'text-offset': [0, -2.6]
+            'text-offset': [0, -2.5],
+            'text-allow-overlap': true
         },
         paint: {
             'text-color': '#ffffff',
-            'text-halo-color': 'rgba(0,0,0,0.3)',
+            'text-halo-color': 'rgba(0,0,0,0.5)',
             'text-halo-width': 1
         }
     });
