@@ -3020,15 +3020,21 @@ exec uvicorn app.main:app --host 0.0.0.0 --port 8000
                     <path d="M18 42 C 18 42, 36 28, 36 15 C 36 6.716, 27.941 0, 18 0 C 8.059 0, 0 6.716, 0 15 C 0 28, 18 42, 18 42 Z" fill="${color}" stroke="#ffffff" stroke-width="2"/>
                     <path d="M12 12 L12 10 C12 8.895 12.895 8 14 8 L22 8 C23.105 8 24 8.895 24 10 L24 12 M9 12 L27 12 M13 15 L13 24 M18 15 L18 24 M23 15 L23 24 M11 12 L25 12 L24 28 C24 29.105 23.105 30 22 30 L14 30 C12.895 30 12 29.105 12 28 L11 12 Z" fill="#ffffff"/>
                 </svg>`;
-                return new Promise((resolve) => {
+                return new Promise((resolve, reject) => {
                     const img = new Image(36, 42);
                     img.onload = () => resolve(img);
-                    img.src = 'data:image/svg+xml;base64,' + btoa(svg);
+                    img.onerror = (e) => reject(e);
+                    // Используем encodeURIComponent вместо btoa для надежности
+                    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
                 });
             };
-            map.addImage('bin-green', await createIcon('#22c55e'));
-            map.addImage('bin-yellow', await createIcon('#eab308'));
-            map.addImage('bin-red', await createIcon('#ef4444'));
+            try {
+                map.addImage('bin-green', await createIcon('#22c55e'));
+                map.addImage('bin-yellow', await createIcon('#eab308'));
+                map.addImage('bin-red', await createIcon('#ef4444'));
+            } catch (e) {
+                console.error("Ошибка при генерации иконок карты:", e);
+            }
         }
 
         // Alpine.js component for header scroll behavior and theme toggle
@@ -3415,9 +3421,12 @@ async function loadContainers() {
                 data: data
             });
 
-            // SVG pin icons layer
             const sourceName = map.getSource('containers-source') ? 'containers-source' : 'containers';
             
+            // Очищаем старые слои, если они были
+            if (map.getLayer('cluster-count')) map.removeLayer('cluster-count');
+            if (map.getLayer('clusters')) map.removeLayer('clusters');
+
             map.addLayer({
                 id: 'clusters',
                 type: 'symbol',
@@ -3431,14 +3440,16 @@ async function loadContainers() {
                     ],
                     'icon-size': 1,
                     'icon-anchor': 'bottom',
+                    'icon-allow-overlap': true,
                     'text-field': ['concat', ['get', 'avg_fill_percent'], '%'],
                     'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
                     'text-size': 11,
-                    'text-offset': [0, -2.6]
+                    'text-offset': [0, -2.5],
+                    'text-allow-overlap': true
                 },
                 paint: {
                     'text-color': '#ffffff',
-                    'text-halo-color': 'rgba(0,0,0,0.3)',
+                    'text-halo-color': 'rgba(0,0,0,0.5)',
                     'text-halo-width': 1
                 }
             });
@@ -3625,9 +3636,12 @@ async function loadMapData() {
             data: geojsonData
         });
 
-        // SVG pin icons layer
-        const sourceName = map.getSource('containers-source') ? 'containers-source' : 'containers';
+        const sourceName = map.getSource('containers') ? 'containers' : 'containers-source';
         
+        // Очищаем старые слои, если они были
+        if (map.getLayer('cluster-count')) map.removeLayer('cluster-count');
+        if (map.getLayer('clusters')) map.removeLayer('clusters');
+
         map.addLayer({
             id: 'clusters',
             type: 'symbol',
@@ -3641,14 +3655,16 @@ async function loadMapData() {
                 ],
                 'icon-size': 1,
                 'icon-anchor': 'bottom',
+                'icon-allow-overlap': true,
                 'text-field': ['concat', ['get', 'avg_fill_percent'], '%'],
                 'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
                 'text-size': 11,
-                'text-offset': [0, -2.6]
+                'text-offset': [0, -2.5],
+                'text-allow-overlap': true
             },
             paint: {
                 'text-color': '#ffffff',
-                'text-halo-color': 'rgba(0,0,0,0.3)',
+                'text-halo-color': 'rgba(0,0,0,0.5)',
                 'text-halo-width': 1
             }
         });
@@ -4114,9 +4130,12 @@ async function loadContainers() {
 
     map.addSource('containers', { type: 'geojson', data: data });
     
-    // SVG pin icons layer
     const sourceName = map.getSource('containers') ? 'containers' : 'containers-source';
     
+    // Очищаем старые слои, если они были
+    if (map.getLayer('cluster-count')) map.removeLayer('cluster-count');
+    if (map.getLayer('clusters')) map.removeLayer('clusters');
+
     map.addLayer({
         id: 'clusters',
         type: 'symbol',
@@ -4130,14 +4149,16 @@ async function loadContainers() {
             ],
             'icon-size': 1,
             'icon-anchor': 'bottom',
+            'icon-allow-overlap': true,
             'text-field': ['concat', ['get', 'avg_fill_percent'], '%'],
             'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
             'text-size': 11,
-            'text-offset': [0, -2.6]
+            'text-offset': [0, -2.5],
+            'text-allow-overlap': true
         },
         paint: {
             'text-color': '#ffffff',
-            'text-halo-color': 'rgba(0,0,0,0.3)',
+            'text-halo-color': 'rgba(0,0,0,0.5)',
             'text-halo-width': 1
         }
     });
@@ -4333,9 +4354,12 @@ async function loadContainers() {
                 data: data
             });
 
-            // SVG pin icons layer
             const sourceName = map.getSource('containers-source') ? 'containers-source' : 'containers';
             
+            // Очищаем старые слои, если они были
+            if (map.getLayer('cluster-count')) map.removeLayer('cluster-count');
+            if (map.getLayer('clusters')) map.removeLayer('clusters');
+
             map.addLayer({
                 id: 'clusters',
                 type: 'symbol',
@@ -4349,14 +4373,16 @@ async function loadContainers() {
                     ],
                     'icon-size': 1,
                     'icon-anchor': 'bottom',
+                    'icon-allow-overlap': true,
                     'text-field': ['concat', ['get', 'avg_fill_percent'], '%'],
                     'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
                     'text-size': 11,
-                    'text-offset': [0, -2.6]
+                    'text-offset': [0, -2.5],
+                    'text-allow-overlap': true
                 },
                 paint: {
                     'text-color': '#ffffff',
-                    'text-halo-color': 'rgba(0,0,0,0.3)',
+                    'text-halo-color': 'rgba(0,0,0,0.5)',
                     'text-halo-width': 1
                 }
             });
