@@ -161,7 +161,7 @@ function updateLocationsView() {
                     <button onclick="startLocationSelection('${address.replace(/'/g, "\\'")}')" class="flex-1 min-w-[120px] bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
                         <i class="fas fa-map-pin"></i> Координаты
                     </button>
-                    <button onclick="openAddContainerToLocationModal('${address.replace(/'/g, "\\'")}', '${locs[0].coords}')" class="flex-1 min-w-[120px] bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
+                    <button onclick="openAddContainerToLocationModal('${address.replace(/'/g, "\\'")}', '${locs[0].lat}, ${locs[0].lon}')" class="flex-1 min-w-[120px] bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
                         <i class="fas fa-plus"></i> Добавить бак
                     </button>
                 </div>
@@ -176,7 +176,7 @@ function updateLocationsView() {
                             <div class="bg-white dark:bg-gray-800 p-3 rounded-lg flex justify-between items-center">
                                 <div>
                                     <p class="font-semibold text-gray-800 dark:text-white">${c.id}</p>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">${c.coords}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">${c.lat}, ${c.lon}</p>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <span class="px-2 py-1 rounded text-sm font-medium ${cFillColor}">${c.fill_percent}%</span>
@@ -231,7 +231,11 @@ async function loadRecentScans() {
         }
         
         tbody.innerHTML = data.recent_scans.map(scan => {
-            const date = new Date(scan.scanned_at);
+            let dateStr = scan.scanned_at;
+            if (!dateStr.endsWith('Z')) {
+                dateStr += 'Z';
+            }
+            const date = new Date(dateStr);
             const timeStr = date.toLocaleString('ru-RU', { 
                 timeZone: 'Europe/Moscow', 
                 day: '2-digit', 
