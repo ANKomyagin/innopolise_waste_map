@@ -18,7 +18,7 @@ class ContainerRepository(ABC):
 # Интерфейс для построителя маршрутов (можно будет подключать разные)
 class RoutingProvider(ABC):
     @abstractmethod
-    def build_route(self, origin: str, waypoints: List[str]) -> RoutePath: pass
+    async def build_route(self, origin: str, waypoints: List[str]) -> RoutePath: pass
 
 
 # Интерфейс для уведомлений

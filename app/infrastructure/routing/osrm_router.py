@@ -2,6 +2,7 @@
 import httpx
 import logging
 from typing import List
+from fastapi import HTTPException
 from app.core.interfaces import RoutingProvider
 from app.domain.models import RoutePath
 
@@ -13,7 +14,7 @@ class OSRMRoutingProvider(RoutingProvider):
         # Используем публичный бесплатный сервер OSRM (для хакатона - идеально)
         self.base_url = "http://router.project-osrm.org/trip/v1/driving"
 
-    def build_route(self, origin: str, waypoints: List[str]) -> RoutePath:
+    async def build_route(self, origin: str, waypoints: List[str]) -> RoutePath:
         """
         origin: "Широта,Долгота"
         waypoints: ["Широта,Долгота", ...]
@@ -33,10 +34,18 @@ class OSRMRoutingProvider(RoutingProvider):
 
         logger.info(f"[OSRM] Отправляю запрос на оптимизацию {len(all_points)} точек...")
 
-        response = httpx.get(url)
-        if response.status_code != 200:
-            logger.error(f"[OSRM ERROR] {response.text}")
-            raise Exception("Ошибка построения маршрута")
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            try:
+                response = await client.get(url)
+                if response.status_code != 200:
+                    logger.error(f"[OSRM ERROR] {response.text}")
+                    raise HTTPException(status_code=503, detail="Сервер маршрутизации недоступен")
+            except httpx.ReadTimeout:
+                logger.error("[OSRM ERROR] Таймаут ожидания ответа от сервера OSRM")
+                raise HTTPException(status_code=504, detail="Таймаут построения маршрута")
+            except Exception as e:
+                logger.error(f"[OSRM ERROR] Ошибка: {e}")
+                raise HTTPException(status_code=500, detail="Ошибка при построении маршрута")
 
         data = response.json()
 

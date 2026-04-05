@@ -7,6 +7,7 @@
 import os
 import re
 import hashlib
+import difflib
 from pathlib import Path
 from datetime import datetime
 
@@ -107,6 +108,31 @@ def compare_files(current_content, doc_content):
     current_hash = get_file_hash(current_content)
     doc_hash = get_file_hash(doc_content)
     return current_hash != doc_hash
+
+def get_diff_with_context(current_content, doc_content, context_lines=3):
+    """Получить diff с контекстом вокруг изменений"""
+    current_lines = current_content.splitlines(keepends=True)
+    doc_lines = doc_content.splitlines(keepends=True)
+    
+    # Получить unified diff
+    diff = list(difflib.unified_diff(
+        doc_lines,
+        current_lines,
+        lineterm='',
+        n=context_lines
+    ))
+    
+    if not diff:
+        return None
+    
+    # Отфильтровать: оставить только строки с контекстом и добавленные (+)
+    filtered_diff = []
+    for line in diff[3:]:  # Пропустить первые 3 строки (заголовки diff)
+        # Оставить строки контекста (начинаются с пробела) и добавленные (начинаются с +)
+        if line.startswith(' ') or line.startswith('+'):
+            filtered_diff.append(line)
+    
+    return ''.join(filtered_diff) if filtered_diff else None
 
 def generate_tree_structure(root_path, structure):
     """Сгенерировать текстовое представление дерева структуры"""
@@ -211,12 +237,16 @@ def compare_documentation():
         for file_path in sorted(changed_files):
             relative_path = str(file_path).replace('\\', '/')
             full_path = project_root / file_path
+            current_content = read_file_content(full_path)
+            doc_file_content = doc_files.get(relative_path, "")
             
-            doc_content.append(f"\n### {relative_path}")
-            doc_content.append("```")
-            content = read_file_content(full_path)
-            doc_content.append(content)
-            doc_content.append("```")
+            diff = get_diff_with_context(current_content, doc_file_content, context_lines=3)
+            
+            if diff:
+                doc_content.append(f"\n### {relative_path}")
+                doc_content.append("```diff")
+                doc_content.append(diff)
+                doc_content.append("```")
     
     # Новые файлы
     if new_files:
