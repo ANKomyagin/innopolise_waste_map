@@ -44,6 +44,8 @@ async function loadContainers() {
 document.addEventListener('alpine:init', () => {
     Alpine.data('residentApp', () => ({
         expanded: true,
+        touchStartY: 0,
+        touchEndY: 0,
         searchQuery: '',
         suggestions: [],
         userLocation: null, // {lat, lon}
