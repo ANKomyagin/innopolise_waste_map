@@ -95,3 +95,49 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, 100);
 });
+
+// ============ LOGIN HANDLER ============
+async function handleLogin(event) {
+    event.preventDefault();
+    
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const errorMessageEl = document.getElementById('error-message');
+    
+    const formData = new URLSearchParams();
+    formData.append('username', username);
+    formData.append('password', password);
+    
+    try {
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formData
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            localStorage.setItem('access_token', data.access_token);
+            localStorage.setItem('role', data.role);
+            
+            if (data.role === 'admin') {
+                window.location.href = '/admin.html';
+            } else if (data.role === 'contractor') {
+                window.location.href = '/truck.html';
+            }
+        } else if (response.status === 401) {
+            errorMessageEl.textContent = 'Неверный логин или пароль';
+            errorMessageEl.style.color = '#dc3545';
+            errorMessageEl.style.display = 'block';
+        } else {
+            errorMessageEl.textContent = 'Ошибка сервера. Попробуйте позже.';
+            errorMessageEl.style.color = '#dc3545';
+            errorMessageEl.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        errorMessageEl.textContent = 'Ошибка подключения к серверу';
+        errorMessageEl.style.color = '#dc3545';
+        errorMessageEl.style.display = 'block';
+    }
+}

@@ -12,7 +12,7 @@ class SensorProcessingPipeline:
         sensor_dict = payload.sensor_data.model_dump()
         sensor_dict['timestamp'] = sensor_dict['timestamp'].isoformat()
 
-        self.repo.upsert_container(
+        await self.repo.upsert_container(
             container_id=payload.container_id,
             address=payload.address,
             coords=payload.coords,
