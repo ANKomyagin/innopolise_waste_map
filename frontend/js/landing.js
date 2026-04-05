@@ -85,15 +85,9 @@ async function loadMapData() {
     }
 }
 
-// Initialize map data when map is ready
-document.addEventListener('DOMContentLoaded', function() {
-    // Wait for map to be initialized in base.html
-    const checkMapReady = setInterval(function() {
-        if (typeof map !== 'undefined' && map) {
-            clearInterval(checkMapReady);
-            loadMapData();
-        }
-    }, 100);
+// Initialize map data when map is fully loaded
+window.addEventListener('map-loaded', function() {
+    loadMapData();
 });
 
 // ============ LOGIN HANDLER ============
