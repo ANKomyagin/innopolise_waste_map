@@ -10,9 +10,9 @@
 {% endblock %}
 
 {% block content %}
-<div class="pointer-events-auto fixed md:relative bottom-0 left-0 w-full md:w-[32rem] bg-white md:bg-white/95 dark:bg-gray-800 md:dark:bg-gray-800/95 rounded-t-2xl md:rounded-lg shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] md:shadow-lg transition-all duration-300 flex flex-col z-50" 
+<div class="pointer-events-auto fixed md:relative bottom-0 left-0 w-full md:w-[32rem] bg-white/85 md:bg-white/95 dark:bg-gray-800/85 md:dark:bg-gray-800/95 backdrop-blur-md rounded-t-2xl md:rounded-lg shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] md:shadow-lg transition-all duration-300 flex flex-col z-50 top-[72px] md:top-auto" 
      x-data="{ expanded: true, touchStartY: 0, touchEndY: 0 }"
-     :class="expanded ? 'h-[85vh] md:h-auto' : 'h-[10vh] min-h-[60px] md:h-auto'"
+     :class="expanded ? 'h-[calc(100vh-72px)] md:h-auto' : 'h-[10vh] min-h-[60px] md:h-auto'"
      @touchstart="touchStartY = $event.touches[0].clientY"
      @touchend="touchEndY = $event.changedTouches[0].clientY; const st = document.getElementById('adminScroll')?.scrollTop || 0; if(touchEndY - touchStartY > 50 && st === 0) expanded = false; if(touchStartY - touchEndY > 50) expanded = true;">
     
