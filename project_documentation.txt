@@ -430,6 +430,11 @@ class RouteRequest(BaseModel):
     threshold: int
 
 
+class ResidentRouteRequest(BaseModel):
+    origin: str  # "lat,lon"
+    destination: str  # "lat,lon"
+
+
 def deduplicate_coords(coords_list: List[str], radius_meters: float = 15.0) -> List[str]:
     """Deduplicate coordinates within a given radius (in meters)"""
     if not coords_list:
@@ -497,6 +502,19 @@ async def get_optimal_route(
     # Build route asynchronously
     DEPOT_COORDS = "55.753, 48.743"
     route = await routing_provider.build_route(origin=DEPOT_COORDS, waypoints=unique_coords)
+    return {"route": route}
+
+
+@router.post("/resident-route")
+async def get_resident_route(
+    request: ResidentRouteRequest,
+    routing_provider = Depends(get_routing_provider)
+):
+    """Get simple route from A to B for a resident"""
+    route = await routing_provider.build_route(
+        origin=request.origin,
+        waypoints=[request.destination]
+    )
     return {"route": route}
 
 ```
@@ -1707,7 +1725,7 @@ logger = logging.getLogger(__name__)
 class OSRMRoutingProvider(RoutingProvider):
     def __init__(self):
         # Используем публичный бесплатный сервер OSRM (для хакатона - идеально)
-        self.base_url = "http://router.project-osrm.org/trip/v1/driving"
+        self.base_url = "http://router.project-osrm.org/route/v1/driving"
 
     async def build_route(self, origin: str, waypoints: List[str]) -> RoutePath:
         """
@@ -1724,10 +1742,10 @@ class OSRMRoutingProvider(RoutingProvider):
         all_points = [origin] + waypoints
         osrm_coords = ";".join([flip_coords(p) for p in all_points])
 
-        # Формируем URL. Параметр source=first гарантирует, что маршрут начнется с Депо
-        url = f"{self.base_url}/{osrm_coords}?source=first&geometries=geojson&roundtrip=false"
+        # Формируем URL для простой маршрутизации (не оптимизация)
+        url = f"{self.base_url}/{osrm_coords}?overview=full&geometries=geojson"
 
-        logger.info(f"[OSRM] Отправляю запрос на оптимизацию {len(all_points)} точек...")
+        logger.info(f"[OSRM] Отправляю запрос на маршрутизацию {len(all_points)} точек...")
 
         async with httpx.AsyncClient(timeout=15.0) as client:
             try:
@@ -1744,8 +1762,8 @@ class OSRMRoutingProvider(RoutingProvider):
 
         data = response.json()
 
-        # OSRM возвращает оптимизированный маршрут (Trip)
-        trip = data['trips'][0]
+        # OSRM /route возвращает маршрут (Route вместо Trip)
+        route = data['routes'][0]
 
         # Получаем порядок, в котором алгоритм решил объехать точки
         # (Исключаем самую первую точку, так как это Депо)
@@ -1756,9 +1774,9 @@ class OSRMRoutingProvider(RoutingProvider):
                 ordered_waypoints.append(f"{wp['location'][1]}, {wp['location'][0]}")
 
         return RoutePath(
-            route_geojson=trip['geometry'],  # Геометрия линии для карты!
-            distance_km=round(trip['distance'] / 1000, 2),  # переводим метры в км
-            duration_min=round(trip['duration'] / 60, 1),  # переводим секунды в минуты
+            route_geojson=route['geometry'],  # Геометрия линии для карты!
+            distance_km=round(route['distance'] / 1000, 2),  # переводим метры в км
+            duration_min=round(route['duration'] / 60, 1),  # переводим секунды в минуты
             optimized_waypoints_order=ordered_waypoints
         )
 
@@ -3924,118 +3942,157 @@ document.getElementById('deviceId').value = localStorage.getItem('deviceId');
 
 ### frontend/js/resident.js
 ```
-let containers = [];
+let containersData = [];
+let userMarker = null;
 
-// Initialize map data when map is fully loaded
 window.addEventListener('map-loaded', loadContainers);
 
 async function loadContainers() {
-    try {
-        const response = await fetch('/api/map/geojson');
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        
-        const data = await response.json();
-        if (!data || !data.features) throw new Error('Invalid data format');
-
-        containers = [];
-
-        // Extract all containers from features
-        data.features.forEach(feature => {
-            const props = feature.properties;
-            if (props.containers && Array.isArray(props.containers)) {
-                props.containers.forEach(c => {
-                    containers.push(c);
-                });
-            }
+    const response = await fetch('/api/map/geojson');
+    const data = await response.json();
+    
+    // Сохраняем для поиска
+    data.features.forEach(f => {
+        containersData.push({
+            address: f.properties.address,
+            lat: f.geometry.coordinates[1],
+            lon: f.geometry.coordinates[0],
+            fill: f.properties.avg_fill_percent
         });
+    });
 
-        // Add or update GeoJSON source
-        if (map.getSource('containers-source')) {
-            map.getSource('containers-source').setData(data);
-        } else {
-            map.addSource('containers-source', {
-                type: 'geojson',
-                data: data
-            });
-
-            // Add clusters layer
-            map.addLayer({
-                id: 'clusters',
-                type: 'circle',
-                source: 'containers-source',
-                paint: {
-                    'circle-color': [
-                        'case',
-                        ['>=', ['get', 'avg_fill_percent'], 70],
-                        '#dc3545',
-                        ['>=', ['get', 'avg_fill_percent'], 50],
-                        '#ffc107',
-                        '#28a745'
-                    ],
-                    'circle-radius': [
-                        'case',
-                        ['>', ['get', 'container_count'], 1],
-                        20,
-                        15
-                    ],
-                    'circle-opacity': 0.8,
-                    'circle-stroke-width': 2,
-                    'circle-stroke-color': '#fff'
-                }
-            });
-
-            // Add cluster count layer
-            map.addLayer({
-                id: 'cluster-count',
-                type: 'symbol',
-                source: 'containers-source',
-                layout: {
-                    'text-field': ['get', 'avg_fill_percent'],
-                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                    'text-size': 14,
-                    'text-offset': [0, 0]
-                },
-                paint: {
-                    'text-color': '#fff',
-                    'text-halo-color': 'rgba(0, 0, 0, 0.5)',
-                    'text-halo-width': 1
-                }
-            });
-
-            // Click handler for clusters layer
-            map.on('click', 'clusters', function(e) {
-                const properties = e.features[0].properties;
-                const featureData = {
-                    ...properties,
-                    containers: typeof properties.containers === 'string' ? JSON.parse(properties.containers) : properties.containers
-                };
-                
-                // Display container info
-                const address = featureData.address || 'Адрес не указан';
-                const fillPercent = featureData.avg_fill_percent || 0;
-                const containerCount = featureData.container_count || 0;
-                
-                const message = `📍 Адрес: ${address}\n🗑️ Контейнеров: ${containerCount}\n📊 Заполненность: ${fillPercent}%`;
-                alert(message);
-                console.log('Container selected:', featureData);
-            });
-
-            // Cursor change on hover
-            map.on('mouseenter', 'clusters', function() {
-                map.getCanvas().style.cursor = 'pointer';
-            });
-
-            map.on('mouseleave', 'clusters', function() {
-                map.getCanvas().style.cursor = '';
-            });
+    map.addSource('containers', { type: 'geojson', data: data });
+    
+    // Рисуем кружки
+    map.addLayer({
+        id: 'clusters',
+        type: 'circle',
+        source: 'containers',
+        paint: {
+            'circle-color': ['case', ['>=', ['get', 'avg_fill_percent'], 70], '#dc3545', ['>=', ['get', 'avg_fill_percent'], 50], '#ffc107', '#28a745'],
+            'circle-radius': 14,
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#fff'
         }
+    });
 
-        console.log(`Загружено ${containers.length} контейнеров`);
-    } catch (error) {
-        console.error('Ошибка загрузки данных:', error);
-        alert('Не удалось загрузить данные о контейнерах');
-    }
+    // Клик по карте (ставим точку "Дом")
+    map.on('click', function(e) {
+        const lat = e.lngLat.lat;
+        const lon = e.lngLat.lng;
+        window.dispatchEvent(new CustomEvent('set-user-location', { detail: {lat, lon, address: "Выбранная точка"} }));
+    });
 }
+
+// Alpine.js логика UI
+document.addEventListener('alpine:init', () => {
+    Alpine.data('residentApp', () => ({
+        expanded: true,
+        searchQuery: '',
+        suggestions: [],
+        userLocation: null, // {lat, lon}
+        routeInfo: null,
+        
+        init() {
+            // Восстанавливаем локацию из памяти
+            const saved = localStorage.getItem('resident_location');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                this.updateMarker(parsed.lat, parsed.lon, parsed.address);
+            }
+
+            window.addEventListener('set-user-location', (e) => {
+                this.updateMarker(e.detail.lat, e.detail.lon, e.detail.address);
+            });
+        },
+        
+        searchAddress() {
+            if (this.searchQuery.length < 2) { this.suggestions = []; return; }
+            const q = this.searchQuery.toLowerCase();
+            // Ищем уникальные адреса
+            const unique = new Set();
+            this.suggestions = containersData.filter(c => {
+                if (c.address.toLowerCase().includes(q) && !unique.has(c.address)) {
+                    unique.add(c.address);
+                    return true;
+                }
+                return false;
+            }).slice(0, 5);
+        },
+        
+        selectAddress(item) {
+            this.updateMarker(item.lat, item.lon, item.address);
+            this.suggestions = [];
+            map.flyTo({center: [item.lon, item.lat], zoom: 15});
+        },
+        
+        updateMarker(lat, lon, addr) {
+            this.userLocation = {lat, lon};
+            this.searchQuery = addr;
+            localStorage.setItem('resident_location', JSON.stringify({lat, lon, address: addr}));
+            
+            if (userMarker) userMarker.remove();
+            
+            const el = document.createElement('div');
+            el.innerHTML = '<i class="fas fa-home text-2xl text-blue-600" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));"></i>';
+            userMarker = new maplibregl.Marker({element: el}).setLngLat([lon, lat]).addTo(map);
+        },
+        
+        async findNearest() {
+            if (!this.userLocation) return;
+            this.expanded = false; // Сворачиваем панель на мобилках
+            
+            // Ищем ближайший свободный бак (<70%)
+            const available = containersData.filter(c => c.fill < 70);
+            if (!available.length) { alert("Все контейнеры переполнены!"); return; }
+            
+            // Считаем дистанцию
+            let nearest = available[0];
+            let minDist = Infinity;
+            available.forEach(c => {
+                const dist = Math.pow(c.lat - this.userLocation.lat, 2) + Math.pow(c.lon - this.userLocation.lon, 2);
+                if (dist < minDist) { minDist = dist; nearest = c; }
+            });
+
+            // Строим маршрут
+            const response = await fetch('/api/logistics/resident-route', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    origin: `${this.userLocation.lat},${this.userLocation.lon}`,
+                    destination: `${nearest.lat},${nearest.lon}` 
+                })
+            });
+            
+            if(response.ok) {
+                const data = await response.json();
+                this.routeInfo = data.route;
+                this.drawRoute(data.route.route_geojson);
+                
+                // Подстраиваем камеру, чтобы вместить маршрут
+                const bounds = new maplibregl.LngLatBounds();
+                bounds.extend([this.userLocation.lon, this.userLocation.lat]);
+                bounds.extend([nearest.lon, nearest.lat]);
+                map.fitBounds(bounds, {padding: 50});
+            }
+        },
+        
+        drawRoute(geojson) {
+            this.clearRoute();
+            map.addSource('route', { type: 'geojson', data: geojson });
+            map.addLayer({
+                id: 'route-layer', type: 'line', source: 'route',
+                paint: { 'line-color': '#3b82f6', 'line-width': 5, 'line-dasharray': [1, 2] }
+            });
+        },
+        
+        clearRoute() {
+            this.routeInfo = null;
+            if (map.getLayer('route-layer')) map.removeLayer('route-layer');
+            if (map.getSource('route')) map.removeSource('route');
+        }
+    }));
+});
 
 
 ```
@@ -4500,37 +4557,52 @@ function clearRoute() {
 {% endblock %}
 
 {% block content %}
-<div class="w-full md:w-[28rem]">
-    <!-- Welcome Card -->
-    <div class="bg-white/90 backdrop-blur rounded-lg shadow p-6 mb-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-2 flex items-center gap-2">
-            <i class="fas fa-map-marker-alt text-blue-600"></i>
-            Найдите ближайший контейнер
-        </h3>
-        <p class="text-gray-600 text-sm">Нажмите на контейнер на карте, чтобы увидеть информацию о заполненности и адресе.</p>
+<div class="w-full h-full flex flex-col" x-data="residentApp()">
+    <!-- Draggable header for mobile -->
+    <div class="md:hidden flex justify-center py-2 cursor-pointer" @click="expanded = !expanded">
+        <div class="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
     </div>
     
-    <!-- Legend -->
-    <div class="bg-white/90 backdrop-blur rounded-lg shadow p-6">
-        <h4 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <i class="fas fa-info-circle text-blue-600"></i>
-            Легенда
-        </h4>
+    <div class="flex-1 overflow-y-auto px-4 pb-4 transition-all duration-300" :class="expanded ? 'max-h-full' : 'max-h-[30vh] md:max-h-full'">
+        <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-4">Поиск контейнера</h2>
         
-        <div class="space-y-3">
-            <div class="flex items-center gap-3">
-                <div class="w-6 h-6 rounded-full bg-green-500 shadow"></div>
-                <span class="text-gray-700">Свободно (&lt;50%)</span>
+        <!-- Address Search -->
+        <div class="mb-4 relative">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Мой адрес</label>
+            <div class="relative">
+                <input type="text" x-model="searchQuery" @input="searchAddress" placeholder="Введите адрес или кликните на карте" 
+                       class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
             </div>
             
-            <div class="flex items-center gap-3">
-                <div class="w-6 h-6 rounded-full bg-yellow-500 shadow"></div>
-                <span class="text-gray-700">Заполнено (50-70%)</span>
-            </div>
-            
-            <div class="flex items-center gap-3">
-                <div class="w-6 h-6 rounded-full bg-red-500 shadow"></div>
-                <span class="text-gray-700">Переполнено (&gt;70%)</span>
+            <!-- Autocomplete dropdown -->
+            <ul x-show="suggestions.length > 0" class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                <template x-for="item in suggestions" :key="item.address">
+                    <li @click="selectAddress(item)" class="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer text-gray-800 dark:text-white border-b border-gray-100 dark:border-gray-600 last:border-0">
+                        <span x-text="item.address"></span>
+                    </li>
+                </template>
+            </ul>
+        </div>
+        
+        <button @click="findNearest()" :disabled="!userLocation" class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-2 mb-4">
+            <i class="fas fa-route"></i> Найти ближайший свободный
+        </button>
+        
+        <!-- Route Info -->
+        <div x-show="routeInfo" class="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg border border-blue-100 dark:border-blue-800 mb-4">
+            <h4 class="font-bold text-blue-800 dark:text-blue-300 mb-2">Маршрут построен</h4>
+            <p class="text-sm text-gray-700 dark:text-gray-300">Расстояние: <span class="font-bold" x-text="routeInfo?.distance + ' км'"></span></p>
+            <p class="text-sm text-gray-700 dark:text-gray-300">Время пешком: <span class="font-bold" x-text="Math.round(routeInfo?.distance * 1000 / 80) + ' мин'"></span></p>
+            <button @click="clearRoute()" class="mt-3 text-sm text-red-600 hover:text-red-800 font-medium"><i class="fas fa-times"></i> Сбросить</button>
+        </div>
+        
+        <!-- Legend (compact) -->
+        <div class="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div class="flex gap-4 justify-between text-xs text-gray-600 dark:text-gray-400">
+                <div class="flex items-center gap-1"><div class="w-3 h-3 rounded-full bg-green-500"></div> Свободно</div>
+                <div class="flex items-center gap-1"><div class="w-3 h-3 rounded-full bg-yellow-500"></div> Средне</div>
+                <div class="flex items-center gap-1"><div class="w-3 h-3 rounded-full bg-red-500"></div> Занято</div>
             </div>
         </div>
     </div>

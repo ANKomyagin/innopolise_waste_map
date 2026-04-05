@@ -11,6 +11,7 @@
 
 let containers = [];
 let fillThreshold = 50;
+let currentRouteContainers = [];
 
 // Initialize map data when map is fully loaded
 window.addEventListener('map-loaded', loadContainers);
@@ -138,6 +139,7 @@ async function buildOptimalRoute() {
                 return;
             }
             const routeData = data.route;
+            currentRouteContainers = needCollection.map(c => c.id);
             displayRoute(routeData, needCollection);
         } else {
             const errText = await response.text();
@@ -189,6 +191,7 @@ function displayRoute(routeData, containers) {
     document.getElementById('routeDistance').textContent = `${distance.toFixed(2)} км`;
     document.getElementById('routeDuration').textContent = `~${Math.round(duration)} мин`;
     document.getElementById('routeInfo').classList.remove('hidden');
+    document.getElementById('actionPanel').classList.remove('hidden');
 }
 
 function clearRoute() {
@@ -201,4 +204,33 @@ function clearRoute() {
     }
     
     document.getElementById('routeInfo').classList.add('hidden');
+    document.getElementById('actionPanel').classList.add('hidden');
+    currentRouteContainers = [];
+}
+
+async function emptyRouteContainers() {
+    if (!currentRouteContainers.length) return;
+    if (!confirm(`Подтверждаете очистку ${currentRouteContainers.length} контейнеров?`)) return;
+
+    try {
+        const response = await fetch('/api/containers/empty', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+            },
+            body: JSON.stringify({ container_ids: currentRouteContainers })
+        });
+
+        if (response.ok) {
+            alert('Контейнеры успешно отмечены как пустые!');
+            clearRoute();
+            loadContainers(); // Обновляем карту
+        } else {
+            alert('Ошибка при сбросе статуса');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Ошибка сети');
+    }
 }

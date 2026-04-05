@@ -52,12 +52,19 @@ class OSRMRoutingProvider(RoutingProvider):
         # OSRM /route возвращает маршрут (Route вместо Trip)
         route = data['routes'][0]
 
-        # Получаем порядок, в котором алгоритм решил объехать точки
-        # (Исключаем самую первую точку, так как это Депо)
+        # Собираем точки маршрута
         ordered_waypoints = []
-        for wp in sorted(data['waypoints'], key=lambda x: x['waypoint_index']):
-            if wp['waypoint_index'] != 0:
-                # Возвращаем в нормальный формат "Широта, Долгота"
+        waypoints_data = data.get('waypoints', [])
+        
+        # Если есть waypoint_index (например, мы вернулись к /trip для машин)
+        if waypoints_data and 'waypoint_index' in waypoints_data[0]:
+            sorted_wps = sorted(waypoints_data, key=lambda x: x['waypoint_index'])
+            for wp in sorted_wps:
+                if wp['waypoint_index'] != 0:
+                    ordered_waypoints.append(f"{wp['location'][1]}, {wp['location'][0]}")
+        else:
+            # Для простого /route (житель) берем все точки, кроме первой (origin)
+            for wp in waypoints_data[1:]:
                 ordered_waypoints.append(f"{wp['location'][1]}, {wp['location'][0]}")
 
         return RoutePath(

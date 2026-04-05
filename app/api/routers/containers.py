@@ -2,8 +2,9 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List
+from datetime import datetime
 from app.api.dependencies import get_db_repo
-from app.core.auth import verify_admin
+from app.core.auth import verify_admin, verify_contractor
 
 router = APIRouter(prefix="/api/containers", tags=["containers"])
 
@@ -85,3 +86,26 @@ async def delete_container(
     if not success:
         raise HTTPException(status_code=404, detail="Container not found")
     return {"status": "ok"}
+
+
+class EmptyContainersRequest(BaseModel):
+    container_ids: List[str]
+
+
+@router.post("/empty")
+async def empty_containers(
+    request: EmptyContainersRequest,
+    db_repo = Depends(get_db_repo),
+    current_user: dict = Depends(verify_contractor)
+):
+    """Mark selected containers as empty (contractor/driver only)"""
+    for cid in request.container_ids:
+        sensor_dict = {
+            "fill_percent": 0,
+            "temperature_status": "норм. (Сброс водителем)",
+            "tilt_status": "норм.",
+            "battery_status": "норм.",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        await db_repo.update_sensor_data(cid, sensor_dict)
+    return {"status": "ok", "emptied": len(request.container_ids)}
