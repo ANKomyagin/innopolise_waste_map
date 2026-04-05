@@ -14,12 +14,15 @@ let locations = {}; // Group containers by address
 let isEditMode = false;
 let editingId = null;
 let currentEditingLocation = null;
+let isSelectingLocation = false;
+let editingLocationAddress = null;
 
 // Initialize map data when map is fully loaded
 window.addEventListener('map-loaded', function() {
     loadContainers();
     loadDashboardStats();
     loadRecentScans();
+    setupMapClickHandler();
 });
 
 async function loadContainers() {
@@ -97,21 +100,8 @@ async function loadContainers() {
         map.on('mouseenter', 'clusters', () => map.getCanvas().style.cursor = 'pointer');
         map.on('mouseleave', 'clusters', () => map.getCanvas().style.cursor = '');
 
-        // Клик по пустой карте = добавление нового контейнера
-        map.on('click', function(e) {
-            const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
-            if (features.length) return; // Если кликнули по мусорке, игнорируем
-            
-            const coords = e.lngLat;
-            document.getElementById('containerCoords').value = coords.lat.toFixed(6) + ', ' + coords.lng.toFixed(6);
-            
-            // Автоматически генерируем ID
-            document.getElementById('containerId').value = 'BIN-' + Math.floor(Math.random() * 10000);
-            document.getElementById('containerAddress').value = 'Новая площадка';
-            
-            isEditMode = false;
-            document.getElementById('addContainerModal').style.display = 'flex';
-        });
+        // Клик по пустой карте = выбор координат или добавление нового контейнера
+        setupMapClickHandler();
 
         updateStatistics();
         updateLocationsView();
@@ -163,11 +153,11 @@ function updateLocationsView() {
                     <span class="text-lg font-bold ${fillColor}">${avgFill}%</span>
                 </div>
                 
-                <div class="flex gap-2 mb-3">
-                    <button onclick="openEditLocationModal('${address.replace(/'/g, "\\'")}', '${locs[0].coords}')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
-                        <i class="fas fa-edit"></i> Редактировать площадку
+                <div class="flex gap-2 mb-3 flex-wrap">
+                    <button onclick="startLocationSelection('${address.replace(/'/g, "\\'")}')" class="flex-1 min-w-[120px] bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
+                        <i class="fas fa-map-pin"></i> Координаты
                     </button>
-                    <button onclick="openAddContainerToLocationModal('${address.replace(/'/g, "\\'")}', '${locs[0].coords}')" class="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
+                    <button onclick="openAddContainerToLocationModal('${address.replace(/'/g, "\\'")}', '${locs[0].coords}')" class="flex-1 min-w-[120px] bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
                         <i class="fas fa-plus"></i> Добавить бак
                     </button>
                 </div>
@@ -252,6 +242,74 @@ async function loadRecentScans() {
     }
 }
 
+function setupMapClickHandler() {
+    if (map._mapClickHandlerSetup) return; // Prevent duplicate handlers
+    
+    map.on('click', function(e) {
+        const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+        if (features.length) return; // Если кликнули по мусорке, игнорируем
+        
+        const coords = e.lngLat;
+        const coordsStr = coords.lat.toFixed(6) + ', ' + coords.lng.toFixed(6);
+        
+        // Если в режиме выбора координат площадки
+        if (isSelectingLocation) {
+            if (confirm('Перенести площадку сюда?')) {
+                updateLocationCoordinates(coordsStr);
+            }
+            return;
+        }
+        
+        // Иначе открываем модалку создания новой площадки
+        document.getElementById('containerCoords').value = coordsStr;
+        document.getElementById('containerCoords').disabled = false;
+        
+        document.getElementById('containerAddress').value = 'Новая площадка';
+        document.getElementById('containerAddress').disabled = false;
+        
+        // Автоматически генерируем ID
+        document.getElementById('containerId').value = 'BIN-' + Math.floor(Math.random() * 10000);
+        
+        isEditMode = false;
+        document.getElementById('addContainerModal').style.display = 'flex';
+    });
+    
+    map._mapClickHandlerSetup = true;
+}
+
+async function updateLocationCoordinates(newCoords) {
+    if (!editingLocationAddress) {
+        alert('Ошибка: адрес площадки не найден');
+        return;
+    }
+    
+    try {
+        const encodedAddress = encodeURIComponent(editingLocationAddress);
+        const response = await fetch(`/api/containers/location/${encodedAddress}`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                new_address: editingLocationAddress,
+                new_coords: newCoords
+            })
+        });
+        
+        if (response.ok) {
+            alert('Координаты площадки обновлены');
+            isSelectingLocation = false;
+            editingLocationAddress = null;
+            map.getCanvas().style.cursor = '';
+            loadContainers();
+        } else {
+            const err = await response.json().catch(() => null);
+            alert('Ошибка обновления: ' + (err?.detail || response.statusText));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Ошибка обновления координат');
+    }
+}
+
 function getAuthHeaders() {
     const token = localStorage.getItem('access_token');
     return {
@@ -275,15 +333,27 @@ function openEditContainerModal(containerId, currentFill) {
 
 function openEditLocationModal(address, coords) {
     currentEditingLocation = address;
+    editingLocationAddress = address;
     document.getElementById('editLocationAddress').value = address;
     document.getElementById('editLocationCoords').value = coords;
     document.getElementById('editLocationModal').style.display = 'flex';
 }
 
+function startLocationSelection(address) {
+    editingLocationAddress = address;
+    isSelectingLocation = true;
+    map.getCanvas().style.cursor = 'crosshair';
+    alert('Кликните на карту для новых координат площадки');
+}
+
 function openAddContainerToLocationModal(address, coords) {
     document.getElementById('containerId').value = 'BIN-' + Math.floor(Math.random() * 10000);
     document.getElementById('containerAddress').value = address;
+    document.getElementById('containerAddress').disabled = true;
+    
     document.getElementById('containerCoords').value = coords;
+    document.getElementById('containerCoords').disabled = true;
+    
     isEditMode = false;
     document.getElementById('addContainerModal').style.display = 'flex';
 }
@@ -436,6 +506,17 @@ async function deleteContainer(id) {
         alert('Ошибка удаления');
     }
 }
+
+// Event listeners for modal prompts from container details
+window.addEventListener('edit-container-prompt', function(e) {
+    const { id, fill } = e.detail;
+    openEditContainerModal(id, fill);
+});
+
+window.addEventListener('delete-container-prompt', function(e) {
+    const { id } = e.detail;
+    deleteContainer(id);
+});
 
 // Setup form submissions
 document.addEventListener('DOMContentLoaded', function() {
