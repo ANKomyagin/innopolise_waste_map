@@ -3,19 +3,19 @@
 {% block title %}Умные контейнеры Иннополиса{% endblock %}
 
 {% block header_actions %}
-<div x-data="{ showLogin: false }">
+<div x-data="{ showLogin: false }" @open-login.window="showLogin = true">
     <button @click="showLogin = true" class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium">
         <i class="fas fa-sign-in-alt"></i>
-        Вход для сотрудников
+        Войти
     </button>
     
     <!-- Login Modal -->
     <div x-show="showLogin" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click="if($event.target === $el) showLogin = false">
-        <div class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md" @click.stop>
-            <button @click="showLogin = false" class="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-md" @click.stop>
+            <button @click="showLogin = false" class="absolute top-4 right-4 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-2xl">
                 &times;
             </button>
-            <h2 class="text-2xl font-bold text-gray-800 mb-6">Вход</h2>
+            <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-6">Вход</h2>
             
             <div class="error-message mb-4" id="error-message"></div>
             
@@ -27,29 +27,29 @@
             
             <div class="relative mb-6">
                 <div class="absolute inset-0 flex items-center">
-                    <div class="w-full border-t border-gray-300"></div>
+                    <div class="w-full border-t border-gray-300 dark:border-gray-600"></div>
                 </div>
                 <div class="relative flex justify-center text-sm">
-                    <span class="px-2 bg-white text-gray-500">или</span>
+                    <span class="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">или</span>
                 </div>
             </div>
             
             <!-- Employee login -->
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">Вход для сотрудников</h3>
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Вход для сотрудников</h3>
             
             <form id="loginForm" @submit.prevent="handleLogin">
                 <div class="mb-4">
-                    <label for="username" class="block text-sm font-medium text-gray-700 mb-2">
+                    <label for="username" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         <i class="fas fa-user mr-2"></i>Логин
                     </label>
-                    <input type="text" id="username" name="username" placeholder="Введите логин" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <input type="text" id="username" name="username" placeholder="Введите логин" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500">
                 </div>
                 
                 <div class="mb-6">
-                    <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
+                    <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         <i class="fas fa-lock mr-2"></i>Пароль
                     </label>
-                    <input type="password" id="password" name="password" placeholder="Введите пароль" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <input type="password" id="password" name="password" placeholder="Введите пароль" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500">
                 </div>
                 
                 <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
@@ -62,66 +62,69 @@
 </div>
 {% endblock %}
 
-{% block content %}
-<!-- Hero Section -->
-<section class="w-full py-20 px-4 text-center">
-    <h2 class="text-5xl font-bold text-gray-900 mb-4">Умный город начинается с чистых улиц</h2>
-    <p class="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">Система интеллектуального управления контейнерами для оптимизации вывоза отходов и улучшения экологии города</p>
-    <div class="flex gap-4 justify-center">
-        <button onclick="document.getElementById('map-section').scrollIntoView({behavior: 'smooth'})" class="bg-green-600 hover:bg-green-700 text-white font-medium px-8 py-3 rounded-lg transition-colors flex items-center gap-2">
-            <i class="fas fa-map"></i>
-            Посмотреть карту
-        </button>
-        <button onclick="document.querySelector('[x-data*=\"showLogin\"]').click()" class="border-2 border-green-600 text-green-600 hover:bg-green-50 font-medium px-8 py-3 rounded-lg transition-colors flex items-center gap-2">
-            <i class="fas fa-sign-in-alt"></i>
-            Войти
-        </button>
-    </div>
-</section>
-
-<!-- Map Section -->
-<section id="map-section" class="w-full h-[70vh] relative rounded-lg overflow-hidden shadow-lg mb-20">
-    <div id="map" style="width: 100%; height: 100%;"></div>
-</section>
-
-<!-- Features Section -->
-<section class="w-full py-16 px-4 bg-gray-50 rounded-lg mb-20">
-    <h3 class="text-3xl font-bold text-gray-900 text-center mb-12">Преимущества системы</h3>
-    
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <!-- Feature 1 -->
-        <div class="bg-white p-6 rounded-lg shadow-md text-center">
-            <div class="text-4xl text-green-600 mb-4 flex justify-center">
-                <i class="fas fa-leaf"></i>
-            </div>
-            <h4 class="text-xl font-bold text-gray-800 mb-2">Экология</h4>
-            <p class="text-gray-600">Оптимизация маршрутов вывоза снижает выбросы CO₂ и улучшает качество воздуха в городе</p>
+{% block layout %}
+<!-- Landing Page Layout -->
+<main class="flex-1 pt-20 bg-white dark:bg-gray-900 dark:text-white">
+    <!-- Hero Section -->
+    <section class="w-full py-20 px-4 text-center">
+        <h2 class="text-5xl font-bold text-gray-900 dark:text-white mb-4">Умный город начинается с чистых улиц</h2>
+        <p class="text-xl text-gray-600 dark:text-gray-400 mb-8 max-w-2xl mx-auto">Система интеллектуального управления контейнерами для оптимизации вывоза отходов и улучшения экологии города</p>
+        <div class="flex gap-4 justify-center flex-wrap">
+            <button onclick="document.getElementById('map-section').scrollIntoView({behavior: 'smooth'})" class="bg-green-600 hover:bg-green-700 text-white font-medium px-8 py-3 rounded-lg transition-colors flex items-center gap-2">
+                <i class="fas fa-map"></i>
+                Посмотреть карту
+            </button>
+            <button @click="$dispatch('open-login')" class="border-2 border-green-600 text-green-600 dark:text-green-400 dark:border-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 font-medium px-8 py-3 rounded-lg transition-colors flex items-center gap-2">
+                <i class="fas fa-sign-in-alt"></i>
+                Войти
+            </button>
         </div>
+    </section>
+
+    <!-- Map Section -->
+    <section id="map-section" class="w-full h-[60vh] relative rounded-lg overflow-hidden shadow-lg mb-20 mx-4">
+        <div id="map" class="w-full h-full"></div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="w-full py-16 px-4 bg-gray-50 dark:bg-gray-800 rounded-lg mb-20">
+        <h3 class="text-3xl font-bold text-gray-900 dark:text-white text-center mb-12">Преимущества системы</h3>
         
-        <!-- Feature 2 -->
-        <div class="bg-white p-6 rounded-lg shadow-md text-center">
-            <div class="text-4xl text-blue-600 mb-4 flex justify-center">
-                <i class="fas fa-chart-line"></i>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Feature 1 -->
+            <div class="bg-white dark:bg-gray-700 dark:text-white p-6 rounded-lg shadow-md text-center">
+                <div class="text-4xl text-green-600 mb-4 flex justify-center">
+                    <i class="fas fa-leaf"></i>
+                </div>
+                <h4 class="text-xl font-bold text-gray-800 dark:text-white mb-2">Экология</h4>
+                <p class="text-gray-600 dark:text-gray-300">Оптимизация маршрутов вывоза снижает выбросы CO₂ и улучшает качество воздуха в городе</p>
             </div>
-            <h4 class="text-xl font-bold text-gray-800 mb-2">Оптимизация</h4>
-            <p class="text-gray-600">Умные алгоритмы маршрутизации экономят время и ресурсы на вывоз отходов</p>
-        </div>
-        
-        <!-- Feature 3 -->
-        <div class="bg-white p-6 rounded-lg shadow-md text-center">
-            <div class="text-4xl text-purple-600 mb-4 flex justify-center">
-                <i class="fas fa-users"></i>
+            
+            <!-- Feature 2 -->
+            <div class="bg-white dark:bg-gray-700 dark:text-white p-6 rounded-lg shadow-md text-center">
+                <div class="text-4xl text-blue-600 mb-4 flex justify-center">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <h4 class="text-xl font-bold text-gray-800 dark:text-white mb-2">Оптимизация</h4>
+                <p class="text-gray-600 dark:text-gray-300">Умные алгоритмы маршрутизации экономят время и ресурсы на вывоз отходов</p>
             </div>
-            <h4 class="text-xl font-bold text-gray-800 mb-2">Краудсорсинг</h4>
-            <p class="text-gray-600">Жители могут сообщать о переполненных контейнерах и участвовать в улучшении системы</p>
+            
+            <!-- Feature 3 -->
+            <div class="bg-white dark:bg-gray-700 dark:text-white p-6 rounded-lg shadow-md text-center">
+                <div class="text-4xl text-purple-600 mb-4 flex justify-center">
+                    <i class="fas fa-users"></i>
+                </div>
+                <h4 class="text-xl font-bold text-gray-800 dark:text-white mb-2">Краудсорсинг</h4>
+                <p class="text-gray-600 dark:text-gray-300">Жители могут сообщать о переполненных контейнерах и участвовать в улучшении системы</p>
+            </div>
         </div>
-    </div>
-</section>
+    </section>
 
-<!-- Footer -->
-<footer class="w-full py-8 px-4 border-t border-gray-200 text-center text-gray-600">
-    <p>&copy; 2026 Innopolis QRBIN. Умное управление отходами для чистого города.</p>
-</footer>
+    <!-- Footer -->
+    <footer class="w-full py-8 px-4 border-t border-gray-200 dark:border-gray-700 text-center text-gray-600 dark:text-gray-400">
+        <p>&copy; 2026 Innopolis QRBIN. Умное управление отходами для чистого города.</p>
+    </footer>
+</main>
 {% endblock %}
 
 {% block scripts %}

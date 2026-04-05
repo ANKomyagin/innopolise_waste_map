@@ -7,6 +7,7 @@
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
     
     <!-- MapLibre GL JS CSS -->
     <link href="https://unpkg.com/maplibre-gl@4.0.0/dist/maplibre-gl.css" rel="stylesheet" />
@@ -66,9 +67,9 @@
         <!-- Overlay container -->
         <div class="app-overlay pointer-events-none">
             <!-- Header -->
-            <header class="pointer-events-auto fixed top-0 w-full z-50 transition-transform duration-300" :class="{ 'hide': hideHeader }">
+            <header class="pointer-events-auto fixed top-0 w-full z-50 transition-transform duration-300 bg-white dark:bg-gray-800 dark:text-white border-b border-gray-200 dark:border-gray-700" :class="{ 'hide': hideHeader }">
                 <div class="container mx-auto px-4 py-4 flex items-center justify-between">
-                    <h1 class="text-2xl font-bold text-gray-800">Innopolis QRBIN</h1>
+                    <h1 class="text-2xl font-bold">Innopolis QRBIN</h1>
                     <div class="flex items-center gap-4">
                         <!-- Theme toggle button -->
                         <button @click="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
@@ -79,10 +80,16 @@
                 </div>
             </header>
             
-            <!-- Main content area (sidebar) -->
-            <main class="pointer-events-auto flex-1 overflow-auto mt-16 bg-white/95 dark:bg-gray-900/95 max-w-sm m-4 rounded-lg shadow-lg">
-                {% block content %}{% endblock %}
-            </main>
+            <!-- Layout block (can be overridden by child templates) -->
+            {% block layout %}
+            <!-- Default Map App Layout -->
+            <div id="map" class="fixed inset-0 z-0"></div>
+            <div class="pointer-events-none relative z-10 flex-1 pt-20 p-4">
+                <main class="pointer-events-auto w-full md:max-w-sm bg-white/95 dark:bg-gray-800/95 dark:text-white rounded-lg shadow-lg overflow-hidden">
+                    {% block content %}{% endblock %}
+                </main>
+            </div>
+            {% endblock %}
         </div>
     </div>
     
@@ -130,8 +137,12 @@
                 
                 applyTheme() {
                     const html = document.documentElement;
+                    if (this.isDarkMode) {
+                        html.classList.add('dark');
+                    } else {
+                        html.classList.remove('dark');
+                    }
                     const theme = this.isDarkMode ? 'dark' : 'light';
-                    html.setAttribute('data-theme', theme);
                     localStorage.setItem('theme', theme);
                 }
             };

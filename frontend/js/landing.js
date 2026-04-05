@@ -6,105 +6,36 @@ async function loadMapData() {
         const geojsonData = await response.json();
         if (!geojsonData || !geojsonData.features) throw new Error('Invalid GeoJSON data');
 
-        // Add GeoJSON source to map
-        map.addSource('containers-source', {
-            type: 'geojson',
-            data: geojsonData
-        });
-
-        // Create trash bin SVG icons with different colors
-        function createTrashIcon(fillPercent) {
-            let color = '#28a745'; // green
-            if (fillPercent >= 70) color = '#dc3545'; // red
-            else if (fillPercent >= 50) color = '#ffc107'; // yellow
-            
-            const svg = `
-                <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-                            <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
-                            <feOffset dx="0" dy="2" result="offsetblur"/>
-                            <feComponentTransfer><feFuncA type="linear" slope="0.4"/></feComponentTransfer>
-                            <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
-                        </filter>
-                    </defs>
-                    <circle cx="20" cy="20" r="18" fill="white" stroke="${color}" stroke-width="2" filter="url(#shadow)"/>
-                    <g transform="translate(20, 20)">
-                        <rect x="-6" y="-8" width="12" height="14" rx="1" fill="${color}"/>
-                        <rect x="-6" y="-10" width="12" height="2" rx="1" fill="${color}"/>
-                        <line x1="-3" y1="-8" x2="-3" y2="4" stroke="white" stroke-width="0.8"/>
-                        <line x1="0" y1="-8" x2="0" y2="4" stroke="white" stroke-width="0.8"/>
-                        <line x1="3" y1="-8" x2="3" y2="4" stroke="white" stroke-width="0.8"/>
-                    </g>
-                </svg>
-            `;
-            return svg;
-        }
-
-        // Add icons for each unique fill percentage
-        const fillPercentages = new Set();
+        // Create HTML markers for each container
         geojsonData.features.forEach(feature => {
-            fillPercentages.add(feature.properties.avg_fill_percent);
-        });
-
-        fillPercentages.forEach(fillPercent => {
-            const iconSvg = createTrashIcon(fillPercent);
-            const canvas = document.createElement('canvas');
-            canvas.width = 40;
-            canvas.height = 40;
-            const ctx = canvas.getContext('2d');
+            const props = feature.properties;
+            const coords = feature.geometry.coordinates;
             
-            const img = new Image();
-            img.onload = function() {
-                ctx.drawImage(img, 0, 0);
-                const imageData = canvas.toDataURL('image/png');
-                map.addImage(`trash-icon-${fillPercent}`, canvas, { pixelRatio: 2 });
-            };
-            img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSvg);
-        });
-
-        // Add symbol layer with trash icons
-        map.addLayer({
-            id: 'containers-icons',
-            type: 'symbol',
-            source: 'containers-source',
-            layout: {
-                'icon-image': ['concat', 'trash-icon-', ['get', 'avg_fill_percent']],
-                'icon-size': 1,
-                'icon-allow-overlap': true,
-                'text-field': ['get', 'avg_fill_percent'],
-                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                'text-size': 12,
-                'text-offset': [0, 0]
-            },
-            paint: {
-                'text-color': '#fff',
-                'text-halo-color': 'rgba(0, 0, 0, 0.5)',
-                'text-halo-width': 1
-            }
-        });
-
-        // Click handler for containers layer
-        map.on('click', 'containers-icons', function(e) {
-            const properties = e.features[0].properties;
-            const featureData = {
-                ...properties,
-                containers: typeof properties.containers === 'string' ? JSON.parse(properties.containers) : properties.containers
-            };
+            // Determine color based on fill percentage
+            let colorClass = 'bg-green-500';
+            if (props.avg_fill_percent >= 70) colorClass = 'bg-red-500';
+            else if (props.avg_fill_percent >= 50) colorClass = 'bg-yellow-500';
             
-            window.dispatchEvent(new CustomEvent('container-selected', {
-                detail: featureData
-            }));
-            console.log('Container selected:', featureData);
-        });
-
-        // Cursor change on hover
-        map.on('mouseenter', 'containers-icons', function() {
-            map.getCanvas().style.cursor = 'pointer';
-        });
-
-        map.on('mouseleave', 'containers-icons', function() {
-            map.getCanvas().style.cursor = '';
+            // Create marker element
+            const el = document.createElement('div');
+            el.className = `flex items-center justify-center w-10 h-10 rounded-full shadow-lg text-white cursor-pointer transition-transform hover:scale-110 ${colorClass}`;
+            el.innerHTML = `<i class="fas fa-trash-alt text-lg"></i>
+                            <div class="absolute -top-2 -right-2 bg-white text-gray-800 text-xs font-bold px-1.5 py-0.5 rounded-full shadow border">${props.avg_fill_percent}%</div>`;
+            
+            // Add marker to map
+            const marker = new maplibregl.Marker({ element: el })
+                .setLngLat([coords[0], coords[1]])
+                .addTo(map);
+            
+            // Handle click
+            el.addEventListener('click', () => {
+                const featureData = {
+                    ...props,
+                    containers: typeof props.containers === 'string' ? JSON.parse(props.containers) : props.containers
+                };
+                window.dispatchEvent(new CustomEvent('container-selected', { detail: featureData }));
+                console.log('Container selected:', featureData);
+            });
         });
 
     } catch (err) {
