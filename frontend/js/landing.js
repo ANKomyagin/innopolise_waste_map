@@ -38,6 +38,11 @@ async function loadMapData() {
             });
         });
 
+        // Disable scroll zoom to prevent breaking page scroll
+        map.scrollZoom.disable();
+        // Add zoom buttons
+        map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
     } catch (err) {
         console.error('Ошибка загрузки данных контейнеров:', err);
     }

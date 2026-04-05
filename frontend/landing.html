@@ -74,7 +74,7 @@
                 <i class="fas fa-map"></i>
                 Посмотреть карту
             </button>
-            <button @click="$dispatch('open-login')" class="border-2 border-green-600 text-green-600 dark:text-green-400 dark:border-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 font-medium px-8 py-3 rounded-lg transition-colors flex items-center gap-2">
+            <button onclick="window.dispatchEvent(new Event('open-login'))" class="border-2 border-green-600 text-green-600 dark:text-green-400 dark:border-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 font-medium px-8 py-3 rounded-lg transition-colors flex items-center gap-2">
                 <i class="fas fa-sign-in-alt"></i>
                 Войти
             </button>
@@ -82,7 +82,7 @@
     </section>
 
     <!-- Map Section -->
-    <section id="map-section" class="w-full h-[60vh] relative rounded-lg overflow-hidden shadow-lg mb-20 mx-4">
+    <section id="map-section" class="w-full h-[60vh] relative rounded-lg overflow-hidden shadow-lg mb-20 mx-auto max-w-6xl px-4">
         <div id="map" class="w-full h-full"></div>
     </section>
 
