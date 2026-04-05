@@ -1,84 +1,64 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Умные контейнеры Иннополиса</title>
-    
-    <!-- External Libraries -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/landing.css">
-    
-    <!-- Yandex Maps API -->
-    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=7d253372-5194-4f00-a292-ea1d7bc18844" type="text/javascript"></script>
-</head>
-<body>
+{% extends "base.html" %}
 
-<!-- Top bar -->
-<div class="top-bar">
-    <div class="logo">
-        <i class="fas fa-recycle"></i>
-        Умные контейнеры Иннополиса
+{% block title %}Умные контейнеры Иннополиса{% endblock %}
+
+{% block header_actions %}
+<div x-data="{ showLogin: false }">
+    <button @click="showLogin = true" class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium">
+        <i class="fas fa-sign-in-alt"></i>
+        Вход для сотрудников
+    </button>
+    
+    <!-- Login Modal -->
+    <div x-show="showLogin" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click="if($event.target === $el) showLogin = false">
+        <div class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md" @click.stop>
+            <button @click="showLogin = false" class="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl">
+                &times;
+            </button>
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">Вход для сотрудников</h2>
+            <p class="text-gray-600 mb-6">Администратор или водитель мусоровоза</p>
+            
+            <div class="error-message mb-4" id="error-message"></div>
+            
+            <form id="loginForm" @submit.prevent="handleLogin">
+                <div class="mb-4">
+                    <label for="username" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-user mr-2"></i>Логин
+                    </label>
+                    <input type="text" id="username" name="username" placeholder="Введите логин" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                </div>
+                
+                <div class="mb-6">
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-lock mr-2"></i>Пароль
+                    </label>
+                    <input type="password" id="password" name="password" placeholder="Введите пароль" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                </div>
+                
+                <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <i class="fas fa-sign-in-alt"></i>
+                    Войти
+                </button>
+            </form>
+        </div>
     </div>
-    <button class="btn-login" onclick="openLoginModal()">
-        <i class="fas fa-sign-in-alt"></i> Вход для сотрудников
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white/90 backdrop-blur rounded-xl shadow-lg p-6 w-full md:w-80">
+    <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+        <i class="fas fa-map-marker-alt text-green-600"></i>
+        Найти контейнер
+    </h3>
+    
+    <button class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+        <i class="fas fa-crosshairs"></i>
+        Определить мое местоположение
     </button>
 </div>
+{% endblock %}
 
-<!-- Main layout: sidebar + map -->
-<div class="main-wrapper">
-
-    <!-- Sidebar -->
-    <div class="sidebar">
-
-        <!-- Find container section -->
-        <div class="sidebar-section">
-            <h5><i class="fas fa-map-marker-alt"></i> Найти ближайший контейнер</h5>
-            <button class="btn-action btn-location" onclick="setMyLocation()">
-                <i class="fas fa-crosshairs"></i> Определить моё местоположение
-            </button>
-            <button class="btn-action btn-route" onclick="findNearestContainer()">
-                <i class="fas fa-route"></i> Построить пеший маршрут
-            </button>
-            <button class="btn-action btn-clear" onclick="clearRoute()">
-                <i class="fas fa-times"></i> Сбросить маршрут
-            </button>
-            <div id="routeInfo" class="route-info"></div>
-        </div>
-
-    </div>
-
-    <!-- Yandex Map -->
-    <div id="map"></div>
-</div>
-
-<!-- Login Modal -->
-<div id="loginModal" class="modal-overlay" onclick="if(event.target===this)closeLoginModal()">
-    <div class="modal-box">
-        <button class="modal-close" onclick="closeLoginModal()">&times;</button>
-        <h2>Вход для сотрудников</h2>
-        <p class="subtitle">Администратор или водитель мусоровоза</p>
-        <div class="error-message" id="error-message"></div>
-        <form id="loginForm" onsubmit="handleLogin(event)">
-            <div class="form-group">
-                <label for="username"><i class="fas fa-user"></i> Логин</label>
-                <input type="text" id="username" name="username" placeholder="Введите логин" required>
-            </div>
-            <div class="form-group">
-                <label for="password"><i class="fas fa-lock"></i> Пароль</label>
-                <input type="password" id="password" name="password" placeholder="Введите пароль" required>
-            </div>
-            <button type="submit" class="btn-submit">
-                <i class="fas fa-sign-in-alt"></i> Войти
-            </button>
-        </form>
-    </div>
-</div>
-
+{% block scripts %}
 <script src="js/landing.js"></script>
-</body>
-</html>
-
+{% endblock %}

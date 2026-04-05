@@ -11,12 +11,12 @@ from datetime import datetime
 # Исключения - файлы и папки, которые не нужно включать в документацию
 EXCLUDE_DIRS = {
     '__pycache__', '.git', '.vscode', 'node_modules', '.pytest_cache',
-    'venv', 'env', '.env', 'migrations'
+    'venv', 'env', '.env', 'migrations', '.venv', '.idea'
 }
 
 EXCLUDE_FILES = {
     '.gitignore', '.dockerignore', '.DS_Store', 'Thumbs.db',
-    '*.pyc', '*.pyo', '*.pyd', '.env', '*.log'
+    '*.pyc', '*.pyo', '*.pyd', '.env', '*.log', 'generate_project_docs.py', 'project_documentation.txt'
 }
 
 # Расширения файлов, которые нужно включать в документацию
@@ -51,13 +51,18 @@ def get_project_structure(root_path):
     root_path = Path(root_path)
     
     for item in sorted(root_path.rglob('*')):
-        if item.is_file() and should_include_file(item):
-            relative_path = item.relative_to(root_path)
-            structure.append(relative_path)
+        if item.is_file():
+            # Проверить, что ни один из родительских каталогов не исключен
+            parent_dirs = item.relative_to(root_path).parts[:-1]  # все родительские директории
+            should_exclude = any(parent_dir in EXCLUDE_DIRS for parent_dir in parent_dirs)
+            
+            if not should_exclude and should_include_file(item):
+                relative_path = item.relative_to(root_path)
+                structure.append(relative_path)
     
     return structure
 
-def read_file_content(file_path, max_lines=100):
+def read_file_content(file_path, max_lines=500):
     """Прочитать содержимое файла с ограничением по строкам"""
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -112,14 +117,7 @@ def generate_documentation():
     
     # Создать документацию
     doc_content = []
-    
-    # Заголовок
-    doc_content.append("# Проект: Innopolis Smart Waste Management System")
-    doc_content.append(f"\n## Обзор проекта")
-    doc_content.append("Система управления отходами для города Иннополис с веб-интерфейсом, Telegram ботом и интеграцией с Яндекс.Картами.")
-    doc_content.append(f"\n**Дата генерации:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    doc_content.append(f"**Корневая директория:** {project_root}")
-    
+
     # Структура проекта
     doc_content.append("\n## Структура проекта")
     doc_content.append("```\n" + generate_tree_structure(project_root, structure) + "\n```")
