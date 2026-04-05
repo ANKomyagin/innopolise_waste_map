@@ -343,15 +343,43 @@ function startLocationSelection(address) {
     editingLocationAddress = address;
     isSelectingLocation = true;
     map.getCanvas().style.cursor = 'crosshair';
-    alert('Кликните на карту для новых координат площадки');
+    showLocationSelectionBanner();
+}
+
+function cancelLocationSelection() {
+    isSelectingLocation = false;
+    editingLocationAddress = null;
+    map.getCanvas().style.cursor = '';
+    hideLocationSelectionBanner();
+}
+
+function showLocationSelectionBanner() {
+    const banner = document.getElementById('locationSelectBanner');
+    if (banner) {
+        banner.classList.remove('hidden');
+    }
+}
+
+function hideLocationSelectionBanner() {
+    const banner = document.getElementById('locationSelectBanner');
+    if (banner) {
+        banner.classList.add('hidden');
+    }
 }
 
 function openAddContainerToLocationModal(address, coords) {
     document.getElementById('containerId').value = 'BIN-' + Math.floor(Math.random() * 10000);
-    document.getElementById('containerAddress').value = address;
+    
+    // Set address and make it readonly
+    document.getElementById('containerAddress').value = address || '';
     document.getElementById('containerAddress').disabled = true;
     
-    document.getElementById('containerCoords').value = coords;
+    // Ensure coords is properly formatted as "lat, lon"
+    let coordsStr = coords || '';
+    if (coordsStr && typeof coordsStr === 'string') {
+        coordsStr = coordsStr.trim();
+    }
+    document.getElementById('containerCoords').value = coordsStr;
     document.getElementById('containerCoords').disabled = true;
     
     isEditMode = false;
@@ -518,7 +546,7 @@ window.addEventListener('delete-container-prompt', function(e) {
     deleteContainer(id);
 });
 
-// Setup form submissions
+// Setup form submissions and keyboard listeners
 document.addEventListener('DOMContentLoaded', function() {
     const containerForm = document.getElementById('containerForm');
     if (containerForm) {
@@ -534,4 +562,11 @@ document.addEventListener('DOMContentLoaded', function() {
     if (editLocationForm) {
         editLocationForm.addEventListener('submit', saveEditLocation);
     }
+    
+    // Add Escape key listener for location selection cancellation
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && isSelectingLocation) {
+            cancelLocationSelection();
+        }
+    });
 });

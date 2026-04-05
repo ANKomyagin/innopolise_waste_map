@@ -10,9 +10,17 @@
 {% endblock %}
 
 {% block content %}
-<div class="pointer-events-auto fixed md:relative bottom-0 left-0 w-full md:w-[32rem] bg-white/85 md:bg-white/95 dark:bg-gray-800/85 md:dark:bg-gray-800/95 backdrop-blur-md rounded-t-2xl md:rounded-lg shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] md:shadow-lg transition-all duration-300 flex flex-col z-50 top-[72px] md:top-auto" 
+<!-- Location Select Banner -->
+<div id="locationSelectBanner" class="hidden fixed top-24 left-1/2 transform -translate-x-1/2 z-[200] bg-blue-600 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-4">
+    <span class="font-medium animate-pulse">Кликните на карту, чтобы выбрать новое место</span>
+    <button onclick="cancelLocationSelection()" class="bg-white/20 hover:bg-white/30 rounded px-3 py-1 text-sm font-bold transition-colors">
+        Отмена (Esc)
+    </button>
+</div>
+
+<div class="pointer-events-auto fixed bottom-0 left-0 w-full md:fixed md:left-0 md:top-[72px] md:bottom-0 md:w-[32rem] md:h-[calc(100vh-72px)] bg-white/85 md:bg-white/95 dark:bg-gray-800/85 md:dark:bg-gray-800/95 backdrop-blur-md rounded-t-2xl md:rounded-lg shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] md:shadow-lg transition-all duration-300 flex flex-col z-50 top-[72px]" 
      x-data="{ expanded: true, touchStartY: 0, touchEndY: 0, activeTab: 'dashboard' }"
-     :class="expanded ? 'h-[calc(100vh-72px)] md:h-auto' : 'h-[10vh] min-h-[60px] md:h-auto'"
+     :class="expanded ? 'h-[calc(100vh-72px)] md:h-[calc(100vh-72px)]' : 'h-[10vh] min-h-[60px] md:h-[calc(100vh-72px)]'"
      @touchstart="touchStartY = $event.touches[0].clientY"
      @touchend="touchEndY = $event.changedTouches[0].clientY; const st = document.getElementById('adminScroll')?.scrollTop || 0; if(touchEndY - touchStartY > 50 && st === 0) expanded = false; if(touchStartY - touchEndY > 50) expanded = true;">
     
@@ -31,7 +39,7 @@
         </button>
     </div>
 
-    <div class="flex-1 overflow-y-auto overscroll-none px-4 pb-4" id="adminScroll" x-show="expanded || window.innerWidth >= 768" x-transition.opacity>
+    <div class="flex-1 overflow-y-auto overscroll-none px-4 pb-4 h-full" id="adminScroll" x-show="expanded || window.innerWidth >= 768" x-transition.opacity>
         
         <!-- Dashboard Tab -->
         <div x-show="activeTab === 'dashboard'" class="space-y-4 pt-4">
