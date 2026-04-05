@@ -91,9 +91,13 @@ async function loadContainers() {
         // Обработка клика по контейнеру (открытие инфо)
         map.on('click', 'clusters', function(e) {
             const props = e.features[0].properties;
+            const coords = e.features[0].geometry.coordinates; // [lon, lat]
+            
             const featureData = {
                 ...props,
-                containers: typeof props.containers === 'string' ? JSON.parse(props.containers) : props.containers
+                containers: typeof props.containers === 'string' ? JSON.parse(props.containers) : props.containers,
+                lon: coords[0],
+                lat: coords[1]
             };
             window.dispatchEvent(new CustomEvent('container-selected', { detail: featureData }));
         });
@@ -228,7 +232,13 @@ async function loadRecentScans() {
         
         tbody.innerHTML = data.recent_scans.map(scan => {
             const date = new Date(scan.scanned_at);
-            const timeStr = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            const timeStr = date.toLocaleString('ru-RU', { 
+                timeZone: 'Europe/Moscow', 
+                day: '2-digit', 
+                month: '2-digit', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
             return `
                 <tr class="border-b hover:bg-gray-50 dark:hover:bg-gray-600">
                     <td class="px-4 py-3 font-semibold text-gray-800 dark:text-white">${scan.container_id}</td>
@@ -256,6 +266,8 @@ function setupMapClickHandler() {
         if (isSelectingLocation) {
             if (confirm('Перенести площадку сюда?')) {
                 updateLocationCoordinates(coordsStr);
+            } else {
+                cancelLocationSelection();
             }
             return;
         }
@@ -280,6 +292,7 @@ function setupMapClickHandler() {
 async function updateLocationCoordinates(newCoords) {
     if (!editingLocationAddress) {
         alert('Ошибка: адрес площадки не найден');
+        cancelLocationSelection();
         return;
     }
     
@@ -296,17 +309,16 @@ async function updateLocationCoordinates(newCoords) {
         
         if (response.ok) {
             alert('Координаты площадки обновлены');
-            isSelectingLocation = false;
-            editingLocationAddress = null;
-            map.getCanvas().style.cursor = '';
             loadContainers();
         } else {
             const err = await response.json().catch(() => null);
             alert('Ошибка обновления: ' + (err?.detail || response.statusText));
         }
+        cancelLocationSelection();
     } catch (error) {
         console.error('Error:', error);
         alert('Ошибка обновления координат');
+        cancelLocationSelection();
     }
 }
 
@@ -344,6 +356,7 @@ function startLocationSelection(address) {
     isSelectingLocation = true;
     map.getCanvas().style.cursor = 'crosshair';
     showLocationSelectionBanner();
+    window.dispatchEvent(new Event('collapse-panel'));
 }
 
 function cancelLocationSelection() {
@@ -367,18 +380,29 @@ function hideLocationSelectionBanner() {
     }
 }
 
-function openAddContainerToLocationModal(address, coords) {
+function openAddContainerToLocationModal(address, coords, lon) {
     document.getElementById('containerId').value = 'BIN-' + Math.floor(Math.random() * 10000);
     
     // Set address and make it readonly
     document.getElementById('containerAddress').value = address || '';
     document.getElementById('containerAddress').disabled = true;
     
-    // Ensure coords is properly formatted as "lat, lon"
-    let coordsStr = coords || '';
-    if (coordsStr && typeof coordsStr === 'string') {
-        coordsStr = coordsStr.trim();
+    // Handle coords in two formats:
+    // 1. String "lat, lon" (from locations view)
+    // 2. Separate lat and lon parameters (from container details modal)
+    let coordsStr = '';
+    if (lon !== undefined) {
+        // Called with separate lat and lon values
+        const lat = parseFloat(coords);
+        const longitude = parseFloat(lon);
+        if (!isNaN(lat) && !isNaN(longitude)) {
+            coordsStr = lat.toFixed(6) + ', ' + longitude.toFixed(6);
+        }
+    } else if (coords) {
+        // Called with "lat, lon" string
+        coordsStr = String(coords).trim();
     }
+    
     document.getElementById('containerCoords').value = coordsStr;
     document.getElementById('containerCoords').disabled = true;
     
