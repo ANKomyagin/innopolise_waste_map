@@ -33,7 +33,7 @@ async function loadMapData() {
                 'icon-anchor': 'bottom',
                 'icon-allow-overlap': true,
                 'text-field': ['concat', ['get', 'avg_fill_percent'], '%'],
-                'text-font': ['Open Sans Bold'],
+                'text-font': ['Open Sans Regular'],
                 'text-size': 11,
                 'text-offset': [0, -2.5],
                 'text-allow-overlap': true

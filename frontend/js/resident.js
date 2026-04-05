@@ -40,7 +40,7 @@ async function loadContainers() {
             'icon-anchor': 'bottom',
             'icon-allow-overlap': true,
             'text-field': ['concat', ['get', 'avg_fill_percent'], '%'],
-            'text-font': ['Open Sans Bold'],
+            'text-font': ['Open Sans Regular'],
             'text-size': 11,
             'text-offset': [0, -2.5],
             'text-allow-overlap': true
@@ -91,11 +91,19 @@ document.addEventListener('alpine:init', () => {
         routeInfo: null,
         
         init() {
-            // Восстанавливаем локацию из памяти
-            const saved = localStorage.getItem('resident_location');
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                this.updateMarker(parsed.lat, parsed.lon, parsed.address);
+            // Восстанавливаем локацию из памяти только ПОСЛЕ загрузки карты
+            const restoreLocation = () => {
+                const saved = localStorage.getItem('resident_location');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    this.updateMarker(parsed.lat, parsed.lon, parsed.address);
+                }
+            };
+
+            if (window.map && window.map.loaded && window.map.loaded()) {
+                restoreLocation();
+            } else {
+                window.addEventListener('map-loaded', restoreLocation);
             }
 
             window.addEventListener('set-user-location', (e) => {
