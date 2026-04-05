@@ -15,10 +15,27 @@
             <button @click="showLogin = false" class="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl">
                 &times;
             </button>
-            <h2 class="text-2xl font-bold text-gray-800 mb-2">Вход для сотрудников</h2>
-            <p class="text-gray-600 mb-6">Администратор или водитель мусоровоза</p>
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">Вход</h2>
             
             <div class="error-message mb-4" id="error-message"></div>
+            
+            <!-- Resident button -->
+            <button onclick="window.location.href='/resident.html'" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-2 mb-6">
+                <i class="fas fa-user"></i>
+                Войти как Житель
+            </button>
+            
+            <div class="relative mb-6">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-gray-300"></div>
+                </div>
+                <div class="relative flex justify-center text-sm">
+                    <span class="px-2 bg-white text-gray-500">или</span>
+                </div>
+            </div>
+            
+            <!-- Employee login -->
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Вход для сотрудников</h3>
             
             <form id="loginForm" @submit.prevent="handleLogin">
                 <div class="mb-4">
@@ -46,63 +63,65 @@
 {% endblock %}
 
 {% block content %}
-<div x-data="{ selectedFeature: null }" @container-selected.window="selectedFeature = $event.detail" class="w-full md:w-80">
-    <!-- Search card (shown when no container selected) -->
-    <div x-show="!selectedFeature" class="bg-white/90 backdrop-blur rounded-xl shadow-lg p-6">
-        <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <i class="fas fa-map-marker-alt text-green-600"></i>
-            Найти контейнер
-        </h3>
-        
-        <button class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
-            <i class="fas fa-crosshairs"></i>
-            Определить мое местоположение
+<!-- Hero Section -->
+<section class="w-full py-20 px-4 text-center">
+    <h2 class="text-5xl font-bold text-gray-900 mb-4">Умный город начинается с чистых улиц</h2>
+    <p class="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">Система интеллектуального управления контейнерами для оптимизации вывоза отходов и улучшения экологии города</p>
+    <div class="flex gap-4 justify-center">
+        <button onclick="document.getElementById('map-section').scrollIntoView({behavior: 'smooth'})" class="bg-green-600 hover:bg-green-700 text-white font-medium px-8 py-3 rounded-lg transition-colors flex items-center gap-2">
+            <i class="fas fa-map"></i>
+            Посмотреть карту
+        </button>
+        <button onclick="document.querySelector('[x-data*=\"showLogin\"]').click()" class="border-2 border-green-600 text-green-600 hover:bg-green-50 font-medium px-8 py-3 rounded-lg transition-colors flex items-center gap-2">
+            <i class="fas fa-sign-in-alt"></i>
+            Войти
         </button>
     </div>
+</section>
+
+<!-- Map Section -->
+<section id="map-section" class="w-full h-[70vh] relative rounded-lg overflow-hidden shadow-lg mb-20">
+    <div id="map" style="width: 100%; height: 100%;"></div>
+</section>
+
+<!-- Features Section -->
+<section class="w-full py-16 px-4 bg-gray-50 rounded-lg mb-20">
+    <h3 class="text-3xl font-bold text-gray-900 text-center mb-12">Преимущества системы</h3>
     
-    <!-- Container details card (shown when container selected) -->
-    <div x-show="selectedFeature" class="bg-white/90 backdrop-blur rounded-xl shadow-lg p-6">
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
-                <i class="fas fa-trash text-green-600"></i>
-                Контейнер
-            </h3>
-            <button @click="selectedFeature = null" class="text-gray-500 hover:text-gray-700 text-2xl">
-                &times;
-            </button>
-        </div>
-        
-        <!-- Address -->
-        <div class="mb-4">
-            <p class="text-sm text-gray-600 mb-1">Адрес:</p>
-            <p class="text-gray-800 font-medium" x-text="selectedFeature.address || 'Адрес не указан'"></p>
-        </div>
-        
-        <!-- Fill percentage -->
-        <div class="mb-4">
-            <div class="flex items-center justify-between mb-2">
-                <p class="text-sm text-gray-600">Заполненность:</p>
-                <span class="text-lg font-bold" :class="selectedFeature.avg_fill_percent >= 70 ? 'text-red-600' : selectedFeature.avg_fill_percent >= 50 ? 'text-yellow-600' : 'text-green-600'" x-text="selectedFeature.avg_fill_percent + '%'"></span>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <!-- Feature 1 -->
+        <div class="bg-white p-6 rounded-lg shadow-md text-center">
+            <div class="text-4xl text-green-600 mb-4 flex justify-center">
+                <i class="fas fa-leaf"></i>
             </div>
-            
-            <!-- Progress bar -->
-            <div class="w-full h-6 bg-gray-200 rounded-lg overflow-hidden">
-                <div class="h-full transition-all duration-300" :class="selectedFeature.avg_fill_percent >= 70 ? 'bg-red-500' : selectedFeature.avg_fill_percent >= 50 ? 'bg-yellow-500' : 'bg-green-500'" :style="'width: ' + selectedFeature.avg_fill_percent + '%'"></div>
+            <h4 class="text-xl font-bold text-gray-800 mb-2">Экология</h4>
+            <p class="text-gray-600">Оптимизация маршрутов вывоза снижает выбросы CO₂ и улучшает качество воздуха в городе</p>
+        </div>
+        
+        <!-- Feature 2 -->
+        <div class="bg-white p-6 rounded-lg shadow-md text-center">
+            <div class="text-4xl text-blue-600 mb-4 flex justify-center">
+                <i class="fas fa-chart-line"></i>
             </div>
+            <h4 class="text-xl font-bold text-gray-800 mb-2">Оптимизация</h4>
+            <p class="text-gray-600">Умные алгоритмы маршрутизации экономят время и ресурсы на вывоз отходов</p>
         </div>
         
-        <!-- Container count -->
-        <div class="mb-6 p-3 bg-gray-50 rounded-lg">
-            <p class="text-sm text-gray-600">Контейнеров в площадке:</p>
-            <p class="text-lg font-bold text-gray-800" x-text="selectedFeature.container_count || 1"></p>
+        <!-- Feature 3 -->
+        <div class="bg-white p-6 rounded-lg shadow-md text-center">
+            <div class="text-4xl text-purple-600 mb-4 flex justify-center">
+                <i class="fas fa-users"></i>
+            </div>
+            <h4 class="text-xl font-bold text-gray-800 mb-2">Краудсорсинг</h4>
+            <p class="text-gray-600">Жители могут сообщать о переполненных контейнерах и участвовать в улучшении системы</p>
         </div>
-        
-        <!-- Close button -->
-        <button @click="selectedFeature = null" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 rounded-lg transition-colors">
-            Закрыть
-        </button>
     </div>
-</div>
+</section>
+
+<!-- Footer -->
+<footer class="w-full py-8 px-4 border-t border-gray-200 text-center text-gray-600">
+    <p>&copy; 2026 Innopolis QRBIN. Умное управление отходами для чистого города.</p>
+</footer>
 {% endblock %}
 
 {% block scripts %}

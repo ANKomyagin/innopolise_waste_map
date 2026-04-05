@@ -1,8 +1,8 @@
 # Отчет об изменениях проекта
-Дата: 2026-04-05 16:47:53
+Дата: 2026-04-05 17:05:59
 
 ## Статистика
-- Измененные файлы: 4
+- Измененные файлы: 2
 - Новые файлы: 0
 - Удаленные файлы: 0
 
@@ -11,430 +11,55 @@
 innopolis_waste_map_test/
 └── frontend
     ├── js
-    │   ├── resident.js
     │   └── truck.js
-    ├── resident.html
     └── truck.html
 ```
 
 ## Измененные файлы
 
-### frontend/js/resident.js
-```diff
- let containers = [];
- 
-+// Initialize map data when map is fully loaded
-+window.addEventListener('map-loaded', loadContainers);
- 
- async function loadContainers() {
-     try {
-         const data = await response.json();
-         if (!data || !data.features) throw new Error('Invalid data format');
- 
-+        containers = [];
-+
-+        // Extract all containers from features
-         data.features.forEach(feature => {
-             const props = feature.properties;
-+            if (props.containers && Array.isArray(props.containers)) {
-+                props.containers.forEach(c => {
-+                    containers.push(c);
-+                });
-+            }
-+        });
- 
-+        // Add or update GeoJSON source
-+        if (map.getSource('containers-source')) {
-+            map.getSource('containers-source').setData(data);
-+        } else {
-+            map.addSource('containers-source', {
-+                type: 'geojson',
-+                data: data
-             });
- 
-+            // Add clusters layer
-+            map.addLayer({
-+                id: 'clusters',
-+                type: 'circle',
-+                source: 'containers-source',
-+                paint: {
-+                    'circle-color': [
-+                        'case',
-+                        ['>=', ['get', 'avg_fill_percent'], 70],
-+                        '#dc3545',
-+                        ['>=', ['get', 'avg_fill_percent'], 50],
-+                        '#ffc107',
-+                        '#28a745'
-+                    ],
-+                    'circle-radius': [
-+                        'case',
-+                        ['>', ['get', 'container_count'], 1],
-+                        20,
-+                        15
-+                    ],
-+                    'circle-opacity': 0.8,
-+                    'circle-stroke-width': 2,
-+                    'circle-stroke-color': '#fff'
-+                }
-+            });
- 
-+            // Add cluster count layer
-+            map.addLayer({
-+                id: 'cluster-count',
-+                type: 'symbol',
-+                source: 'containers-source',
-+                layout: {
-+                    'text-field': ['get', 'avg_fill_percent'],
-+                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-+                    'text-size': 14,
-+                    'text-offset': [0, 0]
-+                },
-+                paint: {
-+                    'text-color': '#fff',
-+                    'text-halo-color': 'rgba(0, 0, 0, 0.5)',
-+                    'text-halo-width': 1
-+                }
-+            });
- 
-+            // Click handler for clusters layer
-+            map.on('click', 'clusters', function(e) {
-+                const properties = e.features[0].properties;
-+                const featureData = {
-+                    ...properties,
-+                    containers: typeof properties.containers === 'string' ? JSON.parse(properties.containers) : properties.containers
-+                };
-+                
-+                // Display container info
-+                const address = featureData.address || 'Адрес не указан';
-+                const fillPercent = featureData.avg_fill_percent || 0;
-+                const containerCount = featureData.container_count || 0;
-+                
-+                const message = `📍 Адрес: ${address}\n🗑️ Контейнеров: ${containerCount}\n📊 Заполненность: ${fillPercent}%`;
-+                alert(message);
-+                console.log('Container selected:', featureData);
-+            });
- 
-+            // Cursor change on hover
-+            map.on('mouseenter', 'clusters', function() {
-+                map.getCanvas().style.cursor = 'pointer';
-+            });
- 
-+            map.on('mouseleave', 'clusters', function() {
-+                map.getCanvas().style.cursor = '';
-+            });
-+        }
- 
-         console.log(`Загружено ${containers.length} контейнеров`);
-     } catch (error) {
-     }
- }
- 
-
-```
-
 ### frontend/js/truck.js
 ```diff
      }
- })();
  
- let containers = [];
- let fillThreshold = 50;
- 
-+// Initialize map data when map is fully loaded
-+window.addEventListener('map-loaded', loadContainers);
- 
- async function loadContainers() {
      try {
-         if (!data || !data.features) throw new Error('Invalid data format');
- 
-         containers = [];
-+
-+        // Extract all containers from features
-         data.features.forEach(feature => {
-             const props = feature.properties;
-+            if (props.containers && Array.isArray(props.containers)) {
-+                props.containers.forEach(c => {
-+                    containers.push(c);
-+                });
-+            }
++        // Use API to get optimal route (POST request)
++        const response = await fetch('/api/logistics/route', {
++            method: 'POST',
++            headers: {
++                'Content-Type': 'application/json',
++                'Authorization': 'Bearer ' + localStorage.getItem('access_token')
++            },
++            body: JSON.stringify({
++                container_ids: needCollection.map(c => c.id),
++                threshold: fillThreshold
++            })
 +        });
  
-+        // Add or update GeoJSON source
-+        if (map.getSource('containers-source')) {
-+            map.getSource('containers-source').setData(data);
-+        } else {
-+            map.addSource('containers-source', {
-+                type: 'geojson',
-+                data: data
-             });
- 
-+            // Add clusters layer
-+            map.addLayer({
-+                id: 'clusters',
-+                type: 'circle',
-+                source: 'containers-source',
-+                paint: {
-+                    'circle-color': [
-+                        'case',
-+                        ['>=', ['get', 'avg_fill_percent'], 70],
-+                        '#dc3545',
-+                        ['>=', ['get', 'avg_fill_percent'], 50],
-+                        '#ffc107',
-+                        '#28a745'
-+                    ],
-+                    'circle-radius': [
-+                        'case',
-+                        ['>', ['get', 'container_count'], 1],
-+                        20,
-+                        15
-+                    ],
-+                    'circle-opacity': 0.8,
-+                    'circle-stroke-width': 2,
-+                    'circle-stroke-color': '#fff'
-+                }
-+            });
- 
-+            // Add cluster count layer
-+            map.addLayer({
-+                id: 'cluster-count',
-+                type: 'symbol',
-+                source: 'containers-source',
-+                layout: {
-+                    'text-field': ['get', 'avg_fill_percent'],
-+                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-+                    'text-size': 14,
-+                    'text-offset': [0, 0]
-                 },
-+                paint: {
-+                    'text-color': '#fff',
-+                    'text-halo-color': 'rgba(0, 0, 0, 0.5)',
-+                    'text-halo-width': 1
-                 }
-+            });
-+        }
- 
-         updateContainerCount();
-         console.log(`Загружено ${containers.length} контейнеров`);
- }
- 
- function updateContainerCount() {
-+    const needCollection = containers.filter(c => c.fill_percent >= fillThreshold);
-     document.getElementById('containerCount').textContent = needCollection.length;
- }
- 
- async function buildOptimalRoute() {
-+    const needCollection = containers.filter(c => c.fill_percent >= fillThreshold);
-     
-     if (needCollection.length === 0) {
-         alert('Нет контейнеров, требующих вывоза с текущим порогом');
-         return;
-     }
- 
-     try {
-+        // Use API to get optimal route (GET request)
-+        const response = await fetch('/api/logistics/route');
- 
          if (response.ok) {
-+            const data = await response.json();
-+            const routeData = data.route;
-+            displayRoute(routeData, needCollection);
+             const data = await response.json();
++            // Если бэкенд вернул сообщение (например, нет уникальных точек)
++            if (data.message) {
++                alert(data.message);
++                return;
++            }
+             const routeData = data.route;
+             displayRoute(routeData, needCollection);
          } else {
-+            alert('Не удалось построить маршрут');
++            const errText = await response.text();
++            console.error('Route build failed:', errText);
++            alert('Не удалось построить маршрут. Подробности в консоли.');
          }
      } catch (error) {
-+        console.error('API route error:', error);
-+        alert('Ошибка при построении маршрута');
-     }
- }
- 
-+function displayRoute(routeData, containers) {
-+    // Remove old route if exists
-+    if (map.getLayer('route-layer')) {
-+        map.removeLayer('route-layer');
-+    }
-+    if (map.getSource('route')) {
-+        map.removeSource('route');
-+    }
- 
-+    // Add new route source and layer
-+    const routeGeoJSON = routeData.route_geojson;
-+    
-+    map.addSource('route', {
-+        type: 'geojson',
-+        data: routeGeoJSON
-     });
- 
-+    map.addLayer({
-+        id: 'route-layer',
-+        type: 'line',
-+        source: 'route',
-+        layout: {
-+            'line-join': 'round',
-+            'line-cap': 'round'
-+        },
-+        paint: {
-+            'line-color': '#2563eb',
-+            'line-width': 5,
-+            'line-opacity': 0.8
-+        }
-+    });
- 
-+    // Display route info
-+    const distance = routeData.distance_km;
-+    const duration = routeData.duration_min;
- 
-+    document.getElementById('routeDistance').textContent = `${distance.toFixed(2)} км`;
-+    document.getElementById('routeDuration').textContent = `~${Math.round(duration)} мин`;
-+    document.getElementById('routeInfo').classList.remove('hidden');
- }
- 
- function clearRoute() {
-+    // Remove route layer and source
-+    if (map.getLayer('route-layer')) {
-+        map.removeLayer('route-layer');
-     }
-+    if (map.getSource('route')) {
-+        map.removeSource('route');
-+    }
-+    
-+    document.getElementById('routeInfo').classList.add('hidden');
- }
-
-```
-
-### frontend/resident.html
-```diff
-+{% extends "base.html" %}
- 
-+{% block title %}Карта контейнеров{% endblock %}
-+
-+{% block header_actions %}
-+<a href="/" class="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-2">
-+    <i class="fas fa-arrow-left"></i>
-+    На главную
-+</a>
-+{% endblock %}
-+
-+{% block content %}
-+<div class="w-full md:w-[28rem]">
-+    <!-- Welcome Card -->
-+    <div class="bg-white/90 backdrop-blur rounded-lg shadow p-6 mb-6">
-+        <h3 class="text-lg font-bold text-gray-800 mb-2 flex items-center gap-2">
-+            <i class="fas fa-map-marker-alt text-blue-600"></i>
-+            Найдите ближайший контейнер
-+        </h3>
-+        <p class="text-gray-600 text-sm">Нажмите на контейнер на карте, чтобы увидеть информацию о заполненности и адресе.</p>
-     </div>
-     
-+    <!-- Legend -->
-+    <div class="bg-white/90 backdrop-blur rounded-lg shadow p-6">
-+        <h4 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-+            <i class="fas fa-info-circle text-blue-600"></i>
-+            Легенда
-+        </h4>
-+        
-+        <div class="space-y-3">
-+            <div class="flex items-center gap-3">
-+                <div class="w-6 h-6 rounded-full bg-green-500 shadow"></div>
-+                <span class="text-gray-700">Свободно (&lt;50%)</span>
-+            </div>
-+            
-+            <div class="flex items-center gap-3">
-+                <div class="w-6 h-6 rounded-full bg-yellow-500 shadow"></div>
-+                <span class="text-gray-700">Заполнено (50-70%)</span>
-+            </div>
-+            
-+            <div class="flex items-center gap-3">
-+                <div class="w-6 h-6 rounded-full bg-red-500 shadow"></div>
-+                <span class="text-gray-700">Переполнено (&gt;70%)</span>
-+            </div>
-         </div>
-     </div>
-+</div>
-+{% endblock %}
- 
-+{% block scripts %}
-+<script src="js/resident.js?v=2"></script>
-+{% endblock %}
+         console.error('API route error:', error);
 
 ```
 
 ### frontend/truck.html
 ```diff
-+{% extends "base.html" %}
-+
-+{% block title %}Панель Водителя{% endblock %}
-+
-+{% block header_actions %}
-+<button onclick="localStorage.clear(); window.location.href='/'" class="text-red-600 hover:text-red-800 font-medium flex items-center gap-2">
-+    <i class="fas fa-sign-out-alt"></i>
-+    Выйти
-+</button>
-+{% endblock %}
-+
-+{% block content %}
-+<div class="w-full md:w-[32rem]">
-+    <!-- Container Count Card -->
-+    <div class="bg-white/90 backdrop-blur rounded-lg shadow p-6 mb-6">
-+        <div class="flex items-center justify-between">
-+            <div>
-+                <p class="text-sm text-gray-600">Контейнеров требуют вывоза</p>
-+                <h3 id="containerCount" class="text-4xl font-bold text-orange-600">0</h3>
-+            </div>
-+            <i class="fas fa-truck text-5xl text-orange-500 opacity-20"></i>
-+        </div>
-+    </div>
-     
-+    <!-- Route Building Section -->
-+    <div class="bg-white/90 backdrop-blur rounded-lg shadow p-6 mb-6">
-+        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-+            <i class="fas fa-route text-blue-600"></i>
-+            Построение маршрута
-+        </h3>
-+        
-+        <div class="mb-4">
-+            <label class="block text-sm font-medium text-gray-700 mb-2">
-+                Порог заполненности: <span id="thresholdValue" class="font-bold text-blue-600">50</span>%
-+            </label>
-+            <input type="range" id="fillThreshold" min="30" max="90" value="50" 
-+                   class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" 
-+                   oninput="updateThreshold(this.value)">
-         </div>
-         
-+        <div class="flex gap-3">
-+            <button onclick="buildOptimalRoute()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
-+                <i class="fas fa-map-marked-alt"></i>
-+                Построить маршрут
-             </button>
-+            <button onclick="clearRoute()" class="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
-+                <i class="fas fa-times"></i>
-+                Очистить
-             </button>
-         </div>
-+    </div>
-+    
-+    <!-- Route Info -->
-+    <div id="routeInfo" class="hidden bg-white/90 backdrop-blur rounded-lg shadow p-6 mb-6">
-+        <h4 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-+            <i class="fas fa-info-circle text-green-600"></i>
-+            Информация о маршруте
-+        </h4>
-+        <div class="space-y-2">
-+            <p class="text-gray-700">
-+                <span class="font-semibold">Дистанция:</span>
-+                <span id="routeDistance" class="text-blue-600 font-bold">-</span>
-+            </p>
-+            <p class="text-gray-700">
-+                <span class="font-semibold">Время в пути:</span>
-+                <span id="routeDuration" class="text-blue-600 font-bold">-</span>
-+            </p>
-         </div>
-+    </div>
-+</div>
-+{% endblock %}
+ {% endblock %}
  
-+{% block scripts %}
-+<script src="js/truck.js?v=2"></script>
-+{% endblock %}
+ {% block scripts %}
++<script src="js/truck.js?v=3"></script>
+ {% endblock %}
 
 ```
