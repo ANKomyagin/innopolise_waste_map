@@ -6,37 +6,58 @@ async function loadMapData() {
         const geojsonData = await response.json();
         if (!geojsonData || !geojsonData.features) throw new Error('Invalid GeoJSON data');
 
-        // Create HTML markers for each container
-        geojsonData.features.forEach(feature => {
-            const props = feature.properties;
-            const coords = feature.geometry.coordinates;
-            
-            // Determine color based on fill percentage
-            let colorClass = 'bg-green-500';
-            if (props.avg_fill_percent >= 70) colorClass = 'bg-red-500';
-            else if (props.avg_fill_percent >= 50) colorClass = 'bg-yellow-500';
-            
-            // Create marker element
-            const el = document.createElement('div');
-            el.className = `flex items-center justify-center w-10 h-10 rounded-full shadow-lg text-white cursor-pointer transition-transform hover:scale-110 ${colorClass}`;
-            el.innerHTML = `<i class="fas fa-trash-alt text-lg"></i>
-                            <div class="absolute -top-2 -right-2 bg-white text-gray-800 text-xs font-bold px-1.5 py-0.5 rounded-full shadow border">${props.avg_fill_percent}%</div>`;
-            
-            // Add marker to map
-            const marker = new maplibregl.Marker({ element: el })
-                .setLngLat([coords[0], coords[1]])
-                .addTo(map);
-            
-            // Handle click
-            el.addEventListener('click', () => {
-                const featureData = {
-                    ...props,
-                    containers: typeof props.containers === 'string' ? JSON.parse(props.containers) : props.containers
-                };
-                window.dispatchEvent(new CustomEvent('container-selected', { detail: featureData }));
-                console.log('Container selected:', featureData);
-            });
+        // Add GeoJSON source
+        map.addSource('containers-source', {
+            type: 'geojson',
+            data: geojsonData
         });
+
+        // Add circle layer with color-coded fill levels
+        map.addLayer({
+            id: 'clusters',
+            type: 'circle',
+            source: 'containers-source',
+            paint: {
+                'circle-color': [
+                    'case',
+                    ['>=', ['get', 'avg_fill_percent'], 70], '#dc3545',
+                    ['>=', ['get', 'avg_fill_percent'], 50], '#ffc107',
+                    '#28a745'
+                ],
+                'circle-radius': 18,
+                'circle-stroke-width': 3,
+                'circle-stroke-color': '#ffffff'
+            }
+        });
+
+        // Add text layer showing fill percentage
+        map.addLayer({
+            id: 'cluster-count',
+            type: 'symbol',
+            source: 'containers-source',
+            layout: {
+                'text-field': ['concat', ['get', 'avg_fill_percent'], '%'],
+                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                'text-size': 12
+            },
+            paint: {
+                'text-color': '#ffffff'
+            }
+        });
+
+        // Click handler
+        map.on('click', 'clusters', function(e) {
+            const props = e.features[0].properties;
+            const featureData = {
+                ...props,
+                containers: typeof props.containers === 'string' ? JSON.parse(props.containers) : props.containers
+            };
+            window.dispatchEvent(new CustomEvent('container-selected', { detail: featureData }));
+        });
+
+        // Cursor change on hover
+        map.on('mouseenter', 'clusters', () => map.getCanvas().style.cursor = 'pointer');
+        map.on('mouseleave', 'clusters', () => map.getCanvas().style.cursor = '');
 
         // Disable scroll zoom to prevent breaking page scroll
         map.scrollZoom.disable();

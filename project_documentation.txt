@@ -2826,31 +2826,27 @@ exec uvicorn app.main:app --host 0.0.0.0 --port 8000
 </head>
 <body>
     <div id="app" x-data="headerScroll()">
-        <!-- Map background -->
-        <div id="map"></div>
-        
-        <!-- Overlay container -->
-        <div class="app-overlay pointer-events-none">
-            <!-- Header -->
-            <header class="pointer-events-auto fixed top-0 w-full z-50 transition-transform duration-300 bg-white dark:bg-gray-800 dark:text-white border-b border-gray-200 dark:border-gray-700" :class="{ 'hide': hideHeader }">
-                <div class="container mx-auto px-4 py-4 flex items-center justify-between">
-                    <h1 class="text-2xl font-bold">Innopolis QRBIN</h1>
-                    <div class="flex items-center gap-4">
-                        <!-- Theme toggle button -->
-                        <button @click="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-                            <i :class="isDarkMode ? 'fas fa-sun text-yellow-500' : 'fas fa-moon text-gray-600'"></i>
-                        </button>
-                        {% block header_actions %}{% endblock %}
-                    </div>
+        <!-- Header -->
+        <header class="pointer-events-auto fixed top-0 w-full z-50 transition-transform duration-300 bg-white dark:bg-gray-800 dark:text-white border-b border-gray-200 dark:border-gray-700" :class="{ 'hide': hideHeader }">
+            <div class="container mx-auto px-4 py-4 flex items-center justify-between">
+                <h1 class="text-2xl font-bold">Innopolis QRBIN</h1>
+                <div class="flex items-center gap-4">
+                    <!-- Theme toggle button -->
+                    <button @click="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                        <i :class="isDarkMode ? 'fas fa-sun text-yellow-500' : 'fas fa-moon text-gray-600'"></i>
+                    </button>
+                    {% block header_actions %}{% endblock %}
                 </div>
-            </header>
-            
-            <!-- Layout block (can be overridden by child templates) -->
+            </div>
+        </header>
+        
+        <!-- Layout block (can be overridden by child templates) -->
+        <div class="app-overlay">
             {% block layout %}
             <!-- Default Map App Layout -->
             <div id="map" class="fixed inset-0 z-0"></div>
-            <div class="pointer-events-none relative z-10 flex-1 pt-20 p-4">
-                <main class="pointer-events-auto w-full md:max-w-sm bg-white/95 dark:bg-gray-800/95 dark:text-white rounded-lg shadow-lg overflow-hidden">
+            <div class="pointer-events-none relative z-10 flex-1 pt-20 p-4 flex flex-col">
+                <main class="pointer-events-auto w-full md:max-w-sm bg-white/95 dark:bg-gray-800/95 dark:text-white rounded-lg shadow-lg overflow-hidden flex-1">
                     {% block content %}{% endblock %}
                 </main>
             </div>
@@ -3483,6 +3479,11 @@ async function loadMapData() {
                 console.log('Container selected:', featureData);
             });
         });
+
+        // Disable scroll zoom to prevent breaking page scroll
+        map.scrollZoom.disable();
+        // Add zoom buttons
+        map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
     } catch (err) {
         console.error('Ошибка загрузки данных контейнеров:', err);
@@ -4305,7 +4306,7 @@ function clearRoute() {
                 <i class="fas fa-map"></i>
                 Посмотреть карту
             </button>
-            <button @click="$dispatch('open-login')" class="border-2 border-green-600 text-green-600 dark:text-green-400 dark:border-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 font-medium px-8 py-3 rounded-lg transition-colors flex items-center gap-2">
+            <button onclick="window.dispatchEvent(new Event('open-login'))" class="border-2 border-green-600 text-green-600 dark:text-green-400 dark:border-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 font-medium px-8 py-3 rounded-lg transition-colors flex items-center gap-2">
                 <i class="fas fa-sign-in-alt"></i>
                 Войти
             </button>
@@ -4313,7 +4314,7 @@ function clearRoute() {
     </section>
 
     <!-- Map Section -->
-    <section id="map-section" class="w-full h-[60vh] relative rounded-lg overflow-hidden shadow-lg mb-20 mx-4">
+    <section id="map-section" class="w-full h-[60vh] relative rounded-lg overflow-hidden shadow-lg mb-20 mx-auto max-w-6xl px-4">
         <div id="map" class="w-full h-full"></div>
     </section>
 

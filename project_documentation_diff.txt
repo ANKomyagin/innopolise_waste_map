@@ -1,9 +1,9 @@
 # Отчет об изменениях проекта
-Дата: 2026-04-05 18:10:40
+Дата: 2026-04-05 18:21:29
 
 ## Статистика
 - Измененные файлы: 3
-- Новые файлы: 1
+- Новые файлы: 0
 - Удаленные файлы: 0
 
 ## Структура проекта (только измененные и новые файлы)
@@ -13,414 +13,74 @@ innopolis_waste_map_test/
     ├── base.html
     ├── js
     │   └── landing.js
-    ├── landing.html
-    └── css
-        └── theme.css
+    └── landing.html
 ```
 
 ## Измененные файлы
 
 ### frontend/base.html
 ```diff
- <!DOCTYPE html>
-+<html lang="en" data-theme="light">
- <head>
-     <meta charset="UTF-8">
-     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-     
-     <!-- Tailwind CSS -->
-     <script src="https://cdn.tailwindcss.com"></script>
-+    <script>tailwind.config = { darkMode: 'class' }</script>
-     
-     <!-- MapLibre GL JS CSS -->
-     <link href="https://unpkg.com/maplibre-gl@4.0.0/dist/maplibre-gl.css" rel="stylesheet" />
-     <!-- FontAwesome -->
-     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-     
-+    <!-- Theme CSS -->
-+    <link rel="stylesheet" href="css/theme.css" />
-+    
-     <style>
-         html, body {
-             margin: 0;
-             padding: 0;
-         }
-         
-         #app {
-+            min-height: 100dvh;
-             position: relative;
-+            display: flex;
-+            flex-direction: column;
-         }
-         
-         #map {
-             bottom: 0;
-             width: 100%;
-             height: 100%;
-+            z-index: 0;
-+        }
-+        
-+        .app-overlay {
-+            position: relative;
-+            z-index: 10;
-+            display: flex;
-+            flex-direction: column;
-+            min-height: 100dvh;
-+        }
-+        
-+        header {
-+            transition: transform 0.3s ease;
-+        }
-+        
-+        header.hide {
-+            transform: translateY(-100%);
-         }
-     </style>
  </head>
  <body>
-+    <div id="app" x-data="headerScroll()">
-         <!-- Map background -->
-         <div id="map"></div>
-         
-+        <!-- Overlay container -->
-+        <div class="app-overlay pointer-events-none">
-             <!-- Header -->
-+            <header class="pointer-events-auto fixed top-0 w-full z-50 transition-transform duration-300 bg-white dark:bg-gray-800 dark:text-white border-b border-gray-200 dark:border-gray-700" :class="{ 'hide': hideHeader }">
-                 <div class="container mx-auto px-4 py-4 flex items-center justify-between">
-+                    <h1 class="text-2xl font-bold">Innopolis QRBIN</h1>
-                     <div class="flex items-center gap-4">
-+                        <!-- Theme toggle button -->
-+                        <button @click="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-+                            <i :class="isDarkMode ? 'fas fa-sun text-yellow-500' : 'fas fa-moon text-gray-600'"></i>
-+                        </button>
-                         {% block header_actions %}{% endblock %}
-                     </div>
-                 </div>
-             </header>
-             
-+            <!-- Layout block (can be overridden by child templates) -->
-+            {% block layout %}
-+            <!-- Default Map App Layout -->
-+            <div id="map" class="fixed inset-0 z-0"></div>
-+            <div class="pointer-events-none relative z-10 flex-1 pt-20 p-4">
-+                <main class="pointer-events-auto w-full md:max-w-sm bg-white/95 dark:bg-gray-800/95 dark:text-white rounded-lg shadow-lg overflow-hidden">
-+                    {% block content %}{% endblock %}
-+                </main>
+     <div id="app" x-data="headerScroll()">
++        <!-- Header -->
++        <header class="pointer-events-auto fixed top-0 w-full z-50 transition-transform duration-300 bg-white dark:bg-gray-800 dark:text-white border-b border-gray-200 dark:border-gray-700" :class="{ 'hide': hideHeader }">
++            <div class="container mx-auto px-4 py-4 flex items-center justify-between">
++                <h1 class="text-2xl font-bold">Innopolis QRBIN</h1>
++                <div class="flex items-center gap-4">
++                    <!-- Theme toggle button -->
++                    <button @click="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
++                        <i :class="isDarkMode ? 'fas fa-sun text-yellow-500' : 'fas fa-moon text-gray-600'"></i>
++                    </button>
++                    {% block header_actions %}{% endblock %}
++                </div>
 +            </div>
-+            {% endblock %}
-         </div>
-     </div>
-     
-     <script src="https://unpkg.com/maplibre-gl@4.0.0/dist/maplibre-gl.js"></script>
-     
-     <script>
-+        // Alpine.js component for header scroll behavior and theme toggle
-+        function headerScroll() {
-+            return {
-+                hideHeader: false,
-+                isDarkMode: false,
-+                lastScrollY: 0,
-+                
-+                init() {
-+                    // Load theme preference from localStorage
-+                    const savedTheme = localStorage.getItem('theme') || 'light';
-+                    this.isDarkMode = savedTheme === 'dark';
-+                    this.applyTheme();
-+                    
-+                    // Listen for scroll events
-+                    window.addEventListener('scroll', () => this.handleScroll());
-+                },
-+                
-+                handleScroll() {
-+                    const currentScrollY = window.scrollY;
-+                    
-+                    // Hide header when scrolling down, show when scrolling up
-+                    if (currentScrollY > this.lastScrollY && currentScrollY > 100) {
-+                        this.hideHeader = true;
-+                    } else {
-+                        this.hideHeader = false;
-+                    }
-+                    
-+                    this.lastScrollY = currentScrollY;
-+                },
-+                
-+                toggleTheme() {
-+                    this.isDarkMode = !this.isDarkMode;
-+                    this.applyTheme();
-+                },
-+                
-+                applyTheme() {
-+                    const html = document.documentElement;
-+                    if (this.isDarkMode) {
-+                        html.classList.add('dark');
-+                    } else {
-+                        html.classList.remove('dark');
-+                    }
-+                    const theme = this.isDarkMode ? 'dark' : 'light';
-+                    localStorage.setItem('theme', theme);
-+                }
-+            };
-+        }
-+        
-         document.addEventListener('DOMContentLoaded', function() {
-             window.map = new maplibregl.Map({
-                 container: 'map',
++        </header>
+         
++        <!-- Layout block (can be overridden by child templates) -->
++        <div class="app-overlay">
+             {% block layout %}
+             <!-- Default Map App Layout -->
+             <div id="map" class="fixed inset-0 z-0"></div>
++            <div class="pointer-events-none relative z-10 flex-1 pt-20 p-4 flex flex-col">
++                <main class="pointer-events-auto w-full md:max-w-sm bg-white/95 dark:bg-gray-800/95 dark:text-white rounded-lg shadow-lg overflow-hidden flex-1">
+                     {% block content %}{% endblock %}
+                 </main>
+             </div>
 
 ```
 
 ### frontend/js/landing.js
 ```diff
-         const geojsonData = await response.json();
-         if (!geojsonData || !geojsonData.features) throw new Error('Invalid GeoJSON data');
- 
-+        // Create HTML markers for each container
-+        geojsonData.features.forEach(feature => {
-+            const props = feature.properties;
-+            const coords = feature.geometry.coordinates;
-             
-+            // Determine color based on fill percentage
-+            let colorClass = 'bg-green-500';
-+            if (props.avg_fill_percent >= 70) colorClass = 'bg-red-500';
-+            else if (props.avg_fill_percent >= 50) colorClass = 'bg-yellow-500';
-+            
-+            // Create marker element
-+            const el = document.createElement('div');
-+            el.className = `flex items-center justify-center w-10 h-10 rounded-full shadow-lg text-white cursor-pointer transition-transform hover:scale-110 ${colorClass}`;
-+            el.innerHTML = `<i class="fas fa-trash-alt text-lg"></i>
-+                            <div class="absolute -top-2 -right-2 bg-white text-gray-800 text-xs font-bold px-1.5 py-0.5 rounded-full shadow border">${props.avg_fill_percent}%</div>`;
-+            
-+            // Add marker to map
-+            const marker = new maplibregl.Marker({ element: el })
-+                .setLngLat([coords[0], coords[1]])
-+                .addTo(map);
-+            
-+            // Handle click
-+            el.addEventListener('click', () => {
-+                const featureData = {
-+                    ...props,
-+                    containers: typeof props.containers === 'string' ? JSON.parse(props.containers) : props.containers
-+                };
-+                window.dispatchEvent(new CustomEvent('container-selected', { detail: featureData }));
-+                console.log('Container selected:', featureData);
-+            });
+                 console.log('Container selected:', featureData);
+             });
          });
++
++        // Disable scroll zoom to prevent breaking page scroll
++        map.scrollZoom.disable();
++        // Add zoom buttons
++        map.addControl(new maplibregl.NavigationControl(), 'top-right');
  
      } catch (err) {
+         console.error('Ошибка загрузки данных контейнеров:', err);
 
 ```
 
 ### frontend/landing.html
 ```diff
- {% block title %}Умные контейнеры Иннополиса{% endblock %}
- 
- {% block header_actions %}
-+<div x-data="{ showLogin: false }" @open-login.window="showLogin = true">
-     <button @click="showLogin = true" class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium">
-         <i class="fas fa-sign-in-alt"></i>
-+        Войти
-     </button>
-     
-     <!-- Login Modal -->
-     <div x-show="showLogin" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click="if($event.target === $el) showLogin = false">
-+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-md" @click.stop>
-+            <button @click="showLogin = false" class="absolute top-4 right-4 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-2xl">
-                 &times;
+                 <i class="fas fa-map"></i>
+                 Посмотреть карту
              </button>
-+            <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-6">Вход</h2>
-             
-             <div class="error-message mb-4" id="error-message"></div>
-             
-+            <!-- Resident button -->
-+            <button onclick="window.location.href='/resident.html'" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-2 mb-6">
-+                <i class="fas fa-user"></i>
-+                Войти как Житель
-+            </button>
-+            
-+            <div class="relative mb-6">
-+                <div class="absolute inset-0 flex items-center">
-+                    <div class="w-full border-t border-gray-300 dark:border-gray-600"></div>
-+                </div>
-+                <div class="relative flex justify-center text-sm">
-+                    <span class="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">или</span>
-+                </div>
-+            </div>
-+            
-+            <!-- Employee login -->
-+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Вход для сотрудников</h3>
-+            
-             <form id="loginForm" @submit.prevent="handleLogin">
-                 <div class="mb-4">
-+                    <label for="username" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                         <i class="fas fa-user mr-2"></i>Логин
-                     </label>
-+                    <input type="text" id="username" name="username" placeholder="Введите логин" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500">
-                 </div>
-                 
-                 <div class="mb-6">
-+                    <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                         <i class="fas fa-lock mr-2"></i>Пароль
-                     </label>
-+                    <input type="password" id="password" name="password" placeholder="Введите пароль" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500">
-                 </div>
-                 
-                 <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
- </div>
- {% endblock %}
- 
-+{% block layout %}
-+<!-- Landing Page Layout -->
-+<main class="flex-1 pt-20 bg-white dark:bg-gray-900 dark:text-white">
-+    <!-- Hero Section -->
-+    <section class="w-full py-20 px-4 text-center">
-+        <h2 class="text-5xl font-bold text-gray-900 dark:text-white mb-4">Умный город начинается с чистых улиц</h2>
-+        <p class="text-xl text-gray-600 dark:text-gray-400 mb-8 max-w-2xl mx-auto">Система интеллектуального управления контейнерами для оптимизации вывоза отходов и улучшения экологии города</p>
-+        <div class="flex gap-4 justify-center flex-wrap">
-+            <button onclick="document.getElementById('map-section').scrollIntoView({behavior: 'smooth'})" class="bg-green-600 hover:bg-green-700 text-white font-medium px-8 py-3 rounded-lg transition-colors flex items-center gap-2">
-+                <i class="fas fa-map"></i>
-+                Посмотреть карту
-+            </button>
-+            <button @click="$dispatch('open-login')" class="border-2 border-green-600 text-green-600 dark:text-green-400 dark:border-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 font-medium px-8 py-3 rounded-lg transition-colors flex items-center gap-2">
-+                <i class="fas fa-sign-in-alt"></i>
-+                Войти
++            <button onclick="window.dispatchEvent(new Event('open-login'))" class="border-2 border-green-600 text-green-600 dark:text-green-400 dark:border-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 font-medium px-8 py-3 rounded-lg transition-colors flex items-center gap-2">
+                 <i class="fas fa-sign-in-alt"></i>
+                 Войти
              </button>
-         </div>
-+    </section>
-+
-+    <!-- Map Section -->
-+    <section id="map-section" class="w-full h-[60vh] relative rounded-lg overflow-hidden shadow-lg mb-20 mx-4">
-+        <div id="map" class="w-full h-full"></div>
-+    </section>
-+
-+    <!-- Features Section -->
-+    <section class="w-full py-16 px-4 bg-gray-50 dark:bg-gray-800 rounded-lg mb-20">
-+        <h3 class="text-3xl font-bold text-gray-900 dark:text-white text-center mb-12">Преимущества системы</h3>
-         
-+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-+            <!-- Feature 1 -->
-+            <div class="bg-white dark:bg-gray-700 dark:text-white p-6 rounded-lg shadow-md text-center">
-+                <div class="text-4xl text-green-600 mb-4 flex justify-center">
-+                    <i class="fas fa-leaf"></i>
-+                </div>
-+                <h4 class="text-xl font-bold text-gray-800 dark:text-white mb-2">Экология</h4>
-+                <p class="text-gray-600 dark:text-gray-300">Оптимизация маршрутов вывоза снижает выбросы CO₂ и улучшает качество воздуха в городе</p>
-             </div>
-             
-+            <!-- Feature 2 -->
-+            <div class="bg-white dark:bg-gray-700 dark:text-white p-6 rounded-lg shadow-md text-center">
-+                <div class="text-4xl text-blue-600 mb-4 flex justify-center">
-+                    <i class="fas fa-chart-line"></i>
-+                </div>
-+                <h4 class="text-xl font-bold text-gray-800 dark:text-white mb-2">Оптимизация</h4>
-+                <p class="text-gray-600 dark:text-gray-300">Умные алгоритмы маршрутизации экономят время и ресурсы на вывоз отходов</p>
-+            </div>
-+            
-+            <!-- Feature 3 -->
-+            <div class="bg-white dark:bg-gray-700 dark:text-white p-6 rounded-lg shadow-md text-center">
-+                <div class="text-4xl text-purple-600 mb-4 flex justify-center">
-+                    <i class="fas fa-users"></i>
-+                </div>
-+                <h4 class="text-xl font-bold text-gray-800 dark:text-white mb-2">Краудсорсинг</h4>
-+                <p class="text-gray-600 dark:text-gray-300">Жители могут сообщать о переполненных контейнерах и участвовать в улучшении системы</p>
-             </div>
-         </div>
-+    </section>
-+
-+    <!-- Footer -->
-+    <footer class="w-full py-8 px-4 border-t border-gray-200 dark:border-gray-700 text-center text-gray-600 dark:text-gray-400">
-+        <p>&copy; 2026 Innopolis QRBIN. Умное управление отходами для чистого города.</p>
-+    </footer>
-+</main>
- {% endblock %}
+     </section>
  
- {% block scripts %}
-
-```
-
-## Новые файлы
-
-### frontend/css/theme.css
-```
-/* Light theme (default) */
-:root {
-    --primary: #16a34a;
-    --primary-dark: #15803d;
-    --primary-light: #22c55e;
-    --secondary: #3b82f6;
-    --danger: #dc3545;
-    --warning: #ffc107;
-    --success: #28a745;
-    
-    --bg-color: #ffffff;
-    --bg-secondary: #f9fafb;
-    --bg-tertiary: #f3f4f6;
-    
-    --text-primary: #1f2937;
-    --text-secondary: #6b7280;
-    --text-light: #9ca3af;
-    
-    --border-color: #e5e7eb;
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
-
-/* Dark theme */
-[data-theme="dark"] {
-    --primary: #22c55e;
-    --primary-dark: #16a34a;
-    --primary-light: #4ade80;
-    --secondary: #60a5fa;
-    --danger: #f87171;
-    --warning: #fbbf24;
-    --success: #4ade80;
-    
-    --bg-color: #1f2937;
-    --bg-secondary: #111827;
-    --bg-tertiary: #374151;
-    
-    --text-primary: #f3f4f6;
-    --text-secondary: #d1d5db;
-    --text-light: #9ca3af;
-    
-    --border-color: #374151;
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
-}
-
-/* Apply theme colors to elements */
-body {
-    background-color: var(--bg-color);
-    color: var(--text-primary);
-    transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-header {
-    background-color: var(--bg-color);
-    border-bottom: 1px solid var(--border-color);
-    box-shadow: var(--shadow-sm);
-}
-
-button, input, select, textarea {
-    color: var(--text-primary);
-    border-color: var(--border-color);
-    transition: all 0.3s ease;
-}
-
-.bg-white {
-    background-color: var(--bg-color);
-}
-
-.text-gray-800 {
-    color: var(--text-primary);
-}
-
-.text-gray-600 {
-    color: var(--text-secondary);
-}
-
-.border-gray-200 {
-    border-color: var(--border-color);
-}
+     <!-- Map Section -->
++    <section id="map-section" class="w-full h-[60vh] relative rounded-lg overflow-hidden shadow-lg mb-20 mx-auto max-w-6xl px-4">
+         <div id="map" class="w-full h-full"></div>
+     </section>
+ 
 
 ```
