@@ -17,45 +17,25 @@
             <p class="text-green-100 text-sm mt-1">Помогите городу стать чище</p>
         </div>
         
-        <form id="reportForm" class="p-6 space-y-6">
-            <div>
-                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">ID Контейнера</label>
-                <div class="relative">
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <i class="fas fa-trash-alt text-gray-400"></i>
-                    </div>
-                    <input type="text" id="containerId" required readonly class="w-full pl-10 pr-4 py-3 bg-gray-100 dark:bg-gray-700 border-0 rounded-xl font-mono text-lg text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-green-500 outline-none">
-                </div>
+        <form id="reportForm" class="p-6 space-y-8">
+            <div class="text-center">
+                <h2 class="text-xl font-medium text-gray-800 dark:text-gray-200 mb-2">Оцените заполненность</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Передвиньте ползунок, чтобы указать, насколько заполнен бак прямо сейчас.</p>
             </div>
 
-            <div>
-                <div class="flex justify-between items-end mb-2">
-                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Уровень заполнения</label>
-                    <span id="fillText" class="text-2xl font-bold text-yellow-500">50%</span>
+            <!-- Скрытый ID контейнера -->
+            <input type="hidden" id="containerId" required readonly>
+
+            <div class="pt-4 pb-8">
+                <div class="flex justify-between items-end mb-4">
+                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Уровень:</span>
+                    <span id="fillText" class="text-4xl font-bold text-yellow-500">50%</span>
                 </div>
-                <input type="range" id="fillPercent" min="0" max="100" step="10" value="50" class="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-600">
-                <div class="flex justify-between text-xs text-gray-400 mt-2">
+                <input type="range" id="fillPercent" min="0" max="100" step="10" value="50" class="w-full h-4 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-600">
+                <div class="flex justify-between text-sm text-gray-400 mt-3 font-medium">
                     <span>Пустой</span>
                     <span>Половина</span>
                     <span>Полный</span>
-                </div>
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Вы здесь как:</label>
-                <div class="grid grid-cols-2 gap-3">
-                    <label class="cursor-pointer">
-                        <input type="radio" name="role" value="resident" checked class="peer sr-only">
-                        <div class="text-center py-2 rounded-xl border-2 border-gray-200 dark:border-gray-600 peer-checked:border-green-500 peer-checked:bg-green-50 dark:peer-checked:bg-green-900/30 peer-checked:text-green-700 dark:peer-checked:text-green-400 transition-all">
-                            <i class="fas fa-user mb-1 block"></i> Житель
-                        </div>
-                    </label>
-                    <label class="cursor-pointer">
-                        <input type="radio" name="role" value="contractor" class="peer sr-only">
-                        <div class="text-center py-2 rounded-xl border-2 border-gray-200 dark:border-gray-600 peer-checked:border-green-500 peer-checked:bg-green-50 dark:peer-checked:bg-green-900/30 peer-checked:text-green-700 dark:peer-checked:text-green-400 transition-all">
-                            <i class="fas fa-hard-hat mb-1 block"></i> Сотрудник
-                        </div>
-                    </label>
                 </div>
             </div>
 
@@ -63,8 +43,8 @@
             <input type="hidden" id="userLat">
             <input type="hidden" id="userLon">
 
-            <button type="submit" id="submitBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2">
-                <i class="fas fa-paper-plane"></i> Отправить отчет
+            <button type="submit" id="submitBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-[0_4px_14px_0_rgba(22,163,74,0.39)] hover:shadow-[0_6px_20px_rgba(22,163,74,0.23)] transition-all active:scale-95 flex items-center justify-center gap-2 text-lg">
+                <i class="fas fa-paper-plane"></i> Отправить
             </button>
         </form>
 

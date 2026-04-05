@@ -3952,95 +3952,100 @@ window.addEventListener('error', function(e) {
 
 ### frontend/js/qr_scan.js
 ```
-// Получаем ID контейнера из URL параметров
 const urlParams = new URLSearchParams(window.location.search);
 const containerId = urlParams.get('id');
 
 if (containerId) {
     document.getElementById('containerId').value = containerId;
 } else {
-    document.getElementById('containerId').placeholder = 'Отсканируйте QR код контейнера';
+    document.getElementById('containerId').value = 'НЕИЗВЕСТНО';
 }
 
-// Обновление индикатора заполнения
 const fillPercent = document.getElementById('fillPercent');
-const fillLevel = document.getElementById('fillLevel');
 const fillText = document.getElementById('fillText');
+
+function updateColor(value) {
+    if (value < 50) return 'text-green-500';
+    if (value < 80) return 'text-yellow-500';
+    return 'text-red-500';
+}
 
 fillPercent.addEventListener('input', function() {
     const value = this.value;
     fillText.textContent = value + '%';
-    fillLevel.style.width = value + '%';
-
-    // Изменение цвета в зависимости от уровня
-    fillLevel.className = 'fill-level';
-    if (value < 50) {
-        fillLevel.classList.add('fill-low');
-    } else if (value < 70) {
-        fillLevel.classList.add('fill-medium');
-    } else {
-        fillLevel.classList.add('fill-high');
-    }
+    fillText.className = `text-2xl font-bold ${updateColor(value)}`;
 });
 
-// Обработка отправки формы
+// Геолокация пользователя
+if ("geolocation" in navigator) {
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            document.getElementById('userLat').value = position.coords.latitude;
+            document.getElementById('userLon').value = position.coords.longitude;
+        },
+        (error) => console.warn("Геолокация недоступна", error),
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+    );
+}
+
 document.getElementById('reportForm').addEventListener('submit', async function(e) {
     e.preventDefault();
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
+
+    // Получаем выбранную роль из radio кнопок
+    const roleRadio = document.querySelector('input[name="role"]:checked');
 
     const formData = {
         container_id: document.getElementById('containerId').value,
-        fill_percent: parseInt(document.getElementById('fillPercent').value),
+        fill_percent: parseInt(fillPercent.value),
         device_id: document.getElementById('deviceId').value,
-        role: document.getElementById('role').value
+        role: roleRadio ? roleRadio.value : 'resident'
     };
+
+    // Если удалось получить гео, можно будет добавить в запрос в будущем
+    const lat = document.getElementById('userLat').value;
+    const lon = document.getElementById('userLon').value;
 
     try {
         const response = await fetch('/api/sensors/manual', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)
         });
 
         const result = await response.json();
-
         const messageDiv = document.getElementById('message');
-        if (response.ok) {
-            messageDiv.className = 'message success';
-            messageDiv.textContent = '✅ ' + result.message;
+        
+        messageDiv.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800');
+        
+        if (response.ok && result.status === 'ok') {
+            messageDiv.classList.add('bg-green-100', 'text-green-800');
+            messageDiv.innerHTML = `<i class="fas fa-check-circle"></i> ${result.message}`;
         } else {
-            messageDiv.className = 'message error';
-            messageDiv.textContent = '❌ ' + result.message;
+            messageDiv.classList.add('bg-red-100', 'text-red-800');
+            messageDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${result.message || 'Ошибка сервера'}`;
         }
-        messageDiv.style.display = 'block';
 
-        // Очистка формы через 3 секунды
         setTimeout(() => {
-            if (response.ok) {
-                document.getElementById('reportForm').reset();
-                document.getElementById('containerId').value = containerId || '';
-                fillPercent.value = 50;
-                fillPercent.dispatchEvent(new Event('input'));
-            }
-            messageDiv.style.display = 'none';
+            messageDiv.classList.add('hidden');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane"></i> Отправить отчет';
         }, 3000);
 
     } catch (error) {
-        console.error('Ошибка:', error);
-        const messageDiv = document.getElementById('message');
-        messageDiv.className = 'message error';
-        messageDiv.textContent = '❌ Ошибка соединения. Попробуйте еще раз.';
-        messageDiv.style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Отправить отчет';
+        alert('Ошибка сети. Проверьте подключение.');
     }
 });
 
-// Генерация уникального ID устройства
 if (!localStorage.getItem('deviceId')) {
-    const deviceId = 'device_' + Math.random().toString(36).substr(2, 9);
-    localStorage.setItem('deviceId', deviceId);
+    localStorage.setItem('deviceId', 'device_' + Math.random().toString(36).substr(2, 9));
 }
 document.getElementById('deviceId').value = localStorage.getItem('deviceId');
+
 ```
 
 ### frontend/js/resident.js
@@ -4628,56 +4633,82 @@ async function emptyRouteContainers() {
 ### frontend/qr_scan.html
 ```
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-theme="light">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Сканирование - Иннополис Карта Мусора</title>
-    <link rel="stylesheet" href="css/qr_scan.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Сообщить о заполнении</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/theme.css">
 </head>
-<body>
-    <div class="container">
-        <h1>🗑️ QR Сканирование Контейнера</h1>
-
-        <form id="reportForm">
-            <div class="form-group">
-                <label for="containerId">ID Контейнера:</label>
-                <input type="text" id="containerId" required readonly>
-            </div>
-
-            <div class="form-group">
-                <label for="fillPercent">Уровень заполнения:</label>
-                <input type="range" id="fillPercent" min="0" max="100" value="50" required>
-                <div class="fill-indicator">
-                    <div class="fill-bar">
-                        <div id="fillLevel" class="fill-level fill-low" style="width: 50%"></div>
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen flex items-center justify-center p-4 text-gray-800 dark:text-gray-200">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+        <div class="bg-green-600 p-6 text-center text-white">
+            <i class="fas fa-qrcode text-4xl mb-2"></i>
+            <h1 class="text-2xl font-bold">QRBIN Иннополис</h1>
+            <p class="text-green-100 text-sm mt-1">Помогите городу стать чище</p>
+        </div>
+        
+        <form id="reportForm" class="p-6 space-y-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">ID Контейнера</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fas fa-trash-alt text-gray-400"></i>
                     </div>
-                    <span id="fillText">50%</span>
+                    <input type="text" id="containerId" required readonly class="w-full pl-10 pr-4 py-3 bg-gray-100 dark:bg-gray-700 border-0 rounded-xl font-mono text-lg text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-green-500 outline-none">
                 </div>
             </div>
 
-            <div class="form-group">
-                <label for="role">Ваша роль:</label>
-                <select id="role" required>
-                    <option value="resident">Житель</option>
-                    <option value="contractor">Сотрудник подрядчика</option>
-                </select>
+            <div>
+                <div class="flex justify-between items-end mb-2">
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Уровень заполнения</label>
+                    <span id="fillText" class="text-2xl font-bold text-yellow-500">50%</span>
+                </div>
+                <input type="range" id="fillPercent" min="0" max="100" step="10" value="50" class="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-600">
+                <div class="flex justify-between text-xs text-gray-400 mt-2">
+                    <span>Пустой</span>
+                    <span>Половина</span>
+                    <span>Полный</span>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label for="deviceId">ID Устройства:</label>
-                <input type="text" id="deviceId" required placeholder="Уникальный ID вашего телефона">
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Вы здесь как:</label>
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="cursor-pointer">
+                        <input type="radio" name="role" value="resident" checked class="peer sr-only">
+                        <div class="text-center py-2 rounded-xl border-2 border-gray-200 dark:border-gray-600 peer-checked:border-green-500 peer-checked:bg-green-50 dark:peer-checked:bg-green-900/30 peer-checked:text-green-700 dark:peer-checked:text-green-400 transition-all">
+                            <i class="fas fa-user mb-1 block"></i> Житель
+                        </div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="role" value="contractor" class="peer sr-only">
+                        <div class="text-center py-2 rounded-xl border-2 border-gray-200 dark:border-gray-600 peer-checked:border-green-500 peer-checked:bg-green-50 dark:peer-checked:bg-green-900/30 peer-checked:text-green-700 dark:peer-checked:text-green-400 transition-all">
+                            <i class="fas fa-hard-hat mb-1 block"></i> Сотрудник
+                        </div>
+                    </label>
+                </div>
             </div>
 
-            <button type="submit">Отправить данные</button>
+            <input type="hidden" id="deviceId">
+            <input type="hidden" id="userLat">
+            <input type="hidden" id="userLon">
+
+            <button type="submit" id="submitBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2">
+                <i class="fas fa-paper-plane"></i> Отправить отчет
+            </button>
         </form>
 
-        <div id="message" class="message"></div>
+        <div id="message" class="hidden mx-6 mb-6 p-4 rounded-xl text-center font-medium"></div>
     </div>
 
     <script src="js/qr_scan.js"></script>
 </body>
 </html>
+
 ```
 
 ### frontend/resident.html

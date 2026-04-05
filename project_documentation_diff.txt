@@ -1,8 +1,8 @@
 # Отчет об изменениях проекта
-Дата: 2026-04-05 19:42:38
+Дата: 2026-04-05 20:21:08
 
 ## Статистика
-- Измененные файлы: 4
+- Измененные файлы: 2
 - Новые файлы: 0
 - Удаленные файлы: 0
 
@@ -10,117 +10,188 @@
 ```
 innopolis_waste_map_test/
 └── frontend
-    ├── admin.html
     ├── js
-    │   └── resident.js
-    ├── resident.html
-    └── truck.html
+    │   └── qr_scan.js
+    └── qr_scan.html
 ```
 
 ## Измененные файлы
 
-### frontend/admin.html
+### frontend/js/qr_scan.js
 ```diff
-      x-data="{ expanded: true, touchStartY: 0, touchEndY: 0 }"
-      :class="expanded ? 'h-[85vh] md:h-auto' : 'h-[10vh] min-h-[60px] md:h-auto'"
-      @touchstart="touchStartY = $event.touches[0].clientY"
-+     @touchend="touchEndY = $event.changedTouches[0].clientY; const st = document.getElementById('adminScroll')?.scrollTop || 0; if(touchEndY - touchStartY > 50 && st === 0) expanded = false; if(touchStartY - touchEndY > 50) expanded = true;">
-     
-     <!-- Draggable header for mobile -->
-     <div class="md:hidden flex justify-center py-2 cursor-pointer" @click="expanded = !expanded">
-         <div class="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
-     </div>
+ const urlParams = new URLSearchParams(window.location.search);
+ const containerId = urlParams.get('id');
  
-+    <div class="flex-1 overflow-y-auto overscroll-none px-4 pb-4" id="adminScroll" x-show="expanded || window.innerWidth >= 768" x-transition.opacity>
-         <!-- Statistics Cards -->
-         <div class="grid grid-cols-2 gap-3 mb-4">
-             <div class="bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600 rounded-lg p-4">
- </div>
+ if (containerId) {
+     document.getElementById('containerId').value = containerId;
+ } else {
++    document.getElementById('containerId').value = 'НЕИЗВЕСТНО';
+ }
  
- <!-- Add Container Modal -->
-+<div id="addContainerModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-[100] pointer-events-auto" style="display: none;">
-+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-md mx-4" onclick="event.stopPropagation()">
-         <div class="flex items-center justify-between mb-4">
-+            <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Добавить контейнер</h2>
-+            <button onclick="document.getElementById('addContainerModal').style.display='none'" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-2xl">
-                 &times;
-             </button>
-         </div>
-         
-         <form id="containerForm" class="space-y-4">
-             <div>
-+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ID контейнера</label>
-+                <input type="text" id="containerId" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500">
-             </div>
-             
-             <div>
-+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Адрес</label>
-+                <input type="text" id="containerAddress" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500">
-             </div>
-             
-             <div>
-+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Координаты (широта, долгота)</label>
-+                <input type="text" id="containerCoords" placeholder="55.753, 48.743" required class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500">
-             </div>
-             
-             <div class="flex gap-3 pt-4">
-+                <button type="button" onclick="document.getElementById('addContainerModal').style.display='none'" class="flex-1 bg-gray-300 hover:bg-gray-400 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-medium py-2 rounded-lg transition-colors">
-                     Отмена
-                 </button>
-                 <button type="submit" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition-colors">
-
-```
-
-### frontend/js/resident.js
-```diff
+ const fillPercent = document.getElementById('fillPercent');
+ const fillText = document.getElementById('fillText');
++
++function updateColor(value) {
++    if (value < 50) return 'text-green-500';
++    if (value < 80) return 'text-yellow-500';
++    return 'text-red-500';
++}
  
-     // Клик по карте (ставим точку "Дом")
-     map.on('click', function(e) {
-+        // Проверяем, есть ли слой clusters перед запросом
-+        if (map.getLayer('clusters')) {
-+            const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
-+            if (features.length > 0) return; // Игнорируем клик, если попали по мусорке
+ fillPercent.addEventListener('input', function() {
+     const value = this.value;
+     fillText.textContent = value + '%';
++    fillText.className = `text-2xl font-bold ${updateColor(value)}`;
+ });
+ 
++// Геолокация пользователя
++if ("geolocation" in navigator) {
++    navigator.geolocation.getCurrentPosition(
++        (position) => {
++            document.getElementById('userLat').value = position.coords.latitude;
++            document.getElementById('userLon').value = position.coords.longitude;
++        },
++        (error) => console.warn("Геолокация недоступна", error),
++        { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
++    );
++}
++
+ document.getElementById('reportForm').addEventListener('submit', async function(e) {
+     e.preventDefault();
++    const btn = document.getElementById('submitBtn');
++    btn.disabled = true;
++    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
++
++    // Получаем выбранную роль из radio кнопок
++    const roleRadio = document.querySelector('input[name="role"]:checked');
+ 
+     const formData = {
+         container_id: document.getElementById('containerId').value,
++        fill_percent: parseInt(fillPercent.value),
+         device_id: document.getElementById('deviceId').value,
++        role: roleRadio ? roleRadio.value : 'resident'
+     };
++
++    // Если удалось получить гео, можно будет добавить в запрос в будущем
++    const lat = document.getElementById('userLat').value;
++    const lon = document.getElementById('userLon').value;
+ 
+     try {
+         const response = await fetch('/api/sensors/manual', {
+             method: 'POST',
++            headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify(formData)
+         });
+ 
+         const result = await response.json();
++        const messageDiv = document.getElementById('message');
++        
++        messageDiv.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800');
++        
++        if (response.ok && result.status === 'ok') {
++            messageDiv.classList.add('bg-green-100', 'text-green-800');
++            messageDiv.innerHTML = `<i class="fas fa-check-circle"></i> ${result.message}`;
++        } else {
++            messageDiv.classList.add('bg-red-100', 'text-red-800');
++            messageDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${result.message || 'Ошибка сервера'}`;
 +        }
-         
-         const lat = e.lngLat.lat;
-         const lon = e.lngLat.lng;
+ 
+         setTimeout(() => {
++            messageDiv.classList.add('hidden');
++            btn.disabled = false;
++            btn.innerHTML = '<i class="fas fa-paper-plane"></i> Отправить отчет';
+         }, 3000);
+ 
+     } catch (error) {
++        btn.disabled = false;
++        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Отправить отчет';
++        alert('Ошибка сети. Проверьте подключение.');
+     }
+ });
+ 
+ if (!localStorage.getItem('deviceId')) {
++    localStorage.setItem('deviceId', 'device_' + Math.random().toString(36).substr(2, 9));
+ }
++document.getElementById('deviceId').value = localStorage.getItem('deviceId');
 
 ```
 
-### frontend/resident.html
+### frontend/qr_scan.html
 ```diff
- <div class="pointer-events-auto fixed md:relative bottom-0 left-0 w-full md:w-full bg-white md:bg-white/95 dark:bg-gray-800 md:dark:bg-gray-800/95 rounded-t-2xl md:rounded-lg shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] md:shadow-lg transition-all duration-300 flex flex-col z-50" 
-      :class="expanded ? 'h-[70vh] md:h-full' : 'h-[10vh] min-h-[60px] md:h-full'" 
-      @touchstart="touchStartY = $event.touches[0].clientY"
-+     @touchend="touchEndY = $event.changedTouches[0].clientY; const st = document.getElementById('residentScroll')?.scrollTop || 0; if(touchEndY - touchStartY > 50 && st === 0) expanded = false; if(touchStartY - touchEndY > 50) expanded = true;"
-      x-data="residentApp()">
-     <!-- Draggable header for mobile -->
-     <div class="md:hidden flex justify-center py-2 cursor-pointer" @click="expanded = !expanded">
-         <div class="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
-     </div>
-     
-+    <div class="flex-1 overflow-y-auto overscroll-none px-4 pb-4" id="residentScroll" x-show="expanded || window.innerWidth >= 768" x-transition.opacity>
-         <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-4">Поиск контейнера</h2>
-         
-         <!-- Address Search -->
-
-```
-
-### frontend/truck.html
-```diff
-      x-data="{ expanded: true, touchStartY: 0, touchEndY: 0 }"
-      :class="expanded ? 'h-[75vh] md:h-auto' : 'h-[10vh] min-h-[60px] md:h-auto'"
-      @touchstart="touchStartY = $event.touches[0].clientY"
-+     @touchend="touchEndY = $event.changedTouches[0].clientY; const st = document.getElementById('truckScroll')?.scrollTop || 0; if(touchEndY - touchStartY > 50 && st === 0) expanded = false; if(touchStartY - touchEndY > 50) expanded = true;">
-     
-     <!-- Draggable header for mobile -->
-     <div class="md:hidden flex justify-center py-2 cursor-pointer" @click="expanded = !expanded">
-         <div class="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+ <!DOCTYPE html>
++<html lang="ru" data-theme="light">
+ <head>
+     <meta charset="UTF-8">
++    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
++    <title>Сообщить о заполнении</title>
++    <script src="https://cdn.tailwindcss.com"></script>
++    <script>tailwind.config = { darkMode: 'class' }</script>
++    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
++    <link rel="stylesheet" href="css/theme.css">
+ </head>
++<body class="bg-gray-50 dark:bg-gray-900 min-h-screen flex items-center justify-center p-4 text-gray-800 dark:text-gray-200">
++    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
++        <div class="bg-green-600 p-6 text-center text-white">
++            <i class="fas fa-qrcode text-4xl mb-2"></i>
++            <h1 class="text-2xl font-bold">QRBIN Иннополис</h1>
++            <p class="text-green-100 text-sm mt-1">Помогите городу стать чище</p>
++        </div>
++        
++        <form id="reportForm" class="p-6 space-y-6">
++            <div>
++                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">ID Контейнера</label>
++                <div class="relative">
++                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
++                        <i class="fas fa-trash-alt text-gray-400"></i>
+                     </div>
++                    <input type="text" id="containerId" required readonly class="w-full pl-10 pr-4 py-3 bg-gray-100 dark:bg-gray-700 border-0 rounded-xl font-mono text-lg text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-green-500 outline-none">
+                 </div>
+             </div>
+ 
++            <div>
++                <div class="flex justify-between items-end mb-2">
++                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Уровень заполнения</label>
++                    <span id="fillText" class="text-2xl font-bold text-yellow-500">50%</span>
++                </div>
++                <input type="range" id="fillPercent" min="0" max="100" step="10" value="50" class="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-600">
++                <div class="flex justify-between text-xs text-gray-400 mt-2">
++                    <span>Пустой</span>
++                    <span>Половина</span>
++                    <span>Полный</span>
++                </div>
+             </div>
+ 
++            <div>
++                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Вы здесь как:</label>
++                <div class="grid grid-cols-2 gap-3">
++                    <label class="cursor-pointer">
++                        <input type="radio" name="role" value="resident" checked class="peer sr-only">
++                        <div class="text-center py-2 rounded-xl border-2 border-gray-200 dark:border-gray-600 peer-checked:border-green-500 peer-checked:bg-green-50 dark:peer-checked:bg-green-900/30 peer-checked:text-green-700 dark:peer-checked:text-green-400 transition-all">
++                            <i class="fas fa-user mb-1 block"></i> Житель
++                        </div>
++                    </label>
++                    <label class="cursor-pointer">
++                        <input type="radio" name="role" value="contractor" class="peer sr-only">
++                        <div class="text-center py-2 rounded-xl border-2 border-gray-200 dark:border-gray-600 peer-checked:border-green-500 peer-checked:bg-green-50 dark:peer-checked:bg-green-900/30 peer-checked:text-green-700 dark:peer-checked:text-green-400 transition-all">
++                            <i class="fas fa-hard-hat mb-1 block"></i> Сотрудник
++                        </div>
++                    </label>
++                </div>
+             </div>
+ 
++            <input type="hidden" id="deviceId">
++            <input type="hidden" id="userLat">
++            <input type="hidden" id="userLon">
++
++            <button type="submit" id="submitBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2">
++                <i class="fas fa-paper-plane"></i> Отправить отчет
++            </button>
+         </form>
+ 
++        <div id="message" class="hidden mx-6 mb-6 p-4 rounded-xl text-center font-medium"></div>
      </div>
  
-+    <div class="flex-1 overflow-y-auto overscroll-none px-4 pb-4" id="truckScroll" x-show="expanded || window.innerWidth >= 768" x-transition.opacity>
-         <!-- Container Count Card -->
-         <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 mb-4 border border-gray-100 dark:border-gray-600">
-             <div class="flex items-center justify-between">
+     <script src="js/qr_scan.js"></script>
+ </body>
++</html>
 
 ```

@@ -40,14 +40,12 @@ document.getElementById('reportForm').addEventListener('submit', async function(
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
 
-    // Получаем выбранную роль из radio кнопок
-    const roleRadio = document.querySelector('input[name="role"]:checked');
-
+    // Собираем данные формы
     const formData = {
         container_id: document.getElementById('containerId').value,
         fill_percent: parseInt(fillPercent.value),
         device_id: document.getElementById('deviceId').value,
-        role: roleRadio ? roleRadio.value : 'resident'
+        role: 'resident' // Жестко задаем роль для всех сканирований
     };
 
     // Если удалось получить гео, можно будет добавить в запрос в будущем
