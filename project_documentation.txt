@@ -417,24 +417,85 @@ async def serve_role_select_page(request: Request):
 ```
 # app/api/routers/logistics.py
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+from typing import List
 from app.api.dependencies import get_db_repo, get_routing_provider
 
 router = APIRouter(prefix="/api/logistics", tags=["logistics"])
 
 
-@router.get("/route")
-async def get_optimal_route(db_repo = Depends(get_db_repo), routing_provider = Depends(get_routing_provider)):
+class RouteRequest(BaseModel):
+    container_ids: List[str]
+    threshold: int
+
+
+def deduplicate_coords(coords_list: List[str], radius_meters: float = 15.0) -> List[str]:
+    """Deduplicate coordinates within a given radius (in meters)"""
+    if not coords_list:
+        return []
+    
+    unique_coords = []
+    
+    for coord in coords_list:
+        try:
+            lat, lon = map(float, coord.split(','))
+        except (ValueError, IndexError):
+            continue
+        
+        # Check if this coordinate is close to any existing unique coordinate
+        is_duplicate = False
+        for unique_coord in unique_coords:
+            try:
+                u_lat, u_lon = map(float, unique_coord.split(','))
+            except (ValueError, IndexError):
+                continue
+            
+            # Calculate distance using Haversine formula
+            from math import radians, cos, sin, asin, sqrt
+            R = 6371000  # Earth radius in meters
+            dLat = radians(lat - u_lat)
+            dLon = radians(lon - u_lon)
+            a = sin(dLat/2)**2 + cos(radians(u_lat)) * cos(radians(lat)) * sin(dLon/2)**2
+            c = 2 * asin(sqrt(a))
+            distance = R * c
+            
+            if distance <= radius_meters:
+                is_duplicate = True
+                break
+        
+        if not is_duplicate:
+            unique_coords.append(coord)
+    
+    return unique_coords
+
+
+@router.post("/route")
+async def get_optimal_route(
+    request: RouteRequest,
+    db_repo = Depends(get_db_repo),
+    routing_provider = Depends(get_routing_provider)
+):
     """Get optimized route for waste collection"""
     containers = await db_repo.get_all()
-    # Берем координаты только переполненных контейнеров
-    to_collect = [c.coords for c in containers if c.sensor_data and c.sensor_data.fill_percent >= 70]
+    
+    # Filter containers by IDs and threshold
+    to_collect = [
+        c.coords for c in containers
+        if c.id in request.container_ids and c.sensor_data and c.sensor_data.fill_percent >= request.threshold
+    ]
     
     if not to_collect:
-        return {"message": "Нет контейнеров для вывоза (все < 70%)"}
+        return {"message": "Нет контейнеров для вывоза"}
     
-    # Строим маршрут
+    # Deduplicate coordinates within 15 meters
+    unique_coords = deduplicate_coords(to_collect, radius_meters=15.0)
+    
+    if not unique_coords:
+        return {"message": "Нет уникальных точек для маршрута"}
+    
+    # Build route asynchronously
     DEPOT_COORDS = "55.753, 48.743"
-    route = routing_provider.build_route(origin=DEPOT_COORDS, waypoints=to_collect)
+    route = await routing_provider.build_route(origin=DEPOT_COORDS, waypoints=unique_coords)
     return {"route": route}
 
 ```
@@ -970,7 +1031,7 @@ class ContainerRepository(ABC):
 # Интерфейс для построителя маршрутов (можно будет подключать разные)
 class RoutingProvider(ABC):
     @abstractmethod
-    def build_route(self, origin: str, waypoints: List[str]) -> RoutePath: pass
+    async def build_route(self, origin: str, waypoints: List[str]) -> RoutePath: pass
 
 
 # Интерфейс для уведомлений
@@ -1635,6 +1696,7 @@ class UniversalNotificationDispatcher(NotificationService):
 import httpx
 import logging
 from typing import List
+from fastapi import HTTPException
 from app.core.interfaces import RoutingProvider
 from app.domain.models import RoutePath
 
@@ -1646,7 +1708,7 @@ class OSRMRoutingProvider(RoutingProvider):
         # Используем публичный бесплатный сервер OSRM (для хакатона - идеально)
         self.base_url = "http://router.project-osrm.org/trip/v1/driving"
 
-    def build_route(self, origin: str, waypoints: List[str]) -> RoutePath:
+    async def build_route(self, origin: str, waypoints: List[str]) -> RoutePath:
         """
         origin: "Широта,Долгота"
         waypoints: ["Широта,Долгота", ...]
@@ -1666,10 +1728,18 @@ class OSRMRoutingProvider(RoutingProvider):
 
         logger.info(f"[OSRM] Отправляю запрос на оптимизацию {len(all_points)} точек...")
 
-        response = httpx.get(url)
-        if response.status_code != 200:
-            logger.error(f"[OSRM ERROR] {response.text}")
-            raise Exception("Ошибка построения маршрута")
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            try:
+                response = await client.get(url)
+                if response.status_code != 200:
+                    logger.error(f"[OSRM ERROR] {response.text}")
+                    raise HTTPException(status_code=503, detail="Сервер маршрутизации недоступен")
+            except httpx.ReadTimeout:
+                logger.error("[OSRM ERROR] Таймаут ожидания ответа от сервера OSRM")
+                raise HTTPException(status_code=504, detail="Таймаут построения маршрута")
+            except Exception as e:
+                logger.error(f"[OSRM ERROR] Ошибка: {e}")
+                raise HTTPException(status_code=500, detail="Ошибка при построении маршрута")
 
         data = response.json()
 
@@ -1703,7 +1773,7 @@ logger = logging.getLogger(__name__)
 
 
 class YandexRoutingProvider(RoutingProvider):
-    def build_route(self, origin, waypoints):
+    async def build_route(self, origin, waypoints):
         # Здесь будет реальный HTTP запрос к API Яндекс.Маршрутизации
         logger.info(f"[Yandex API] Строю маршрут от {origin} через {len(waypoints)} точек...")
         return {"path": [origin] + waypoints, "distance_km": 15.5}
@@ -1711,7 +1781,7 @@ class YandexRoutingProvider(RoutingProvider):
 
 # Если у Яндекса упали сервера, мы можем быстро поднять Dummy:
 class DummyRoutingProvider(RoutingProvider):
-    def build_route(self, origin, waypoints):
+    async def build_route(self, origin, waypoints):
         logger.info("[Dummy API] Строю прямой маршрут по координатам...")
         return {"path": waypoints, "distance_km": 10.0}
 
@@ -3706,23 +3776,10 @@ document.getElementById('deviceId').value = localStorage.getItem('deviceId');
 
 ### frontend/js/resident.js
 ```
-let map;
-let userLocation = null;
-let userPlacemark = null;
-let routeLine = null;
 let containers = [];
 
-function initMap() {
-    ymaps.ready(function() {
-        map = new ymaps.Map("map", {
-            center: [55.753, 48.743],
-            zoom: 13,
-            controls: ['zoomControl', 'typeSelector', 'fullscreenControl']
-        });
-
-        loadContainers();
-    });
-}
+// Initialize map data when map is fully loaded
+window.addEventListener('map-loaded', loadContainers);
 
 async function loadContainers() {
     try {
@@ -3732,120 +3789,98 @@ async function loadContainers() {
         const data = await response.json();
         if (!data || !data.features) throw new Error('Invalid data format');
 
-        data.features.forEach(feature => {
-            const coords = feature.geometry.coordinates;
-            const props = feature.properties;
-            
-            if (!props.containers || props.containers.length === 0) return;
+        containers = [];
 
-            // Add all containers from this cluster to our list
-            props.containers.forEach(c => {
-                containers.push({
-                    id: c.id,
-                    lat: c.lat,
-                    lon: c.lon,
-                    fill: c.fill_percent,
-                    address: c.address
+        // Extract all containers from features
+        data.features.forEach(feature => {
+            const props = feature.properties;
+            if (props.containers && Array.isArray(props.containers)) {
+                props.containers.forEach(c => {
+                    containers.push(c);
                 });
+            }
+        });
+
+        // Add or update GeoJSON source
+        if (map.getSource('containers-source')) {
+            map.getSource('containers-source').setData(data);
+        } else {
+            map.addSource('containers-source', {
+                type: 'geojson',
+                data: data
             });
 
-            // Determine color based on average fill
-            const avgFill = props.is_cluster ? props.avg_fill_percent : props.containers[0].fill_percent;
-            let fillColor = '#28a745';
-            if (avgFill >= 70) fillColor = '#dc3545';
-            else if (avgFill >= 50) fillColor = '#ffc107';
-
-            let iconSvg, balloonHeader, balloonBody, hintContent;
-
-            // Unified design for all containers (single or cluster)
-            const containerCount = props.container_count;
-            const iconSize = 60; // Increased size
-            
-            // Beautiful cluster/container icon
-            iconSvg = `
-                <svg width="${iconSize}" height="${iconSize}" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-                            <feGaussianBlur in="SourceAlpha" stdDeviation="2.5"/>
-                            <feOffset dx="0" dy="3" result="offsetblur"/>
-                            <feComponentTransfer><feFuncA type="linear" slope="0.4"/></feComponentTransfer>
-                            <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
-                        </filter>
-                    </defs>
-                    <!-- Background circle -->
-                    <circle cx="30" cy="30" r="26" fill="${fillColor}" opacity="0.2"/>
-                    <circle cx="30" cy="30" r="24" fill="white" stroke="${fillColor}" stroke-width="3" filter="url(#shadow)"/>
-                    <!-- Trash bins group -->
-                    <g transform="translate(30, 30)">
-                        <!-- Left bin -->
-                        <rect x="-14" y="-7" width="9" height="12" rx="1" fill="${fillColor}" opacity="0.8"/>
-                        <rect x="-14" y="-9" width="9" height="2.5" rx="1" fill="${fillColor}"/>
-                        <line x1="-11" y1="-7" x2="-11" y2="3" stroke="white" stroke-width="1.2"/>
-                        <!-- Center bin -->
-                        <rect x="-4.5" y="-9" width="9" height="14" rx="1" fill="${fillColor}"/>
-                        <rect x="-4.5" y="-11" width="9" height="2.5" rx="1" fill="${fillColor}"/>
-                        <line x1="-2" y1="-9" x2="-2" y2="3" stroke="white" stroke-width="1.2"/>
-                        <line x1="2" y1="-9" x2="2" y2="3" stroke="white" stroke-width="1.2"/>
-                        <!-- Right bin -->
-                        <rect x="5" y="-7" width="9" height="12" rx="1" fill="${fillColor}" opacity="0.8"/>
-                        <rect x="5" y="-9" width="9" height="2.5" rx="1" fill="${fillColor}"/>
-                        <line x1="8" y1="-7" x2="8" y2="3" stroke="white" stroke-width="1.2"/>
-                    </g>
-                    <!-- Count badge -->
-                    <circle cx="46" cy="14" r="10" fill="#ff6b6b" stroke="white" stroke-width="2.5"/>
-                    <text x="46" y="19" text-anchor="middle" fill="white" font-size="11" font-weight="bold">${containerCount}</text>
-                </svg>
-            `;
-
-            const containersList = props.containers.map(c => `
-                <div style="padding: 8px; margin: 5px 0; background: #f8f9fa; border-radius: 5px; border-left: 3px solid ${c.fill_percent >= 70 ? '#dc3545' : c.fill_percent >= 50 ? '#ffc107' : '#28a745'};">
-                    <strong>🗑️ ${c.id}</strong><br>
-                    Заполнение: <strong>${c.fill_percent}%</strong>
-                </div>
-            `).join('');
-
-            // Progress bar for fill percentage
-            const fillPercentage = props.avg_fill_percent;
-            const progressBarColor = fillPercentage >= 70 ? '#dc3545' : fillPercentage >= 50 ? '#ffc107' : '#28a745';
-            
-            balloonHeader = `<b>📍 ${props.is_cluster ? 'Площадка' : 'Контейнер'} (${containerCount} ${containerCount === 1 ? 'контейнер' : 'контейнера'})</b>`;
-            balloonBody = `
-                <div style="padding: 10px; max-height: 400px; overflow-y: auto;">
-                    <p><strong>📍 Адрес:</strong> ${props.address}</p>
-                    <div style="margin: 15px 0;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                            <span style="font-weight: 600;">Заполненность:</span>
-                            <span style="font-weight: 700; color: ${progressBarColor};">${fillPercentage}%</span>
-                        </div>
-                        <div style="width: 100%; height: 24px; background: #e9ecef; border-radius: 12px; overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
-                            <div style="width: ${fillPercentage}%; height: 100%; background: linear-gradient(90deg, ${progressBarColor}, ${progressBarColor}dd); transition: width 0.3s ease; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px;">
-                                ${fillPercentage > 15 ? fillPercentage + '%' : ''}
-                            </div>
-                        </div>
-                    </div>
-                    <hr>
-                    <h6><strong>Контейнеры на площадке:</strong></h6>
-                    ${containersList}
-                </div>
-            `;
-            hintContent = `${props.is_cluster ? 'Площадка' : 'Контейнер'}: ${containerCount} ${containerCount === 1 ? 'контейнер' : 'контейнеров'}, ${fillPercentage}%`;
-            const placemark = new ymaps.Placemark(
-                [coords[1], coords[0]],
-                {
-                    balloonContentHeader: balloonHeader,
-                    balloonContentBody: balloonBody,
-                    hintContent: hintContent
-                },
-                {
-                    iconLayout: 'default#image',
-                    iconImageHref: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSvg),
-                    iconImageSize: [iconSize, iconSize],
-                    iconImageOffset: [-iconSize/2, -iconSize/2]
+            // Add clusters layer
+            map.addLayer({
+                id: 'clusters',
+                type: 'circle',
+                source: 'containers-source',
+                paint: {
+                    'circle-color': [
+                        'case',
+                        ['>=', ['get', 'avg_fill_percent'], 70],
+                        '#dc3545',
+                        ['>=', ['get', 'avg_fill_percent'], 50],
+                        '#ffc107',
+                        '#28a745'
+                    ],
+                    'circle-radius': [
+                        'case',
+                        ['>', ['get', 'container_count'], 1],
+                        20,
+                        15
+                    ],
+                    'circle-opacity': 0.8,
+                    'circle-stroke-width': 2,
+                    'circle-stroke-color': '#fff'
                 }
-            );
+            });
 
-            map.geoObjects.add(placemark);
-        });
+            // Add cluster count layer
+            map.addLayer({
+                id: 'cluster-count',
+                type: 'symbol',
+                source: 'containers-source',
+                layout: {
+                    'text-field': ['get', 'avg_fill_percent'],
+                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                    'text-size': 14,
+                    'text-offset': [0, 0]
+                },
+                paint: {
+                    'text-color': '#fff',
+                    'text-halo-color': 'rgba(0, 0, 0, 0.5)',
+                    'text-halo-width': 1
+                }
+            });
+
+            // Click handler for clusters layer
+            map.on('click', 'clusters', function(e) {
+                const properties = e.features[0].properties;
+                const featureData = {
+                    ...properties,
+                    containers: typeof properties.containers === 'string' ? JSON.parse(properties.containers) : properties.containers
+                };
+                
+                // Display container info
+                const address = featureData.address || 'Адрес не указан';
+                const fillPercent = featureData.avg_fill_percent || 0;
+                const containerCount = featureData.container_count || 0;
+                
+                const message = `📍 Адрес: ${address}\n🗑️ Контейнеров: ${containerCount}\n📊 Заполненность: ${fillPercent}%`;
+                alert(message);
+                console.log('Container selected:', featureData);
+            });
+
+            // Cursor change on hover
+            map.on('mouseenter', 'clusters', function() {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+
+            map.on('mouseleave', 'clusters', function() {
+                map.getCanvas().style.cursor = '';
+            });
+        }
 
         console.log(`Загружено ${containers.length} контейнеров`);
     } catch (error) {
@@ -3854,174 +3889,6 @@ async function loadContainers() {
     }
 }
 
-function setMyLocation() {
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            position => {
-                userLocation = [position.coords.latitude, position.coords.longitude];
-                
-                if (userPlacemark) {
-                    map.geoObjects.remove(userPlacemark);
-                }
-
-                const userIcon = `
-                    <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="20" cy="20" r="16" fill="#4facfe" stroke="#fff" stroke-width="3"/>
-                        <circle cx="20" cy="20" r="6" fill="#fff"/>
-                    </svg>
-                `;
-
-                userPlacemark = new ymaps.Placemark(
-                    userLocation,
-                    {
-                        balloonContent: '<b>📍 Вы здесь</b>',
-                        hintContent: 'Ваше местоположение'
-                    },
-                    {
-                        iconLayout: 'default#image',
-                        iconImageHref: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(userIcon),
-                        iconImageSize: [40, 40],
-                        iconImageOffset: [-20, -20]
-                    }
-                );
-
-                map.geoObjects.add(userPlacemark);
-                map.setCenter(userLocation, 15);
-            },
-            error => {
-                alert('Не удалось определить ваше местоположение. Кликните на карте, чтобы указать точку вручную.');
-                enableMapClick();
-            }
-        );
-    } else {
-        alert('Геолокация не поддерживается вашим браузером. Кликните на карте, чтобы указать точку.');
-        enableMapClick();
-    }
-}
-
-function enableMapClick() {
-    map.events.add('click', function(e) {
-        userLocation = e.get('coords');
-        
-        if (userPlacemark) {
-            map.geoObjects.remove(userPlacemark);
-        }
-
-        const userIcon = `
-            <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="20" cy="20" r="16" fill="#4facfe" stroke="#fff" stroke-width="3"/>
-                <circle cx="20" cy="20" r="6" fill="#fff"/>
-            </svg>
-        `;
-
-        userPlacemark = new ymaps.Placemark(
-            userLocation,
-            {
-                balloonContent: '<b>📍 Вы здесь</b>',
-                hintContent: 'Ваше местоположение'
-            },
-            {
-                iconLayout: 'default#image',
-                iconImageHref: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(userIcon),
-                iconImageSize: [40, 40],
-                iconImageOffset: [-20, -20]
-            }
-        );
-
-        map.geoObjects.add(userPlacemark);
-    });
-}
-
-function findNearestContainer() {
-    if (!userLocation) {
-        alert('Сначала укажите ваше местоположение');
-        return;
-    }
-
-    // Find containers with fill < 70% (available)
-    const availableContainers = containers.filter(c => c.fill < 70);
-    
-    if (availableContainers.length === 0) {
-        alert('К сожалению, все контейнеры переполнены');
-        return;
-    }
-
-    // Find nearest
-    let nearest = null;
-    let minDistance = Infinity;
-
-    availableContainers.forEach(container => {
-        const distance = getDistance(
-            userLocation[0], userLocation[1],
-            container.lat, container.lon
-        );
-        
-        if (distance < minDistance) {
-            minDistance = distance;
-            nearest = container;
-        }
-    });
-
-    if (nearest) {
-        buildRoute(userLocation, [nearest.lat, nearest.lon], nearest, minDistance);
-    }
-}
-
-function getDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371000; // Earth radius in meters
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-}
-
-function buildRoute(from, to, container, distance) {
-    ymaps.route([from, to], {
-        mapStateAutoApply: true,
-        routingMode: 'pedestrian'
-    }).then(route => {
-        if (routeLine) {
-            map.geoObjects.remove(routeLine);
-        }
-        
-        route.getPaths().options.set({
-            strokeColor: '#4facfe',
-            strokeWidth: 4,
-            opacity: 0.8
-        });
-
-        map.geoObjects.add(route);
-        routeLine = route;
-
-        const walkTime = Math.round(distance / 80); // ~80m/min walking speed
-        
-        document.getElementById('routeInfo').innerHTML = `
-            <h6><i class="fas fa-check-circle"></i> Маршрут построен</h6>
-            <p><strong>Контейнер:</strong> ${container.id}</p>
-            <p><strong>Адрес:</strong> ${container.address}</p>
-            <p><strong>Расстояние:</strong> ${Math.round(distance)} м</p>
-            <p><strong>Время пешком:</strong> ~${walkTime} мин</p>
-            <p><strong>Заполненность:</strong> ${container.fill}%</p>
-        `;
-        document.getElementById('routeInfo').classList.add('active');
-    }).catch(error => {
-        console.error('Ошибка построения маршрута:', error);
-        alert('Не удалось построить маршрут');
-    });
-}
-
-function clearRoute() {
-    if (routeLine) {
-        map.geoObjects.remove(routeLine);
-        routeLine = null;
-    }
-    document.getElementById('routeInfo').classList.remove('active');
-}
-
-initMap();
 
 ```
 
@@ -4038,22 +3905,11 @@ initMap();
     }
 })();
 
-let map;
-let routeLine = null;
 let containers = [];
 let fillThreshold = 50;
 
-function initMap() {
-    ymaps.ready(function() {
-        map = new ymaps.Map("map", {
-            center: [55.753, 48.743],
-            zoom: 13,
-            controls: ['zoomControl', 'typeSelector', 'fullscreenControl']
-        });
-
-        loadContainers();
-    });
-}
+// Initialize map data when map is fully loaded
+window.addEventListener('map-loaded', loadContainers);
 
 async function loadContainers() {
     try {
@@ -4064,119 +3920,70 @@ async function loadContainers() {
         if (!data || !data.features) throw new Error('Invalid data format');
 
         containers = [];
-        data.features.forEach(feature => {
-            const coords = feature.geometry.coordinates;
-            const props = feature.properties;
-            if (!props.containers || props.containers.length === 0) return;
 
-            // Add all containers from cluster to list
-            props.containers.forEach(c => {
-                containers.push({
-                    id: c.id,
-                    lat: c.lat,
-                    lon: c.lon,
-                    fill: c.fill_percent,
-                    address: c.address
+        // Extract all containers from features
+        data.features.forEach(feature => {
+            const props = feature.properties;
+            if (props.containers && Array.isArray(props.containers)) {
+                props.containers.forEach(c => {
+                    containers.push(c);
                 });
+            }
+        });
+
+        // Add or update GeoJSON source
+        if (map.getSource('containers-source')) {
+            map.getSource('containers-source').setData(data);
+        } else {
+            map.addSource('containers-source', {
+                type: 'geojson',
+                data: data
             });
 
-            // Determine color based on average fill
-            const avgFill = props.is_cluster ? props.avg_fill_percent : props.containers[0].fill_percent;
-            let fillColor = '#28a745';
-            if (avgFill >= 70) fillColor = '#dc3545';
-            else if (avgFill >= 50) fillColor = '#ffc107';
-
-            let iconSvg, balloonHeader, balloonBody, hintContent;
-
-            // Unified design for all containers (single or cluster)
-            const containerCount = props.container_count;
-            const iconSize = 60; // Increased size
-            
-            // Beautiful cluster/container icon
-            iconSvg = `
-                <svg width="${iconSize}" height="${iconSize}" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-                            <feGaussianBlur in="SourceAlpha" stdDeviation="2.5"/>
-                            <feOffset dx="0" dy="3" result="offsetblur"/>
-                            <feComponentTransfer><feFuncA type="linear" slope="0.4"/></feComponentTransfer>
-                            <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
-                        </filter>
-                    </defs>
-                    <!-- Background circle -->
-                    <circle cx="30" cy="30" r="26" fill="${fillColor}" opacity="0.2"/>
-                    <circle cx="30" cy="30" r="24" fill="white" stroke="${fillColor}" stroke-width="3" filter="url(#shadow)"/>
-                    <!-- Trash bins group -->
-                    <g transform="translate(30, 30)">
-                        <!-- Left bin -->
-                        <rect x="-14" y="-7" width="9" height="12" rx="1" fill="${fillColor}" opacity="0.8"/>
-                        <rect x="-14" y="-9" width="9" height="2.5" rx="1" fill="${fillColor}"/>
-                        <line x1="-11" y1="-7" x2="-11" y2="3" stroke="white" stroke-width="1.2"/>
-                        <!-- Center bin -->
-                        <rect x="-4.5" y="-9" width="9" height="14" rx="1" fill="${fillColor}"/>
-                        <rect x="-4.5" y="-11" width="9" height="2.5" rx="1" fill="${fillColor}"/>
-                        <line x1="-2" y1="-9" x2="-2" y2="3" stroke="white" stroke-width="1.2"/>
-                        <line x1="2" y1="-9" x2="2" y2="3" stroke="white" stroke-width="1.2"/>
-                        <!-- Right bin -->
-                        <rect x="5" y="-7" width="9" height="12" rx="1" fill="${fillColor}" opacity="0.8"/>
-                        <rect x="5" y="-9" width="9" height="2.5" rx="1" fill="${fillColor}"/>
-                        <line x1="8" y1="-7" x2="8" y2="3" stroke="white" stroke-width="1.2"/>
-                    </g>
-                    <!-- Count badge -->
-                    <circle cx="46" cy="14" r="10" fill="#ff6b6b" stroke="white" stroke-width="2.5"/>
-                    <text x="46" y="19" text-anchor="middle" fill="white" font-size="11" font-weight="bold">${containerCount}</text>
-                </svg>
-            `;
-
-            const containersList = props.containers.map(c => `
-                <div style="padding: 8px; margin: 5px 0; background: #f8f9fa; border-radius: 5px; border-left: 3px solid ${c.fill_percent >= 70 ? '#dc3545' : c.fill_percent >= 50 ? '#ffc107' : '#28a745'};">
-                    <strong>🗑️ ${c.id}</strong><br>
-                    Заполнение: <strong>${c.fill_percent}%</strong>
-                </div>
-            `).join('');
-
-            // Progress bar for fill percentage
-            const fillPercentage = props.avg_fill_percent;
-            const progressBarColor = fillPercentage >= 70 ? '#dc3545' : fillPercentage >= 50 ? '#ffc107' : '#28a745';
-            
-            balloonHeader = `<b>📍 ${props.is_cluster ? 'Площадка' : 'Контейнер'} (${containerCount} ${containerCount === 1 ? 'контейнер' : 'контейнера'})</b>`;
-            balloonBody = `
-                <div style="padding: 10px; max-height: 400px; overflow-y: auto;">
-                    <p><strong>📍 Адрес:</strong> ${props.address}</p>
-                    <div style="margin: 15px 0;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                            <span style="font-weight: 600;">Заполненность:</span>
-                            <span style="font-weight: 700; color: ${progressBarColor};">${fillPercentage}%</span>
-                        </div>
-                        <div style="width: 100%; height: 24px; background: #e9ecef; border-radius: 12px; overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
-                            <div style="width: ${fillPercentage}%; height: 100%; background: linear-gradient(90deg, ${progressBarColor}, ${progressBarColor}dd); transition: width 0.3s ease; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px;">
-                                ${fillPercentage > 15 ? fillPercentage + '%' : ''}
-                            </div>
-                        </div>
-                    </div>
-                    <hr>
-                    <h6><strong>Контейнеры на площадке:</strong></h6>
-                    ${containersList}
-                </div>
-            `;
-            hintContent = `${props.is_cluster ? 'Площадка' : 'Контейнер'}: ${containerCount} ${containerCount === 1 ? 'контейнер' : 'контейнеров'}, ${fillPercentage}%`;
-            const placemark = new ymaps.Placemark(
-                [coords[1], coords[0]],
-                {
-                    balloonContentHeader: balloonHeader,
-                    balloonContentBody: balloonBody,
-                    hintContent: hintContent
-                },
-                {
-                    iconLayout: 'default#image',
-                    iconImageHref: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSvg),
-                    iconImageSize: [iconSize, iconSize],
-                    iconImageOffset: [-iconSize/2, -iconSize/2]
+            // Add clusters layer
+            map.addLayer({
+                id: 'clusters',
+                type: 'circle',
+                source: 'containers-source',
+                paint: {
+                    'circle-color': [
+                        'case',
+                        ['>=', ['get', 'avg_fill_percent'], 70],
+                        '#dc3545',
+                        ['>=', ['get', 'avg_fill_percent'], 50],
+                        '#ffc107',
+                        '#28a745'
+                    ],
+                    'circle-radius': [
+                        'case',
+                        ['>', ['get', 'container_count'], 1],
+                        20,
+                        15
+                    ],
+                    'circle-opacity': 0.8,
+                    'circle-stroke-width': 2,
+                    'circle-stroke-color': '#fff'
                 }
-            );
+            });
 
-            map.geoObjects.add(placemark);
-        });
+            // Add cluster count layer
+            map.addLayer({
+                id: 'cluster-count',
+                type: 'symbol',
+                source: 'containers-source',
+                layout: {
+                    'text-field': ['get', 'avg_fill_percent'],
+                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                    'text-size': 14,
+                    'text-offset': [0, 0]
+                },
+                paint: {
+                    'text-color': '#fff',
+                    'text-halo-color': 'rgba(0, 0, 0, 0.5)',
+                    'text-halo-width': 1
+                }
+            });
+        }
 
         updateContainerCount();
         console.log(`Загружено ${containers.length} контейнеров`);
@@ -4193,119 +4000,87 @@ function updateThreshold(value) {
 }
 
 function updateContainerCount() {
-    const needCollection = containers.filter(c => c.fill >= fillThreshold);
+    const needCollection = containers.filter(c => c.fill_percent >= fillThreshold);
     document.getElementById('containerCount').textContent = needCollection.length;
 }
 
 async function buildOptimalRoute() {
-    const needCollection = containers.filter(c => c.fill >= fillThreshold);
+    const needCollection = containers.filter(c => c.fill_percent >= fillThreshold);
     
     if (needCollection.length === 0) {
         alert('Нет контейнеров, требующих вывоза с текущим порогом');
         return;
     }
 
-    // Sort by fill percentage (highest first - priority)
-    needCollection.sort((a, b) => b.fill - a.fill);
-
-    // Build waypoints
-    const waypoints = needCollection.map(c => [c.lat, c.lon]);
-
     try {
-        // Use API to get optimal route
-        const response = await fetch('/api/logistics/route', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                container_ids: needCollection.map(c => c.id),
-                threshold: fillThreshold
-            })
-        });
+        // Use API to get optimal route (GET request)
+        const response = await fetch('/api/logistics/route');
 
         if (response.ok) {
-            const routeData = await response.json();
-            displayOptimizedRoute(routeData, needCollection);
+            const data = await response.json();
+            const routeData = data.route;
+            displayRoute(routeData, needCollection);
         } else {
-            // Fallback: simple route through all points
-            displaySimpleRoute(waypoints, needCollection);
+            alert('Не удалось построить маршрут');
         }
     } catch (error) {
-        console.error('API route error, using fallback:', error);
-        displaySimpleRoute(waypoints, needCollection);
+        console.error('API route error:', error);
+        alert('Ошибка при построении маршрута');
     }
 }
 
-function displaySimpleRoute(waypoints, containers) {
-    if (waypoints.length === 0) return;
+function displayRoute(routeData, containers) {
+    // Remove old route if exists
+    if (map.getLayer('route-layer')) {
+        map.removeLayer('route-layer');
+    }
+    if (map.getSource('route')) {
+        map.removeSource('route');
+    }
 
-    ymaps.route(waypoints, {
-        mapStateAutoApply: true,
-        routingMode: 'auto'
-    }).then(route => {
-        if (routeLine) {
-            map.geoObjects.remove(routeLine);
+    // Add new route source and layer
+    const routeGeoJSON = routeData.route_geojson;
+    
+    map.addSource('route', {
+        type: 'geojson',
+        data: routeGeoJSON
+    });
+
+    map.addLayer({
+        id: 'route-layer',
+        type: 'line',
+        source: 'route',
+        layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+        },
+        paint: {
+            'line-color': '#2563eb',
+            'line-width': 5,
+            'line-opacity': 0.8
         }
-        
-        route.getPaths().options.set({
-            strokeColor: '#43e97b',
-            strokeWidth: 5,
-            opacity: 0.8
-        });
-
-        map.geoObjects.add(route);
-        routeLine = route;
-
-        const distance = route.getLength() / 1000; // km
-        const duration = route.getTime() / 60; // minutes
-
-        displayRouteInfo(distance, duration, containers);
-    }).catch(error => {
-        console.error('Ошибка построения маршрута:', error);
-        alert('Не удалось построить маршрут. Попробуйте уменьшить количество точек.');
-    });
-}
-
-function displayOptimizedRoute(routeData, containers) {
-    // Display route from API response
-    const waypoints = routeData.optimized_waypoints_order.map(id => {
-        const container = containers.find(c => c.id === id);
-        return [container.lat, container.lon];
     });
 
-    displaySimpleRoute(waypoints, containers);
-}
+    // Display route info
+    const distance = routeData.distance_km;
+    const duration = routeData.duration_min;
 
-function displayRouteInfo(distance, duration, containers) {
-    document.getElementById('routeDistance').innerHTML = 
-        `<strong>Расстояние:</strong> ${distance.toFixed(2)} км`;
-    document.getElementById('routeDuration').innerHTML = 
-        `<strong>Время в пути:</strong> ~${Math.round(duration)} мин`;
-    document.getElementById('routeInfo').style.display = 'block';
-
-    let listHtml = '<h6 style="margin-top: 20px;"><i class="fas fa-list"></i> Контейнеры на маршруте:</h6>';
-    containers.forEach((c, index) => {
-        const className = c.fill >= 70 ? '' : 'medium';
-        listHtml += `
-            <div class="container-item ${className}">
-                <strong>${c.id}</strong><br>
-                ${c.address}<br>
-                Заполненность: ${c.fill}%
-            </div>
-        `;
-    });
-    document.getElementById('containerList').innerHTML = listHtml;
+    document.getElementById('routeDistance').textContent = `${distance.toFixed(2)} км`;
+    document.getElementById('routeDuration').textContent = `~${Math.round(duration)} мин`;
+    document.getElementById('routeInfo').classList.remove('hidden');
 }
 
 function clearRoute() {
-    if (routeLine) {
-        map.geoObjects.remove(routeLine);
-        routeLine = null;
+    // Remove route layer and source
+    if (map.getLayer('route-layer')) {
+        map.removeLayer('route-layer');
     }
-    document.getElementById('routeInfo').style.display = 'none';
-    document.getElementById('containerList').innerHTML = '';
+    if (map.getSource('route')) {
+        map.removeSource('route');
+    }
+    
+    document.getElementById('routeInfo').classList.add('hidden');
 }
-
-initMap();
 
 ```
 
@@ -4481,67 +4256,58 @@ initMap();
 
 ### frontend/resident.html
 ```
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Карта контейнеров - Житель</title>
-    
-    <!-- External Libraries -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/resident.css">
-    
-    <!-- Yandex Maps API -->
-    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=7d253372-5194-4f00-a292-ea1d7bc18844" type="text/javascript"></script>
-</head>
-<body>
-    <div class="top-bar">
-        <h4><i class="fas fa-user"></i> Режим жителя</h4>
-        <a href="/" class="btn-back"><i class="fas fa-arrow-left"></i> На главную</a>
-    </div>
+{% extends "base.html" %}
 
-    <div id="map"></div>
-    
-    <div class="controls">
-        <h5><i class="fas fa-map-marker-alt"></i> Найти контейнер</h5>
-        <div class="d-grid gap-2">
-            <button class="btn btn-custom btn-my-location" onclick="setMyLocation()">
-                <i class="fas fa-crosshairs"></i> Моя геолокация
-            </button>
-            <button class="btn btn-custom btn-find-nearest" onclick="findNearestContainer()">
-                <i class="fas fa-route"></i> Маршрут до ближайшего
-            </button>
-            <button class="btn btn-custom btn-secondary" onclick="clearRoute()">
-                <i class="fas fa-times"></i> Очистить маршрут
-            </button>
-        </div>
-        <div id="routeInfo" class="route-info"></div>
-    </div>
-    
-    <div class="legend">
-        <h6 class="mb-2"><i class="fas fa-info-circle"></i> Легенда</h6>
-        <div class="legend-item">
-            <div class="legend-color" style="background-color: #28a745;"></div>
-            <span>Свободно (&lt;50%)</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background-color: #ffc107;"></div>
-            <span>Заполнено (50-70%)</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background-color: #dc3545;"></div>
-            <span>Переполнено (&gt;70%)</span>
-        </div>
-    </div>
+{% block title %}Карта контейнеров{% endblock %}
 
-    <!-- Custom JS -->
-    <script src="js/resident.js"></script>
-</body>
-</html>
+{% block header_actions %}
+<a href="/" class="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-2">
+    <i class="fas fa-arrow-left"></i>
+    На главную
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="w-full md:w-[28rem]">
+    <!-- Welcome Card -->
+    <div class="bg-white/90 backdrop-blur rounded-lg shadow p-6 mb-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-2 flex items-center gap-2">
+            <i class="fas fa-map-marker-alt text-blue-600"></i>
+            Найдите ближайший контейнер
+        </h3>
+        <p class="text-gray-600 text-sm">Нажмите на контейнер на карте, чтобы увидеть информацию о заполненности и адресе.</p>
+    </div>
+    
+    <!-- Legend -->
+    <div class="bg-white/90 backdrop-blur rounded-lg shadow p-6">
+        <h4 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <i class="fas fa-info-circle text-blue-600"></i>
+            Легенда
+        </h4>
+        
+        <div class="space-y-3">
+            <div class="flex items-center gap-3">
+                <div class="w-6 h-6 rounded-full bg-green-500 shadow"></div>
+                <span class="text-gray-700">Свободно (&lt;50%)</span>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <div class="w-6 h-6 rounded-full bg-yellow-500 shadow"></div>
+                <span class="text-gray-700">Заполнено (50-70%)</span>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <div class="w-6 h-6 rounded-full bg-red-500 shadow"></div>
+                <span class="text-gray-700">Переполнено (&gt;70%)</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="js/resident.js?v=2"></script>
+{% endblock %}
 
 ```
 
@@ -4625,66 +4391,81 @@ initMap();
 
 ### frontend/truck.html
 ```
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Маршрут мусоровоза</title>
-    
-    <!-- External Libraries -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/truck.css">
-    
-    <!-- Yandex Maps API -->
-    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=7d253372-5194-4f00-a292-ea1d7bc18844" type="text/javascript"></script>
-</head>
-<body>
-    <div class="top-bar">
-        <h4><i class="fas fa-truck"></i> Режим мусоровоза</h4>
-        <a href="/" class="btn-back"><i class="fas fa-arrow-left"></i> На главную</a>
+{% extends "base.html" %}
+
+{% block title %}Панель Водителя{% endblock %}
+
+{% block header_actions %}
+<button onclick="localStorage.clear(); window.location.href='/'" class="text-red-600 hover:text-red-800 font-medium flex items-center gap-2">
+    <i class="fas fa-sign-out-alt"></i>
+    Выйти
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="w-full md:w-[32rem]">
+    <!-- Container Count Card -->
+    <div class="bg-white/90 backdrop-blur rounded-lg shadow p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-600">Контейнеров требуют вывоза</p>
+                <h3 id="containerCount" class="text-4xl font-bold text-orange-600">0</h3>
+            </div>
+            <i class="fas fa-truck text-5xl text-orange-500 opacity-20"></i>
+        </div>
     </div>
-
-    <div id="map"></div>
     
-    <div class="controls">
-        <div class="stats-box">
-            <h3 id="containerCount">0</h3>
-            <p>Контейнеров требуют вывоза</p>
-        </div>
-
-        <h5><i class="fas fa-route"></i> Построение маршрута</h5>
+    <!-- Route Building Section -->
+    <div class="bg-white/90 backdrop-blur rounded-lg shadow p-6 mb-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <i class="fas fa-route text-blue-600"></i>
+            Построение маршрута
+        </h3>
         
-        <div class="threshold-selector">
-            <label for="fillThreshold">Порог заполненности: <span id="thresholdValue">50</span>%</label>
-            <input type="range" class="form-range" id="fillThreshold" min="30" max="90" value="50" oninput="updateThreshold(this.value)">
-        </div>
-
-        <div class="d-grid gap-2">
-            <button class="btn btn-custom btn-build-route" onclick="buildOptimalRoute()">
-                <i class="fas fa-map-marked-alt"></i> Построить оптимальный маршрут
-            </button>
-            <button class="btn btn-custom btn-secondary" onclick="clearRoute()">
-                <i class="fas fa-times"></i> Очистить маршрут
-            </button>
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+                Порог заполненности: <span id="thresholdValue" class="font-bold text-blue-600">50</span>%
+            </label>
+            <input type="range" id="fillThreshold" min="30" max="90" value="50" 
+                   class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" 
+                   oninput="updateThreshold(this.value)">
         </div>
         
-        <div id="routeInfo" class="route-info" style="display: none;">
-            <h6><i class="fas fa-info-circle"></i> Информация о маршруте</h6>
-            <p id="routeDistance"></p>
-            <p id="routeDuration"></p>
+        <div class="flex gap-3">
+            <button onclick="buildOptimalRoute()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
+                <i class="fas fa-map-marked-alt"></i>
+                Построить маршрут
+            </button>
+            <button onclick="clearRoute()" class="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
+                <i class="fas fa-times"></i>
+                Очистить
+            </button>
         </div>
-
-        <div id="containerList" class="container-list"></div>
     </div>
+    
+    <!-- Route Info -->
+    <div id="routeInfo" class="hidden bg-white/90 backdrop-blur rounded-lg shadow p-6 mb-6">
+        <h4 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+            <i class="fas fa-info-circle text-green-600"></i>
+            Информация о маршруте
+        </h4>
+        <div class="space-y-2">
+            <p class="text-gray-700">
+                <span class="font-semibold">Дистанция:</span>
+                <span id="routeDistance" class="text-blue-600 font-bold">-</span>
+            </p>
+            <p class="text-gray-700">
+                <span class="font-semibold">Время в пути:</span>
+                <span id="routeDuration" class="text-blue-600 font-bold">-</span>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
 
-    <!-- Custom JS -->
-    <script src="js/truck.js"></script>
-</body>
-</html>
+{% block scripts %}
+<script src="js/truck.js?v=2"></script>
+{% endblock %}
 
 ```
 

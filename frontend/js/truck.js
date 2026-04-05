@@ -117,15 +117,32 @@ async function buildOptimalRoute() {
     }
 
     try {
-        // Use API to get optimal route (GET request)
-        const response = await fetch('/api/logistics/route');
+        // Use API to get optimal route (POST request)
+        const response = await fetch('/api/logistics/route', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+            },
+            body: JSON.stringify({
+                container_ids: needCollection.map(c => c.id),
+                threshold: fillThreshold
+            })
+        });
 
         if (response.ok) {
             const data = await response.json();
+            // Если бэкенд вернул сообщение (например, нет уникальных точек)
+            if (data.message) {
+                alert(data.message);
+                return;
+            }
             const routeData = data.route;
             displayRoute(routeData, needCollection);
         } else {
-            alert('Не удалось построить маршрут');
+            const errText = await response.text();
+            console.error('Route build failed:', errText);
+            alert('Не удалось построить маршрут. Подробности в консоли.');
         }
     } catch (error) {
         console.error('API route error:', error);
