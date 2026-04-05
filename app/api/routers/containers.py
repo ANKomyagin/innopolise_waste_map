@@ -1,8 +1,9 @@
 # app/api/routers/containers.py
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from datetime import datetime
+from urllib.parse import unquote
 from app.api.dependencies import get_db_repo
 from app.core.auth import verify_admin, verify_contractor
 
@@ -16,8 +17,15 @@ class NewContainer(BaseModel):
 
 
 class EditContainer(BaseModel):
-    address: str
-    coords: str
+    new_id: Optional[str] = None
+    address: Optional[str] = None
+    coords: Optional[str] = None
+    fill_percent: Optional[int] = None
+
+
+class UpdateLocationRequest(BaseModel):
+    new_address: str
+    new_coords: str
 
 
 class ContainerResponse(BaseModel):
@@ -69,9 +77,15 @@ async def edit_container(
     current_user: dict = Depends(verify_admin)
 ):
     """Edit container information (admin only)"""
-    success = await db_repo.edit_container(container_id, data.address, data.coords)
+    success = await db_repo.edit_container(
+        old_id=container_id,
+        new_id=data.new_id,
+        new_address=data.address,
+        new_coords=data.coords,
+        fill_percent=data.fill_percent
+    )
     if not success:
-        raise HTTPException(status_code=404, detail="Container not found")
+        raise HTTPException(status_code=404, detail="Container not found or new ID already exists")
     return {"status": "ok"}
 
 
@@ -109,3 +123,18 @@ async def empty_containers(
         }
         await db_repo.update_sensor_data(cid, sensor_dict)
     return {"status": "ok", "emptied": len(request.container_ids)}
+
+
+@router.put("/location/{encoded_address}")
+async def update_location(
+    encoded_address: str,
+    data: UpdateLocationRequest,
+    db_repo = Depends(get_db_repo),
+    current_user: dict = Depends(verify_admin)
+):
+    """Update address and coordinates for all containers at a location (admin only)"""
+    old_address = unquote(encoded_address)
+    updated_count = await db_repo.update_location_coords(old_address, data.new_address, data.new_coords)
+    if updated_count == 0:
+        raise HTTPException(status_code=404, detail="No containers found at this location")
+    return {"status": "ok", "updated": updated_count}

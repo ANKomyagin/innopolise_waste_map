@@ -1,6 +1,7 @@
 # app/api/routers/analytics.py
 from fastapi import APIRouter, Depends
 from app.api.dependencies import get_db_repo
+from app.core.auth import verify_admin
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -34,4 +35,19 @@ async def get_dashboard(db_repo = Depends(get_db_repo)):
         "least_used": top_3_empty,
         "hardware_alerts_count": len(alerts),
         "problematic_containers": alerts
+    }
+
+
+@router.get("/scans")
+async def get_scans_analytics(
+    db_repo = Depends(get_db_repo),
+    current_user: dict = Depends(verify_admin)
+):
+    """Get scan analytics: recent scans and statistics (admin only)"""
+    recent_scans = await db_repo.get_recent_scans(limit=10)
+    stats = await db_repo.get_scans_stats()
+    
+    return {
+        "recent_scans": recent_scans,
+        "stats": stats
     }

@@ -10,11 +10,17 @@
 })();
 
 let containers = [];
+let locations = {}; // Group containers by address
 let isEditMode = false;
 let editingId = null;
+let currentEditingLocation = null;
 
 // Initialize map data when map is fully loaded
-window.addEventListener('map-loaded', loadContainers);
+window.addEventListener('map-loaded', function() {
+    loadContainers();
+    loadDashboardStats();
+    loadRecentScans();
+});
 
 async function loadContainers() {
     try {
@@ -108,7 +114,7 @@ async function loadContainers() {
         });
 
         updateStatistics();
-        updateTable();
+        updateLocationsView();
     } catch (error) {
         console.error('Ошибка загрузки данных:', error);
     }
@@ -126,30 +132,124 @@ function updateStatistics() {
     document.getElementById('avgFill').textContent = avgFill + '%';
 }
 
-function updateTable() {
-    const tbody = document.getElementById('containerTableBody');
-    if (containers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-gray-500">Нет данных</td></tr>';
+function updateLocationsView() {
+    locations = {};
+    containers.forEach(c => {
+        if (!locations[c.address]) {
+            locations[c.address] = [];
+        }
+        locations[c.address].push(c);
+    });
+
+    const container = document.getElementById('locationsContainer');
+    if (Object.keys(locations).length === 0) {
+        container.innerHTML = '<div class="text-center text-gray-500 dark:text-gray-400 py-6">Нет площадок</div>';
         return;
     }
 
-    tbody.innerHTML = containers.map(c => {
-        let fillColor = '#28a745';
-        if (c.fill_percent >= 70) fillColor = '#dc3545';
-        else if (c.fill_percent >= 50) fillColor = '#ffc107';
+    container.innerHTML = Object.entries(locations).map(([address, locs]) => {
+        const avgFill = Math.round(locs.reduce((sum, c) => sum + c.fill_percent, 0) / locs.length);
+        let fillColor = 'text-green-600';
+        if (avgFill >= 70) fillColor = 'text-red-600';
+        else if (avgFill >= 50) fillColor = 'text-yellow-600';
 
         return `
-            <tr class="border-b hover:bg-gray-50">
-                <td class="px-4 py-3 font-semibold text-gray-800">${c.id}</td>
-                <td class="px-4 py-3 text-gray-700">${c.address}</td>
-                <td class="px-4 py-3">
-                    <span class="inline-block px-3 py-1 rounded-full text-white text-sm font-medium" style="background-color: ${fillColor}">
-                        ${c.fill_percent}%
-                    </span>
-                </td>
-            </tr>
+            <div class="bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600 rounded-lg p-4">
+                <div class="flex justify-between items-start mb-3">
+                    <div class="flex-1">
+                        <h3 class="font-bold text-gray-800 dark:text-white">${address}</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Контейнеров: ${locs.length}</p>
+                    </div>
+                    <span class="text-lg font-bold ${fillColor}">${avgFill}%</span>
+                </div>
+                
+                <div class="flex gap-2 mb-3">
+                    <button onclick="openEditLocationModal('${address.replace(/'/g, "\\'")}', '${locs[0].coords}')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
+                        <i class="fas fa-edit"></i> Редактировать площадку
+                    </button>
+                    <button onclick="openAddContainerToLocationModal('${address.replace(/'/g, "\\'")}', '${locs[0].coords}')" class="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
+                        <i class="fas fa-plus"></i> Добавить бак
+                    </button>
+                </div>
+                
+                <div class="space-y-2">
+                    ${locs.map(c => {
+                        let cFillColor = 'bg-green-100 text-green-800';
+                        if (c.fill_percent >= 70) cFillColor = 'bg-red-100 text-red-800';
+                        else if (c.fill_percent >= 50) cFillColor = 'bg-yellow-100 text-yellow-800';
+                        
+                        return `
+                            <div class="bg-white dark:bg-gray-800 p-3 rounded-lg flex justify-between items-center">
+                                <div>
+                                    <p class="font-semibold text-gray-800 dark:text-white">${c.id}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">${c.coords}</p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-1 rounded text-sm font-medium ${cFillColor}">${c.fill_percent}%</span>
+                                    <button onclick="openQRModal('${c.id}')" class="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors" title="QR-код">
+                                        <i class="fas fa-qrcode"></i>
+                                    </button>
+                                    <button onclick="openEditContainerModal('${c.id}', ${c.fill_percent})" class="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded transition-colors" title="Редактировать">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button onclick="deleteContainer('${c.id}')" class="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors" title="Удалить">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
         `;
     }).join('');
+}
+
+async function loadDashboardStats() {
+    try {
+        const response = await fetch('/api/analytics/dashboard');
+        if (!response.ok) return;
+        const data = await response.json();
+        
+        document.getElementById('totalContainers').textContent = data.total_containers || 0;
+        document.getElementById('needsCollection').textContent = data.needs_collection_now || 0;
+        document.getElementById('availableContainers').textContent = data.total_containers - (data.needs_collection_now || 0);
+    } catch (error) {
+        console.error('Error loading dashboard stats:', error);
+    }
+}
+
+async function loadRecentScans() {
+    try {
+        const response = await fetch('/api/analytics/scans', {
+            headers: getAuthHeaders()
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        
+        document.getElementById('totalScans').textContent = data.stats.total_scans || 0;
+        document.getElementById('scansLast24h').textContent = data.stats.scans_last_24h || 0;
+        
+        const tbody = document.getElementById('recentScansBody');
+        if (!data.recent_scans || data.recent_scans.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-gray-500">Нет сканирований</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = data.recent_scans.map(scan => {
+            const date = new Date(scan.scanned_at);
+            const timeStr = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            return `
+                <tr class="border-b hover:bg-gray-50 dark:hover:bg-gray-600">
+                    <td class="px-4 py-3 font-semibold text-gray-800 dark:text-white">${scan.container_id}</td>
+                    <td class="px-4 py-3 text-gray-700 dark:text-gray-300">${scan.fill_percent}%</td>
+                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-sm">${timeStr}</td>
+                </tr>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('Error loading recent scans:', error);
+    }
 }
 
 function getAuthHeaders() {
@@ -160,10 +260,32 @@ function getAuthHeaders() {
     };
 }
 
-function showQR(containerId) {
+function openQRModal(containerId) {
     const qrUrl = `/api/sensors/${containerId}/qr`;
-    alert(`QR-код: ${containerId}\n${window.location.origin}/qr-scan?id=${containerId}`);
-    // In a real app, you'd open a modal with the QR image
+    document.getElementById('qrImage').src = qrUrl;
+    document.getElementById('qrModal').style.display = 'flex';
+}
+
+function openEditContainerModal(containerId, currentFill) {
+    editingId = containerId;
+    document.getElementById('editContainerId').value = '';
+    document.getElementById('editContainerFill').value = currentFill;
+    document.getElementById('editContainerModal').style.display = 'flex';
+}
+
+function openEditLocationModal(address, coords) {
+    currentEditingLocation = address;
+    document.getElementById('editLocationAddress').value = address;
+    document.getElementById('editLocationCoords').value = coords;
+    document.getElementById('editLocationModal').style.display = 'flex';
+}
+
+function openAddContainerToLocationModal(address, coords) {
+    document.getElementById('containerId').value = 'BIN-' + Math.floor(Math.random() * 10000);
+    document.getElementById('containerAddress').value = address;
+    document.getElementById('containerCoords').value = coords;
+    isEditMode = false;
+    document.getElementById('addContainerModal').style.display = 'flex';
 }
 
 async function saveContainer(event) {
@@ -178,21 +300,102 @@ async function saveContainer(event) {
         return;
     }
 
-    const url = isEditMode ? `/api/containers/${editingId}` : '/api/containers/';
-    const method = isEditMode ? 'PUT' : 'POST';
-    const body = isEditMode ? {address, coords} : {id, address, coords};
+    try {
+        const response = await fetch('/api/containers/', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({id, address, coords})
+        });
+
+        if (response.ok) {
+            alert('Контейнер добавлен');
+            document.getElementById('addContainerModal').style.display = 'none';
+            document.getElementById('containerForm').reset();
+            loadContainers();
+        } else if (response.status === 401) {
+            alert('Сессия истекла. Войдите заново.');
+            localStorage.clear();
+            window.location.href = '/';
+        } else {
+            const err = await response.json().catch(() => null);
+            alert('Ошибка сохранения: ' + (err?.detail || response.statusText));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Ошибка сохранения');
+    }
+}
+
+async function saveEditContainer(event) {
+    if (event) event.preventDefault();
+    
+    const newId = document.getElementById('editContainerId').value;
+    const fillPercent = parseInt(document.getElementById('editContainerFill').value);
+
+    if (!editingId) {
+        alert('Ошибка: ID контейнера не найден');
+        return;
+    }
+
+    const body = {};
+    if (newId) body.new_id = newId;
+    if (!isNaN(fillPercent)) body.fill_percent = fillPercent;
+
+    if (Object.keys(body).length === 0) {
+        alert('Укажите хотя бы одно поле для изменения');
+        return;
+    }
 
     try {
-        const response = await fetch(url, {
-            method: method,
+        const response = await fetch(`/api/containers/${editingId}`, {
+            method: 'PUT',
             headers: getAuthHeaders(),
             body: JSON.stringify(body)
         });
 
         if (response.ok) {
-            alert(isEditMode ? 'Контейнер обновлен' : 'Контейнер добавлен');
-            document.getElementById('addContainerModal').style.display = 'none';
-            document.getElementById('containerForm').reset();
+            alert('Контейнер обновлен');
+            document.getElementById('editContainerModal').style.display = 'none';
+            loadContainers();
+        } else if (response.status === 401) {
+            alert('Сессия истекла. Войдите заново.');
+            localStorage.clear();
+            window.location.href = '/';
+        } else {
+            const err = await response.json().catch(() => null);
+            alert('Ошибка сохранения: ' + (err?.detail || response.statusText));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Ошибка сохранения');
+    }
+}
+
+async function saveEditLocation(event) {
+    if (event) event.preventDefault();
+    
+    const newAddress = document.getElementById('editLocationAddress').value;
+    const newCoords = document.getElementById('editLocationCoords').value;
+
+    if (!currentEditingLocation || !newAddress || !newCoords) {
+        alert('Заполните все поля');
+        return;
+    }
+
+    try {
+        const encodedAddress = encodeURIComponent(currentEditingLocation);
+        const response = await fetch(`/api/containers/location/${encodedAddress}`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                new_address: newAddress,
+                new_coords: newCoords
+            })
+        });
+
+        if (response.ok) {
+            alert('Площадка обновлена');
+            document.getElementById('editLocationModal').style.display = 'none';
             loadContainers();
         } else if (response.status === 401) {
             alert('Сессия истекла. Войдите заново.');
@@ -234,10 +437,20 @@ async function deleteContainer(id) {
     }
 }
 
-// Setup form submission
+// Setup form submissions
 document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('containerForm');
-    if (form) {
-        form.addEventListener('submit', saveContainer);
+    const containerForm = document.getElementById('containerForm');
+    if (containerForm) {
+        containerForm.addEventListener('submit', saveContainer);
+    }
+    
+    const editContainerForm = document.getElementById('editContainerForm');
+    if (editContainerForm) {
+        editContainerForm.addEventListener('submit', saveEditContainer);
+    }
+    
+    const editLocationForm = document.getElementById('editLocationForm');
+    if (editLocationForm) {
+        editLocationForm.addEventListener('submit', saveEditLocation);
     }
 });

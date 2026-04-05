@@ -122,14 +122,80 @@ class PostgresContainerRepo(ContainerRepository):
                 "scanned_at": log.scanned_at.isoformat() if log.scanned_at else None
             } for log in logs]
 
-    async def edit_container(self, old_id: str, new_address: str, new_coords: str):
-        """Обновление адреса и координат контейнера"""
+    async def edit_container(self, old_id: str, new_id: str = None, new_address: str = None, new_coords: str = None, fill_percent: int = None):
+        """Обновление ID, адреса, координат и fill_percent контейнера"""
         async with SessionLocal() as db:
             result = await db.execute(select(DBContainer).filter(DBContainer.id == old_id))
             container = result.scalar_one_or_none()
             if container:
-                container.address = new_address
-                container.coords = new_coords
+                if new_id and new_id != old_id:
+                    # Проверяем что новый ID не занят
+                    existing = await db.execute(select(DBContainer).filter(DBContainer.id == new_id))
+                    if existing.scalar_one_or_none():
+                        return False
+                    container.id = new_id
+                
+                if new_address:
+                    container.address = new_address
+                if new_coords:
+                    container.coords = new_coords
+                if fill_percent is not None:
+                    sensor_data = container.sensor_data or {}
+                    sensor_data["fill_percent"] = fill_percent
+                    container.sensor_data = sensor_data
+                
                 await db.commit()
                 return True
             return False
+
+    async def update_location_coords(self, old_address: str, new_address: str, new_coords: str):
+        """Обновление адреса и координат ДЛЯ ВСЕХ контейнеров с старым адресом"""
+        async with SessionLocal() as db:
+            result = await db.execute(select(DBContainer).filter(DBContainer.address == old_address))
+            containers = result.scalars().all()
+            
+            if not containers:
+                return 0
+            
+            for container in containers:
+                container.address = new_address
+                container.coords = new_coords
+            
+            await db.commit()
+            return len(containers)
+
+    async def get_recent_scans(self, limit: int = 10):
+        """Получить последние сканирования"""
+        async with SessionLocal() as db:
+            result = await db.execute(
+                select(DBScanLog).order_by(desc(DBScanLog.scanned_at)).limit(limit)
+            )
+            logs = result.scalars().all()
+            return [{
+                "id": log.id,
+                "container_id": log.container_id,
+                "fill_percent": log.fill_percent,
+                "device_id": log.device_id,
+                "role": log.role,
+                "scanned_at": log.scanned_at.isoformat() if log.scanned_at else None
+            } for log in logs]
+
+    async def get_scans_stats(self):
+        """Получить статистику сканирований"""
+        async with SessionLocal() as db:
+            # Всего сканирований
+            total_result = await db.execute(select(DBScanLog))
+            total_scans = len(total_result.scalars().all())
+            
+            # Сканирования за последние 24 часа
+            from datetime import timedelta
+            last_24h = datetime.utcnow() - timedelta(hours=24)
+            recent_result = await db.execute(
+                select(DBScanLog).filter(DBScanLog.scanned_at >= last_24h)
+            )
+            recent_scans = len(recent_result.scalars().all())
+            
+            return {
+                "total_scans": total_scans,
+                "scans_last_24h": recent_scans
+            }
