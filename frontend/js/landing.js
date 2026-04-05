@@ -12,36 +12,31 @@ async function loadMapData() {
             data: geojsonData
         });
 
-        // Add circle layer with color-coded fill levels
+        // SVG pin icons layer
+        const sourceName = map.getSource('containers-source') ? 'containers-source' : 'containers';
+        
         map.addLayer({
             id: 'clusters',
-            type: 'circle',
-            source: 'containers-source',
-            paint: {
-                'circle-color': [
-                    'case',
-                    ['>=', ['get', 'avg_fill_percent'], 70], '#dc3545',
-                    ['>=', ['get', 'avg_fill_percent'], 50], '#ffc107',
-                    '#28a745'
-                ],
-                'circle-radius': 18,
-                'circle-stroke-width': 3,
-                'circle-stroke-color': '#ffffff'
-            }
-        });
-
-        // Add text layer showing fill percentage
-        map.addLayer({
-            id: 'cluster-count',
             type: 'symbol',
-            source: 'containers-source',
+            source: sourceName,
             layout: {
+                'icon-image': [
+                    'case',
+                    ['>=', ['get', 'avg_fill_percent'], 70], 'bin-red',
+                    ['>=', ['get', 'avg_fill_percent'], 50], 'bin-yellow',
+                    'bin-green'
+                ],
+                'icon-size': 1,
+                'icon-anchor': 'bottom',
                 'text-field': ['concat', ['get', 'avg_fill_percent'], '%'],
                 'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                'text-size': 12
+                'text-size': 11,
+                'text-offset': [0, -2.6]
             },
             paint: {
-                'text-color': '#ffffff'
+                'text-color': '#ffffff',
+                'text-halo-color': 'rgba(0,0,0,0.3)',
+                'text-halo-width': 1
             }
         });
 

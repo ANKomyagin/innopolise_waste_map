@@ -19,30 +19,32 @@ async function loadContainers() {
 
     map.addSource('containers', { type: 'geojson', data: data });
     
-    // Рисуем кружки
+    // SVG pin icons layer
+    const sourceName = map.getSource('containers') ? 'containers' : 'containers-source';
+    
     map.addLayer({
         id: 'clusters',
-        type: 'circle',
-        source: 'containers',
-        paint: {
-            'circle-color': ['case', ['>=', ['get', 'avg_fill_percent'], 70], '#dc3545', ['>=', ['get', 'avg_fill_percent'], 50], '#ffc107', '#28a745'],
-            'circle-radius': 14,
-            'circle-stroke-width': 2,
-            'circle-stroke-color': '#fff'
-        }
-    });
-
-    // Добавляем текст с процентами (как на лендинге)
-    map.addLayer({
-        id: 'cluster-count',
         type: 'symbol',
-        source: 'containers',
+        source: sourceName,
         layout: {
+            'icon-image': [
+                'case',
+                ['>=', ['get', 'avg_fill_percent'], 70], 'bin-red',
+                ['>=', ['get', 'avg_fill_percent'], 50], 'bin-yellow',
+                'bin-green'
+            ],
+            'icon-size': 1,
+            'icon-anchor': 'bottom',
             'text-field': ['concat', ['get', 'avg_fill_percent'], '%'],
             'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-            'text-size': 12
+            'text-size': 11,
+            'text-offset': [0, -2.6]
         },
-        paint: { 'text-color': '#ffffff' }
+        paint: {
+            'text-color': '#ffffff',
+            'text-halo-color': 'rgba(0,0,0,0.3)',
+            'text-halo-width': 1
+        }
     });
 
     // Обработка клика по контейнеру

@@ -88,47 +88,95 @@
             {% endblock %}
         </div>
         
-        <!-- Container Details Modal (shared across all pages) -->
-        <div x-data="{ selectedFeature: null }" 
+        <!-- Super Container Details Modal -->
+        <div x-data="{ selectedFeature: null, role: localStorage.getItem('role') || 'resident' }" 
              @container-selected.window="selectedFeature = $event.detail" 
              x-show="selectedFeature" 
              style="display: none;" 
-             class="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" 
-             @click="selectedFeature = null">
+             class="fixed inset-0 bg-black/60 z-[100] flex items-end md:items-center justify-center md:p-4" 
+             @click="selectedFeature = null"
+             x-transition.opacity>
             
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-md relative" @click.stop>
-                <!-- Header -->
-                <div class="flex items-center justify-between mb-6">
-                    <h3 class="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                        <i class="fas fa-map-marker-alt text-green-600"></i>
-                        Детали площадки
-                    </h3>
-                    <button @click="selectedFeature = null" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white text-2xl">&times;</button>
+            <div class="bg-white dark:bg-gray-800 w-full md:max-w-md rounded-t-2xl md:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" 
+                 @click.stop
+                 x-show="selectedFeature"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="transform translate-y-full md:scale-95"
+                 x-transition:enter-end="transform translate-y-0 md:scale-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="transform translate-y-0 md:scale-100"
+                 x-transition:leave-end="transform translate-y-full md:scale-95">
+                
+                <!-- "Cover" Image Header -->
+                <div class="h-32 bg-green-600 relative shrink-0">
+                    <!-- Pattern overlay -->
+                    <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(circle at 2px 2px, white 1px, transparent 0); background-size: 20px 20px;"></div>
+                    
+                    <button @click="selectedFeature = null" class="absolute top-4 right-4 bg-black/30 hover:bg-black/50 text-white rounded-full w-8 h-8 flex items-center justify-center backdrop-blur transition-colors z-10">&times;</button>
+                    
+                    <div class="absolute bottom-4 left-4 right-4 text-white">
+                        <span class="bg-black/40 backdrop-blur px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider mb-2 inline-block shadow-sm" x-text="selectedFeature?.is_cluster ? 'Мусорная площадка' : 'Одиночный контейнер'"></span>
+                        <h3 class="text-xl font-bold truncate drop-shadow-md" x-text="selectedFeature?.address"></h3>
+                    </div>
                 </div>
                 
-                <!-- Content -->
-                <div class="space-y-4">
-                    <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Адрес:</p>
-                        <p class="text-gray-800 dark:text-white font-medium" x-text="selectedFeature?.address"></p>
+                <!-- Content Body -->
+                <div class="p-5 overflow-y-auto overscroll-none flex-1">
+                    <!-- Overall Status -->
+                    <div class="mb-6">
+                        <div class="flex justify-between items-end mb-2">
+                            <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Общая заполненность</span>
+                            <span class="text-3xl font-bold leading-none" 
+                                  :class="selectedFeature?.avg_fill_percent >= 70 ? 'text-red-500' : (selectedFeature?.avg_fill_percent >= 50 ? 'text-yellow-500' : 'text-green-500')" 
+                                  x-text="selectedFeature?.avg_fill_percent + '%'"></span>
+                        </div>
+                        <div class="w-full h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden shadow-inner">
+                            <div class="h-full transition-all duration-700 ease-out rounded-full" 
+                                 :class="selectedFeature?.avg_fill_percent >= 70 ? 'bg-red-500' : (selectedFeature?.avg_fill_percent >= 50 ? 'bg-yellow-500' : 'bg-green-500')" 
+                                 :style="`width: ${selectedFeature?.avg_fill_percent}%`"></div>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-400 mt-2 font-medium" x-show="selectedFeature?.is_cluster">
+                            <span>Всего баков: <span x-text="selectedFeature?.container_count" class="text-gray-600 dark:text-gray-300"></span></span>
+                            <span>Вместимость: <span x-text="selectedFeature?.total_fill" class="text-gray-600 dark:text-gray-300"></span> / <span x-text="selectedFeature?.max_capacity"></span>%</span>
+                        </div>
                     </div>
                     
-                    <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                        <div>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Контейнеров:</p>
-                            <p class="text-xl font-bold text-gray-800 dark:text-white" x-text="selectedFeature?.container_count"></p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Средняя заполненность:</p>
-                            <p class="text-xl font-bold" 
-                               :class="selectedFeature?.avg_fill_percent >= 70 ? 'text-red-500' : (selectedFeature?.avg_fill_percent >= 50 ? 'text-yellow-500' : 'text-green-500')" 
-                               x-text="selectedFeature?.avg_fill_percent + '%'"></p>
-                        </div>
+                    <!-- Individual Containers -->
+                    <h4 class="text-xs font-bold text-gray-400 dark:text-gray-500 mb-3 uppercase tracking-widest" x-show="selectedFeature?.is_cluster">Состав площадки</h4>
+                    <div class="space-y-3">
+                        <template x-for="c in selectedFeature?.containers" :key="c.id">
+                            <div class="bg-gray-50 dark:bg-gray-700/30 p-3.5 rounded-xl border border-gray-100 dark:border-gray-600 shadow-sm">
+                                <div class="flex justify-between items-center mb-2.5">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs shadow-sm"
+                                             :class="c.fill_percent >= 70 ? 'bg-red-500' : (c.fill_percent >= 50 ? 'bg-yellow-500' : 'bg-green-500')">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </div>
+                                        <span class="font-bold text-gray-800 dark:text-gray-200 text-sm" x-text="c.id"></span>
+                                    </div>
+                                    <span class="font-bold text-lg" 
+                                          :class="c.fill_percent >= 70 ? 'text-red-500' : (c.fill_percent >= 50 ? 'text-yellow-500' : 'text-green-500')" 
+                                          x-text="c.fill_percent + '%'"></span>
+                                </div>
+                                
+                                <div class="w-full h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden mb-2">
+                                    <div class="h-full transition-all" 
+                                         :class="c.fill_percent >= 70 ? 'bg-red-500' : (c.fill_percent >= 50 ? 'bg-yellow-500' : 'bg-green-500')" 
+                                         :style="`width: ${c.fill_percent}%`"></div>
+                                </div>
+                                
+                                <!-- Admin/Truck Details (Hidden from Residents) -->
+                                <div class="flex flex-wrap gap-3 text-[11px] font-medium text-gray-500 dark:text-gray-400 mt-3 pt-2 border-t border-gray-200 dark:border-gray-600" x-show="role !== 'resident'">
+                                    <span class="flex items-center gap-1.5 bg-white dark:bg-gray-800 px-2 py-1 rounded-md" :class="c.battery !== 'норм.' ? 'text-red-500' : ''">
+                                        <i class="fas" :class="c.battery !== 'норм.' ? 'fa-battery-quarter' : 'fa-battery-full'"></i> <span x-text="c.battery"></span>
+                                    </span>
+                                    <span class="flex items-center gap-1.5 bg-white dark:bg-gray-800 px-2 py-1 rounded-md" :class="c.temperature !== 'норм.' ? 'text-orange-500' : ''">
+                                        <i class="fas fa-thermometer-half"></i> <span x-text="c.temperature"></span>
+                                    </span>
+                                </div>
+                            </div>
+                        </template>
                     </div>
-                    
-                    <button @click="selectedFeature = null" class="w-full mt-4 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-medium py-3 rounded-lg transition-colors">
-                        Закрыть
-                    </button>
                 </div>
             </div>
         </div>
@@ -141,6 +189,23 @@
     <script src="https://unpkg.com/maplibre-gl@4.0.0/dist/maplibre-gl.js"></script>
     
     <script>
+        async function loadMapIcons(map) {
+            const createIcon = (color) => {
+                const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="42" viewBox="0 0 36 42">
+                    <path d="M18 42 C 18 42, 36 28, 36 15 C 36 6.716, 27.941 0, 18 0 C 8.059 0, 0 6.716, 0 15 C 0 28, 18 42, 18 42 Z" fill="${color}" stroke="#ffffff" stroke-width="2"/>
+                    <path d="M12 12 L12 10 C12 8.895 12.895 8 14 8 L22 8 C23.105 8 24 8.895 24 10 L24 12 M9 12 L27 12 M13 15 L13 24 M18 15 L18 24 M23 15 L23 24 M11 12 L25 12 L24 28 C24 29.105 23.105 30 22 30 L14 30 C12.895 30 12 29.105 12 28 L11 12 Z" fill="#ffffff"/>
+                </svg>`;
+                return new Promise((resolve) => {
+                    const img = new Image(36, 42);
+                    img.onload = () => resolve(img);
+                    img.src = 'data:image/svg+xml;base64,' + btoa(svg);
+                });
+            };
+            map.addImage('bin-green', await createIcon('#22c55e'));
+            map.addImage('bin-yellow', await createIcon('#eab308'));
+            map.addImage('bin-red', await createIcon('#ef4444'));
+        }
+
         // Alpine.js component for header scroll behavior and theme toggle
         function headerScroll() {
             return {
@@ -219,8 +284,9 @@
                 maxZoom: 18
             });
             
-            map.on('load', function() {
-                console.log('Map loaded successfully');
+            map.on('load', async function() {
+                await loadMapIcons(map);
+                console.log('Map & Icons loaded successfully');
                 window.dispatchEvent(new Event('map-loaded'));
             });
         });

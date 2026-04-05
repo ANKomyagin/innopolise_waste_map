@@ -45,46 +45,30 @@ async function loadContainers() {
                 data: data
             });
 
-            // Add clusters layer
+            // SVG pin icons layer
+            const sourceName = map.getSource('containers-source') ? 'containers-source' : 'containers';
+            
             map.addLayer({
                 id: 'clusters',
-                type: 'circle',
-                source: 'containers-source',
-                paint: {
-                    'circle-color': [
-                        'case',
-                        ['>=', ['get', 'avg_fill_percent'], 70],
-                        '#dc3545',
-                        ['>=', ['get', 'avg_fill_percent'], 50],
-                        '#ffc107',
-                        '#28a745'
-                    ],
-                    'circle-radius': [
-                        'case',
-                        ['>', ['get', 'container_count'], 1],
-                        20,
-                        15
-                    ],
-                    'circle-opacity': 0.8,
-                    'circle-stroke-width': 2,
-                    'circle-stroke-color': '#fff'
-                }
-            });
-
-            // Add cluster count layer
-            map.addLayer({
-                id: 'cluster-count',
                 type: 'symbol',
-                source: 'containers-source',
+                source: sourceName,
                 layout: {
-                    'text-field': ['get', 'avg_fill_percent'],
+                    'icon-image': [
+                        'case',
+                        ['>=', ['get', 'avg_fill_percent'], 70], 'bin-red',
+                        ['>=', ['get', 'avg_fill_percent'], 50], 'bin-yellow',
+                        'bin-green'
+                    ],
+                    'icon-size': 1,
+                    'icon-anchor': 'bottom',
+                    'text-field': ['concat', ['get', 'avg_fill_percent'], '%'],
                     'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                    'text-size': 14,
-                    'text-offset': [0, 0]
+                    'text-size': 11,
+                    'text-offset': [0, -2.6]
                 },
                 paint: {
-                    'text-color': '#fff',
-                    'text-halo-color': 'rgba(0, 0, 0, 0.5)',
+                    'text-color': '#ffffff',
+                    'text-halo-color': 'rgba(0,0,0,0.3)',
                     'text-halo-width': 1
                 }
             });
