@@ -7,7 +7,7 @@ class SensorData(BaseModel):
     temperature_status: str
     tilt_status: str
     battery_status: str
-    timestamp: datetime
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class Container(BaseModel):
     id: str

@@ -16,7 +16,8 @@ EXCLUDE_DIRS = {
 
 EXCLUDE_FILES = {
     '.gitignore', '.dockerignore', '.DS_Store', 'Thumbs.db',
-    '*.pyc', '*.pyo', '*.pyd', '.env', '*.log', 'generate_project_docs.py', 'project_documentation.txt'
+    '*.pyc', '*.pyo', '*.pyd', '.env', '*.log', 'generate_project_docs.py', 'project_documentation.txt',
+    'compare_project_docs.py', 'project_documentation_diff.txt'
 }
 
 # Расширения файлов, которые нужно включать в документацию

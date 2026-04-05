@@ -45,3 +45,39 @@ async def serve_qr_page(request: Request):
         request=request,
         name="qr_scan.html"
     )
+
+
+@router.get("/admin.html")
+async def serve_admin_page(request: Request):
+    """Serve admin panel page"""
+    return templates.TemplateResponse(
+        request=request,
+        name="admin.html"
+    )
+
+
+@router.get("/truck.html")
+async def serve_truck_page(request: Request):
+    """Serve truck driver page"""
+    return templates.TemplateResponse(
+        request=request,
+        name="truck.html"
+    )
+
+
+@router.get("/resident.html")
+async def serve_resident_page(request: Request):
+    """Serve resident page"""
+    return templates.TemplateResponse(
+        request=request,
+        name="resident.html"
+    )
+
+
+@router.get("/role-select.html")
+async def serve_role_select_page(request: Request):
+    """Serve role selection page"""
+    return templates.TemplateResponse(
+        request=request,
+        name="role-select.html"
+    )
