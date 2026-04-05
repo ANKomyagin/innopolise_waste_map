@@ -1,61 +1,52 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Карта контейнеров - Житель</title>
-    
-    <!-- External Libraries -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/resident.css">
-    
-    <!-- Yandex Maps API -->
-    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=7d253372-5194-4f00-a292-ea1d7bc18844" type="text/javascript"></script>
-</head>
-<body>
-    <div class="top-bar">
-        <h4><i class="fas fa-user"></i> Режим жителя</h4>
-        <a href="/" class="btn-back"><i class="fas fa-arrow-left"></i> На главную</a>
-    </div>
+{% extends "base.html" %}
 
-    <div id="map"></div>
-    
-    <div class="controls">
-        <h5><i class="fas fa-map-marker-alt"></i> Найти контейнер</h5>
-        <div class="d-grid gap-2">
-            <button class="btn btn-custom btn-my-location" onclick="setMyLocation()">
-                <i class="fas fa-crosshairs"></i> Моя геолокация
-            </button>
-            <button class="btn btn-custom btn-find-nearest" onclick="findNearestContainer()">
-                <i class="fas fa-route"></i> Маршрут до ближайшего
-            </button>
-            <button class="btn btn-custom btn-secondary" onclick="clearRoute()">
-                <i class="fas fa-times"></i> Очистить маршрут
-            </button>
-        </div>
-        <div id="routeInfo" class="route-info"></div>
-    </div>
-    
-    <div class="legend">
-        <h6 class="mb-2"><i class="fas fa-info-circle"></i> Легенда</h6>
-        <div class="legend-item">
-            <div class="legend-color" style="background-color: #28a745;"></div>
-            <span>Свободно (&lt;50%)</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background-color: #ffc107;"></div>
-            <span>Заполнено (50-70%)</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background-color: #dc3545;"></div>
-            <span>Переполнено (&gt;70%)</span>
-        </div>
-    </div>
+{% block title %}Карта контейнеров{% endblock %}
 
-    <!-- Custom JS -->
-    <script src="js/resident.js"></script>
-</body>
-</html>
+{% block header_actions %}
+<a href="/" class="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-2">
+    <i class="fas fa-arrow-left"></i>
+    На главную
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="w-full md:w-[28rem]">
+    <!-- Welcome Card -->
+    <div class="bg-white/90 backdrop-blur rounded-lg shadow p-6 mb-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-2 flex items-center gap-2">
+            <i class="fas fa-map-marker-alt text-blue-600"></i>
+            Найдите ближайший контейнер
+        </h3>
+        <p class="text-gray-600 text-sm">Нажмите на контейнер на карте, чтобы увидеть информацию о заполненности и адресе.</p>
+    </div>
+    
+    <!-- Legend -->
+    <div class="bg-white/90 backdrop-blur rounded-lg shadow p-6">
+        <h4 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <i class="fas fa-info-circle text-blue-600"></i>
+            Легенда
+        </h4>
+        
+        <div class="space-y-3">
+            <div class="flex items-center gap-3">
+                <div class="w-6 h-6 rounded-full bg-green-500 shadow"></div>
+                <span class="text-gray-700">Свободно (&lt;50%)</span>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <div class="w-6 h-6 rounded-full bg-yellow-500 shadow"></div>
+                <span class="text-gray-700">Заполнено (50-70%)</span>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <div class="w-6 h-6 rounded-full bg-red-500 shadow"></div>
+                <span class="text-gray-700">Переполнено (&gt;70%)</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="js/resident.js?v=2"></script>
+{% endblock %}

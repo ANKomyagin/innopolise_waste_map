@@ -1,147 +1,661 @@
 # Отчет об изменениях проекта
-Дата: 2026-04-05 16:21:28
+Дата: 2026-04-05 16:31:01
 
 ## Статистика
-- Измененные файлы: 2
+- Измененные файлы: 3
 - Новые файлы: 0
 - Удаленные файлы: 0
 
 ## Структура проекта (только измененные и новые файлы)
 ```
 innopolis_waste_map_test/
-└── app
-    ├── api
-    │   └── routers
-    │       └── frontend.py
-    └── domain
-        └── models.py
+└── frontend
+    ├── base.html
+    └── js
+        ├── admin.js
+        └── truck.js
 ```
 
 ## Измененные файлы
 
-### app/api/routers/frontend.py
+### frontend/base.html
 ```
-# app/api/routers/frontend.py
-from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-import os
-from app.config.settings import settings
-
-router = APIRouter(tags=["frontend"])
-
-# Setup Jinja2 templates
-# Use absolute path from project root
-template_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend")
-templates = Jinja2Templates(directory=template_dir)
-
-
-@router.get("/")
-async def serve_landing_page(request: Request):
-    """Serve landing page with guest access and login"""
-    return templates.TemplateResponse(
-        request=request,
-        name="landing.html"
-    )
-
-
-@router.get("/map")
-async def serve_map_page(request: Request):
-    """Serve full map page (old index.html)"""
-    return templates.TemplateResponse(
-        request=request,
-        name="index.html",
-        context={
-            "YANDEX_API_KEY": settings.YANDEX_API_KEY,
-            "DEFAULT_LAT": settings.DEFAULT_LAT,
-            "DEFAULT_LON": settings.DEFAULT_LON,
-            "DEFAULT_ZOOM": settings.DEFAULT_ZOOM,
-            "PUBLIC_SERVER_URL": settings.PUBLIC_SERVER_URL
-        }
-    )
-
-
-@router.get("/qr-scan")
-async def serve_qr_page(request: Request):
-    """Serve mobile QR scanning page"""
-    return templates.TemplateResponse(
-        request=request,
-        name="qr_scan.html"
-    )
-
-
-@router.get("/admin.html")
-async def serve_admin_page(request: Request):
-    """Serve admin panel page"""
-    return templates.TemplateResponse(
-        request=request,
-        name="admin.html"
-    )
-
-
-@router.get("/truck.html")
-async def serve_truck_page(request: Request):
-    """Serve truck driver page"""
-    return templates.TemplateResponse(
-        request=request,
-        name="truck.html"
-    )
-
-
-@router.get("/resident.html")
-async def serve_resident_page(request: Request):
-    """Serve resident page"""
-    return templates.TemplateResponse(
-        request=request,
-        name="resident.html"
-    )
-
-
-@router.get("/role-select.html")
-async def serve_role_select_page(request: Request):
-    """Serve role selection page"""
-    return templates.TemplateResponse(
-        request=request,
-        name="role-select.html"
-    )
-
-```
-
-### app/domain/models.py
-```
-from pydantic import BaseModel, Field
-from typing import Optional, List
-from datetime import datetime
-
-class SensorData(BaseModel):
-    fill_percent: int
-    temperature_status: str
-    tilt_status: str
-    battery_status: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-
-class Container(BaseModel):
-    id: str
-    address: str
-    coords: str
-    sensor_data: Optional[SensorData] = None
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Innopolis Waste Map{% endblock %}</title>
     
-    @property
-    def lat_lon(self) -> tuple[float, float]:
-        """Parse coordinates string and return (lat, lon) tuple"""
-        parts = self.coords.split(",")
-        return float(parts[0].strip()), float(parts[1].strip())
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- MapLibre GL JS CSS -->
+    <link href="https://unpkg.com/maplibre-gl@4.0.0/dist/maplibre-gl.css" rel="stylesheet" />
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        
+        #app {
+            height: 100dvh;
+            position: relative;
+        }
+        
+        #map {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- Map background -->
+        <div id="map"></div>
+        
+        <!-- Overlay container with pointer-events disabled -->
+        <div class="pointer-events-none absolute inset-0 flex flex-col">
+            <!-- Header -->
+            <header class="pointer-events-auto bg-white shadow-md">
+                <div class="container mx-auto px-4 py-4 flex items-center justify-between">
+                    <h1 class="text-2xl font-bold text-gray-800">Innopolis Waste Map</h1>
+                    <div class="flex items-center gap-4">
+                        {% block header_actions %}{% endblock %}
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Main content area (sidebar) -->
+            <main class="pointer-events-auto flex-1 overflow-auto bg-white bg-opacity-95 max-w-sm m-4 rounded-lg shadow-lg">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- MapLibre GL JS -->
+    <script src="https://unpkg.com/maplibre-gl@4.0.0/dist/maplibre-gl.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            window.map = new maplibregl.Map({
+                container: 'map',
+                style: {
+                    version: 8,
+                    sources: {
+                        'osm-tiles': {
+                            type: 'raster',
+                            tiles: [window.location.origin + '/tiles/{z}/{x}/{y}.png'],
+                            tileSize: 256,
+                            minzoom: 12,
+                            maxzoom: 18
+                        }
+                    },
+                    layers: [
+                        {
+                            id: 'osm-layer',
+                            type: 'raster',
+                            source: 'osm-tiles',
+                            minzoom: 12,
+                            maxzoom: 18
+                        }
+                    ]
+                },
+                center: [48.743, 55.753],
+                zoom: 14,
+                minZoom: 12,
+                maxZoom: 18
+            });
+            
+            map.on('load', function() {
+                console.log('Map loaded successfully');
+                window.dispatchEvent(new Event('map-loaded'));
+            });
+        });
+    </script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>
 
-class RoutePath(BaseModel):
-    route_geojson: dict
-    distance_km: float
-    duration_min: float
-    optimized_waypoints_order: List[str]
+```
 
-class WebhookPayload(BaseModel):
-    container_id: str
-    address: str
-    coords: str
-    sensor_data: SensorData
+### frontend/js/admin.js
+```
+// Check authentication on page load
+(function() {
+    const token = localStorage.getItem('access_token');
+    const role = localStorage.getItem('role');
+    
+    if (!token || role !== 'admin') {
+        alert('Доступ запрещен. Пожалуйста, войдите как администратор.');
+        window.location.href = '/';
+    }
+})();
+
+let containers = [];
+let isEditMode = false;
+let editingId = null;
+
+// Initialize map data when map is fully loaded
+window.addEventListener('map-loaded', loadContainers);
+
+async function loadContainers() {
+    try {
+        const response = await fetch('/api/map/geojson');
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        
+        const data = await response.json();
+        if (!data || !data.features) throw new Error('Invalid data format');
+
+        containers = [];
+
+        // Extract all containers from features
+        data.features.forEach(feature => {
+            const props = feature.properties;
+            if (props.containers && Array.isArray(props.containers)) {
+                props.containers.forEach(c => {
+                    containers.push(c);
+                });
+            }
+        });
+
+        // Add or update GeoJSON source
+        if (map.getSource('containers-source')) {
+            map.getSource('containers-source').setData(data);
+        } else {
+            map.addSource('containers-source', {
+                type: 'geojson',
+                data: data
+            });
+
+            // Add clusters layer
+            map.addLayer({
+                id: 'clusters',
+                type: 'circle',
+                source: 'containers-source',
+                paint: {
+                    'circle-color': [
+                        'case',
+                        ['>=', ['get', 'avg_fill_percent'], 70],
+                        '#dc3545',
+                        ['>=', ['get', 'avg_fill_percent'], 50],
+                        '#ffc107',
+                        '#28a745'
+                    ],
+                    'circle-radius': [
+                        'case',
+                        ['>', ['get', 'container_count'], 1],
+                        20,
+                        15
+                    ],
+                    'circle-opacity': 0.8,
+                    'circle-stroke-width': 2,
+                    'circle-stroke-color': '#fff'
+                }
+            });
+
+            // Add cluster count layer
+            map.addLayer({
+                id: 'cluster-count',
+                type: 'symbol',
+                source: 'containers-source',
+                layout: {
+                    'text-field': ['get', 'avg_fill_percent'],
+                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                    'text-size': 14,
+                    'text-offset': [0, 0]
+                },
+                paint: {
+                    'text-color': '#fff',
+                    'text-halo-color': 'rgba(0, 0, 0, 0.5)',
+                    'text-halo-width': 1
+                }
+            });
+        }
+
+        // Click handler for map to set coordinates in modal
+        if (!map.listenerCount || !map.listenerCount('click')) {
+            map.on('click', function(e) {
+                const modal = document.getElementById('addContainerModal');
+                if (modal && modal.style.display === 'flex') {
+                    const coords = e.lngLat;
+                    document.getElementById('containerCoords').value = 
+                        coords.lat.toFixed(6) + ', ' + coords.lng.toFixed(6);
+                }
+            });
+        }
+
+        updateStatistics();
+        updateTable();
+    } catch (error) {
+        console.error('Ошибка загрузки данных:', error);
+    }
+}
+
+function updateStatistics() {
+    const total = containers.length;
+    const needsCollection = containers.filter(c => c.fill_percent >= 70).length;
+    const available = containers.filter(c => c.fill_percent < 50).length;
+    const avgFill = total > 0 ? Math.round(containers.reduce((sum, c) => sum + c.fill_percent, 0) / total) : 0;
+
+    document.getElementById('totalContainers').textContent = total;
+    document.getElementById('needsCollection').textContent = needsCollection;
+    document.getElementById('availableContainers').textContent = available;
+    document.getElementById('avgFill').textContent = avgFill + '%';
+}
+
+function updateTable() {
+    const tbody = document.getElementById('containerTableBody');
+    if (containers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-gray-500">Нет данных</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = containers.map(c => {
+        let fillColor = '#28a745';
+        if (c.fill_percent >= 70) fillColor = '#dc3545';
+        else if (c.fill_percent >= 50) fillColor = '#ffc107';
+
+        return `
+            <tr class="border-b hover:bg-gray-50">
+                <td class="px-4 py-3 font-semibold text-gray-800">${c.id}</td>
+                <td class="px-4 py-3 text-gray-700">${c.address}</td>
+                <td class="px-4 py-3">
+                    <span class="inline-block px-3 py-1 rounded-full text-white text-sm font-medium" style="background-color: ${fillColor}">
+                        ${c.fill_percent}%
+                    </span>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function getAuthHeaders() {
+    const token = localStorage.getItem('access_token');
+    return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+    };
+}
+
+function showQR(containerId) {
+    const qrUrl = `/api/sensors/${containerId}/qr`;
+    alert(`QR-код: ${containerId}\n${window.location.origin}/qr-scan?id=${containerId}`);
+    // In a real app, you'd open a modal with the QR image
+}
+
+async function saveContainer(event) {
+    if (event) event.preventDefault();
+    
+    const id = document.getElementById('containerId').value;
+    const address = document.getElementById('containerAddress').value;
+    const coords = document.getElementById('containerCoords').value;
+
+    if (!id || !address || !coords) {
+        alert('Заполните все поля');
+        return;
+    }
+
+    const url = isEditMode ? `/api/containers/${editingId}` : '/api/containers/';
+    const method = isEditMode ? 'PUT' : 'POST';
+    const body = isEditMode ? {address, coords} : {id, address, coords};
+
+    try {
+        const response = await fetch(url, {
+            method: method,
+            headers: getAuthHeaders(),
+            body: JSON.stringify(body)
+        });
+
+        if (response.ok) {
+            alert(isEditMode ? 'Контейнер обновлен' : 'Контейнер добавлен');
+            document.getElementById('addContainerModal').style.display = 'none';
+            document.getElementById('containerForm').reset();
+            loadContainers();
+        } else if (response.status === 401) {
+            alert('Сессия истекла. Войдите заново.');
+            localStorage.clear();
+            window.location.href = '/';
+        } else {
+            const err = await response.json().catch(() => null);
+            alert('Ошибка сохранения: ' + (err?.detail || response.statusText));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Ошибка сохранения');
+    }
+}
+
+async function deleteContainer(id) {
+    if (!confirm(`Удалить контейнер ${id}?`)) return;
+
+    try {
+        const response = await fetch(`/api/containers/${id}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        });
+
+        if (response.ok) {
+            alert('Контейнер удален');
+            loadContainers();
+        } else if (response.status === 401) {
+            alert('Сессия истекла. Войдите заново.');
+            localStorage.clear();
+            window.location.href = '/';
+        } else {
+            const err = await response.json().catch(() => null);
+            alert('Ошибка удаления: ' + (err?.detail || response.statusText));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Ошибка удаления');
+    }
+}
+
+// Setup form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('containerForm');
+    if (form) {
+        form.addEventListener('submit', saveContainer);
+    }
+});
+
+```
+
+### frontend/js/truck.js
+```
+// Check authentication on page load
+(function() {
+    const token = localStorage.getItem('access_token');
+    const role = localStorage.getItem('role');
+    
+    if (!token || (role !== 'contractor' && role !== 'admin')) {
+        alert('Доступ запрещен. Пожалуйста, войдите как водитель или администратор.');
+        window.location.href = '/';
+    }
+})();
+
+let map;
+let routeLine = null;
+let containers = [];
+let fillThreshold = 50;
+
+function initMap() {
+    ymaps.ready(function() {
+        map = new ymaps.Map("map", {
+            center: [55.753, 48.743],
+            zoom: 13,
+            controls: ['zoomControl', 'typeSelector', 'fullscreenControl']
+        });
+
+        loadContainers();
+    });
+}
+
+async function loadContainers() {
+    try {
+        const response = await fetch('/api/map/geojson');
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        
+        const data = await response.json();
+        if (!data || !data.features) throw new Error('Invalid data format');
+
+        containers = [];
+        data.features.forEach(feature => {
+            const coords = feature.geometry.coordinates;
+            const props = feature.properties;
+            if (!props.containers || props.containers.length === 0) return;
+
+            // Add all containers from cluster to list
+            props.containers.forEach(c => {
+                containers.push({
+                    id: c.id,
+                    lat: c.lat,
+                    lon: c.lon,
+                    fill: c.fill_percent,
+                    address: c.address
+                });
+            });
+
+            // Determine color based on average fill
+            const avgFill = props.is_cluster ? props.avg_fill_percent : props.containers[0].fill_percent;
+            let fillColor = '#28a745';
+            if (avgFill >= 70) fillColor = '#dc3545';
+            else if (avgFill >= 50) fillColor = '#ffc107';
+
+            let iconSvg, balloonHeader, balloonBody, hintContent;
+
+            // Unified design for all containers (single or cluster)
+            const containerCount = props.container_count;
+            const iconSize = 60; // Increased size
+            
+            // Beautiful cluster/container icon
+            iconSvg = `
+                <svg width="${iconSize}" height="${iconSize}" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+                            <feGaussianBlur in="SourceAlpha" stdDeviation="2.5"/>
+                            <feOffset dx="0" dy="3" result="offsetblur"/>
+                            <feComponentTransfer><feFuncA type="linear" slope="0.4"/></feComponentTransfer>
+                            <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+                        </filter>
+                    </defs>
+                    <!-- Background circle -->
+                    <circle cx="30" cy="30" r="26" fill="${fillColor}" opacity="0.2"/>
+                    <circle cx="30" cy="30" r="24" fill="white" stroke="${fillColor}" stroke-width="3" filter="url(#shadow)"/>
+                    <!-- Trash bins group -->
+                    <g transform="translate(30, 30)">
+                        <!-- Left bin -->
+                        <rect x="-14" y="-7" width="9" height="12" rx="1" fill="${fillColor}" opacity="0.8"/>
+                        <rect x="-14" y="-9" width="9" height="2.5" rx="1" fill="${fillColor}"/>
+                        <line x1="-11" y1="-7" x2="-11" y2="3" stroke="white" stroke-width="1.2"/>
+                        <!-- Center bin -->
+                        <rect x="-4.5" y="-9" width="9" height="14" rx="1" fill="${fillColor}"/>
+                        <rect x="-4.5" y="-11" width="9" height="2.5" rx="1" fill="${fillColor}"/>
+                        <line x1="-2" y1="-9" x2="-2" y2="3" stroke="white" stroke-width="1.2"/>
+                        <line x1="2" y1="-9" x2="2" y2="3" stroke="white" stroke-width="1.2"/>
+                        <!-- Right bin -->
+                        <rect x="5" y="-7" width="9" height="12" rx="1" fill="${fillColor}" opacity="0.8"/>
+                        <rect x="5" y="-9" width="9" height="2.5" rx="1" fill="${fillColor}"/>
+                        <line x1="8" y1="-7" x2="8" y2="3" stroke="white" stroke-width="1.2"/>
+                    </g>
+                    <!-- Count badge -->
+                    <circle cx="46" cy="14" r="10" fill="#ff6b6b" stroke="white" stroke-width="2.5"/>
+                    <text x="46" y="19" text-anchor="middle" fill="white" font-size="11" font-weight="bold">${containerCount}</text>
+                </svg>
+            `;
+
+            const containersList = props.containers.map(c => `
+                <div style="padding: 8px; margin: 5px 0; background: #f8f9fa; border-radius: 5px; border-left: 3px solid ${c.fill_percent >= 70 ? '#dc3545' : c.fill_percent >= 50 ? '#ffc107' : '#28a745'};">
+                    <strong>🗑️ ${c.id}</strong><br>
+                    Заполнение: <strong>${c.fill_percent}%</strong>
+                </div>
+            `).join('');
+
+            // Progress bar for fill percentage
+            const fillPercentage = props.avg_fill_percent;
+            const progressBarColor = fillPercentage >= 70 ? '#dc3545' : fillPercentage >= 50 ? '#ffc107' : '#28a745';
+            
+            balloonHeader = `<b>📍 ${props.is_cluster ? 'Площадка' : 'Контейнер'} (${containerCount} ${containerCount === 1 ? 'контейнер' : 'контейнера'})</b>`;
+            balloonBody = `
+                <div style="padding: 10px; max-height: 400px; overflow-y: auto;">
+                    <p><strong>📍 Адрес:</strong> ${props.address}</p>
+                    <div style="margin: 15px 0;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                            <span style="font-weight: 600;">Заполненность:</span>
+                            <span style="font-weight: 700; color: ${progressBarColor};">${fillPercentage}%</span>
+                        </div>
+                        <div style="width: 100%; height: 24px; background: #e9ecef; border-radius: 12px; overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
+                            <div style="width: ${fillPercentage}%; height: 100%; background: linear-gradient(90deg, ${progressBarColor}, ${progressBarColor}dd); transition: width 0.3s ease; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px;">
+                                ${fillPercentage > 15 ? fillPercentage + '%' : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <hr>
+                    <h6><strong>Контейнеры на площадке:</strong></h6>
+                    ${containersList}
+                </div>
+            `;
+            hintContent = `${props.is_cluster ? 'Площадка' : 'Контейнер'}: ${containerCount} ${containerCount === 1 ? 'контейнер' : 'контейнеров'}, ${fillPercentage}%`;
+            const placemark = new ymaps.Placemark(
+                [coords[1], coords[0]],
+                {
+                    balloonContentHeader: balloonHeader,
+                    balloonContentBody: balloonBody,
+                    hintContent: hintContent
+                },
+                {
+                    iconLayout: 'default#image',
+                    iconImageHref: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSvg),
+                    iconImageSize: [iconSize, iconSize],
+                    iconImageOffset: [-iconSize/2, -iconSize/2]
+                }
+            );
+
+            map.geoObjects.add(placemark);
+        });
+
+        updateContainerCount();
+        console.log(`Загружено ${containers.length} контейнеров`);
+    } catch (error) {
+        console.error('Ошибка загрузки данных:', error);
+        alert('Не удалось загрузить данные о контейнерах');
+    }
+}
+
+function updateThreshold(value) {
+    fillThreshold = parseInt(value);
+    document.getElementById('thresholdValue').textContent = value;
+    updateContainerCount();
+}
+
+function updateContainerCount() {
+    const needCollection = containers.filter(c => c.fill >= fillThreshold);
+    document.getElementById('containerCount').textContent = needCollection.length;
+}
+
+async function buildOptimalRoute() {
+    const needCollection = containers.filter(c => c.fill >= fillThreshold);
+    
+    if (needCollection.length === 0) {
+        alert('Нет контейнеров, требующих вывоза с текущим порогом');
+        return;
+    }
+
+    // Sort by fill percentage (highest first - priority)
+    needCollection.sort((a, b) => b.fill - a.fill);
+
+    // Build waypoints
+    const waypoints = needCollection.map(c => [c.lat, c.lon]);
+
+    try {
+        // Use API to get optimal route
+        const response = await fetch('/api/logistics/route', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                container_ids: needCollection.map(c => c.id),
+                threshold: fillThreshold
+            })
+        });
+
+        if (response.ok) {
+            const routeData = await response.json();
+            displayOptimizedRoute(routeData, needCollection);
+        } else {
+            // Fallback: simple route through all points
+            displaySimpleRoute(waypoints, needCollection);
+        }
+    } catch (error) {
+        console.error('API route error, using fallback:', error);
+        displaySimpleRoute(waypoints, needCollection);
+    }
+}
+
+function displaySimpleRoute(waypoints, containers) {
+    if (waypoints.length === 0) return;
+
+    ymaps.route(waypoints, {
+        mapStateAutoApply: true,
+        routingMode: 'auto'
+    }).then(route => {
+        if (routeLine) {
+            map.geoObjects.remove(routeLine);
+        }
+        
+        route.getPaths().options.set({
+            strokeColor: '#43e97b',
+            strokeWidth: 5,
+            opacity: 0.8
+        });
+
+        map.geoObjects.add(route);
+        routeLine = route;
+
+        const distance = route.getLength() / 1000; // km
+        const duration = route.getTime() / 60; // minutes
+
+        displayRouteInfo(distance, duration, containers);
+    }).catch(error => {
+        console.error('Ошибка построения маршрута:', error);
+        alert('Не удалось построить маршрут. Попробуйте уменьшить количество точек.');
+    });
+}
+
+function displayOptimizedRoute(routeData, containers) {
+    // Display route from API response
+    const waypoints = routeData.optimized_waypoints_order.map(id => {
+        const container = containers.find(c => c.id === id);
+        return [container.lat, container.lon];
+    });
+
+    displaySimpleRoute(waypoints, containers);
+}
+
+function displayRouteInfo(distance, duration, containers) {
+    document.getElementById('routeDistance').innerHTML = 
+        `<strong>Расстояние:</strong> ${distance.toFixed(2)} км`;
+    document.getElementById('routeDuration').innerHTML = 
+        `<strong>Время в пути:</strong> ~${Math.round(duration)} мин`;
+    document.getElementById('routeInfo').style.display = 'block';
+
+    let listHtml = '<h6 style="margin-top: 20px;"><i class="fas fa-list"></i> Контейнеры на маршруте:</h6>';
+    containers.forEach((c, index) => {
+        const className = c.fill >= 70 ? '' : 'medium';
+        listHtml += `
+            <div class="container-item ${className}">
+                <strong>${c.id}</strong><br>
+                ${c.address}<br>
+                Заполненность: ${c.fill}%
+            </div>
+        `;
+    });
+    document.getElementById('containerList').innerHTML = listHtml;
+}
+
+function clearRoute() {
+    if (routeLine) {
+        map.geoObjects.remove(routeLine);
+        routeLine = null;
+    }
+    document.getElementById('routeInfo').style.display = 'none';
+    document.getElementById('containerList').innerHTML = '';
+}
+
+initMap();
 
 ```

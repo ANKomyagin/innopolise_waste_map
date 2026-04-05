@@ -1,60 +1,75 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Маршрут мусоровоза</title>
-    
-    <!-- External Libraries -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/truck.css">
-    
-    <!-- Yandex Maps API -->
-    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=7d253372-5194-4f00-a292-ea1d7bc18844" type="text/javascript"></script>
-</head>
-<body>
-    <div class="top-bar">
-        <h4><i class="fas fa-truck"></i> Режим мусоровоза</h4>
-        <a href="/" class="btn-back"><i class="fas fa-arrow-left"></i> На главную</a>
+{% extends "base.html" %}
+
+{% block title %}Панель Водителя{% endblock %}
+
+{% block header_actions %}
+<button onclick="localStorage.clear(); window.location.href='/'" class="text-red-600 hover:text-red-800 font-medium flex items-center gap-2">
+    <i class="fas fa-sign-out-alt"></i>
+    Выйти
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="w-full md:w-[32rem]">
+    <!-- Container Count Card -->
+    <div class="bg-white/90 backdrop-blur rounded-lg shadow p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-600">Контейнеров требуют вывоза</p>
+                <h3 id="containerCount" class="text-4xl font-bold text-orange-600">0</h3>
+            </div>
+            <i class="fas fa-truck text-5xl text-orange-500 opacity-20"></i>
+        </div>
     </div>
-
-    <div id="map"></div>
     
-    <div class="controls">
-        <div class="stats-box">
-            <h3 id="containerCount">0</h3>
-            <p>Контейнеров требуют вывоза</p>
-        </div>
-
-        <h5><i class="fas fa-route"></i> Построение маршрута</h5>
+    <!-- Route Building Section -->
+    <div class="bg-white/90 backdrop-blur rounded-lg shadow p-6 mb-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <i class="fas fa-route text-blue-600"></i>
+            Построение маршрута
+        </h3>
         
-        <div class="threshold-selector">
-            <label for="fillThreshold">Порог заполненности: <span id="thresholdValue">50</span>%</label>
-            <input type="range" class="form-range" id="fillThreshold" min="30" max="90" value="50" oninput="updateThreshold(this.value)">
-        </div>
-
-        <div class="d-grid gap-2">
-            <button class="btn btn-custom btn-build-route" onclick="buildOptimalRoute()">
-                <i class="fas fa-map-marked-alt"></i> Построить оптимальный маршрут
-            </button>
-            <button class="btn btn-custom btn-secondary" onclick="clearRoute()">
-                <i class="fas fa-times"></i> Очистить маршрут
-            </button>
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+                Порог заполненности: <span id="thresholdValue" class="font-bold text-blue-600">50</span>%
+            </label>
+            <input type="range" id="fillThreshold" min="30" max="90" value="50" 
+                   class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" 
+                   oninput="updateThreshold(this.value)">
         </div>
         
-        <div id="routeInfo" class="route-info" style="display: none;">
-            <h6><i class="fas fa-info-circle"></i> Информация о маршруте</h6>
-            <p id="routeDistance"></p>
-            <p id="routeDuration"></p>
+        <div class="flex gap-3">
+            <button onclick="buildOptimalRoute()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
+                <i class="fas fa-map-marked-alt"></i>
+                Построить маршрут
+            </button>
+            <button onclick="clearRoute()" class="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
+                <i class="fas fa-times"></i>
+                Очистить
+            </button>
         </div>
-
-        <div id="containerList" class="container-list"></div>
     </div>
+    
+    <!-- Route Info -->
+    <div id="routeInfo" class="hidden bg-white/90 backdrop-blur rounded-lg shadow p-6 mb-6">
+        <h4 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+            <i class="fas fa-info-circle text-green-600"></i>
+            Информация о маршруте
+        </h4>
+        <div class="space-y-2">
+            <p class="text-gray-700">
+                <span class="font-semibold">Дистанция:</span>
+                <span id="routeDistance" class="text-blue-600 font-bold">-</span>
+            </p>
+            <p class="text-gray-700">
+                <span class="font-semibold">Время в пути:</span>
+                <span id="routeDuration" class="text-blue-600 font-bold">-</span>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
 
-    <!-- Custom JS -->
-    <script src="js/truck.js"></script>
-</body>
-</html>
+{% block scripts %}
+<script src="js/truck.js?v=2"></script>
+{% endblock %}

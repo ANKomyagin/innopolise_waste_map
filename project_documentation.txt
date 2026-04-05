@@ -2763,7 +2763,7 @@ exec uvicorn app.main:app --host 0.0.0.0 --port 8000
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const map = new maplibregl.Map({
+            window.map = new maplibregl.Map({
                 container: 'map',
                 style: {
                     version: 8,
@@ -2965,7 +2965,7 @@ button:hover {
 ```
 // Check authentication on page load
 (function() {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('access_token');
     const role = localStorage.getItem('role');
     
     if (!token || role !== 'admin') {
@@ -3113,7 +3113,7 @@ function updateTable() {
 }
 
 function getAuthHeaders() {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('access_token');
     return {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + token
@@ -4029,7 +4029,7 @@ initMap();
 ```
 // Check authentication on page load
 (function() {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('access_token');
     const role = localStorage.getItem('role');
     
     if (!token || (role !== 'contractor' && role !== 'admin')) {
