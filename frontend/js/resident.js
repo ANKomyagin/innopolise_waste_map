@@ -1,113 +1,152 @@
-let containers = [];
+let containersData = [];
+let userMarker = null;
 
-// Initialize map data when map is fully loaded
 window.addEventListener('map-loaded', loadContainers);
 
 async function loadContainers() {
-    try {
-        const response = await fetch('/api/map/geojson');
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        
-        const data = await response.json();
-        if (!data || !data.features) throw new Error('Invalid data format');
-
-        containers = [];
-
-        // Extract all containers from features
-        data.features.forEach(feature => {
-            const props = feature.properties;
-            if (props.containers && Array.isArray(props.containers)) {
-                props.containers.forEach(c => {
-                    containers.push(c);
-                });
-            }
+    const response = await fetch('/api/map/geojson');
+    const data = await response.json();
+    
+    // Сохраняем для поиска
+    data.features.forEach(f => {
+        containersData.push({
+            address: f.properties.address,
+            lat: f.geometry.coordinates[1],
+            lon: f.geometry.coordinates[0],
+            fill: f.properties.avg_fill_percent
         });
+    });
 
-        // Add or update GeoJSON source
-        if (map.getSource('containers-source')) {
-            map.getSource('containers-source').setData(data);
-        } else {
-            map.addSource('containers-source', {
-                type: 'geojson',
-                data: data
-            });
-
-            // Add clusters layer
-            map.addLayer({
-                id: 'clusters',
-                type: 'circle',
-                source: 'containers-source',
-                paint: {
-                    'circle-color': [
-                        'case',
-                        ['>=', ['get', 'avg_fill_percent'], 70],
-                        '#dc3545',
-                        ['>=', ['get', 'avg_fill_percent'], 50],
-                        '#ffc107',
-                        '#28a745'
-                    ],
-                    'circle-radius': [
-                        'case',
-                        ['>', ['get', 'container_count'], 1],
-                        20,
-                        15
-                    ],
-                    'circle-opacity': 0.8,
-                    'circle-stroke-width': 2,
-                    'circle-stroke-color': '#fff'
-                }
-            });
-
-            // Add cluster count layer
-            map.addLayer({
-                id: 'cluster-count',
-                type: 'symbol',
-                source: 'containers-source',
-                layout: {
-                    'text-field': ['get', 'avg_fill_percent'],
-                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                    'text-size': 14,
-                    'text-offset': [0, 0]
-                },
-                paint: {
-                    'text-color': '#fff',
-                    'text-halo-color': 'rgba(0, 0, 0, 0.5)',
-                    'text-halo-width': 1
-                }
-            });
-
-            // Click handler for clusters layer
-            map.on('click', 'clusters', function(e) {
-                const properties = e.features[0].properties;
-                const featureData = {
-                    ...properties,
-                    containers: typeof properties.containers === 'string' ? JSON.parse(properties.containers) : properties.containers
-                };
-                
-                // Display container info
-                const address = featureData.address || 'Адрес не указан';
-                const fillPercent = featureData.avg_fill_percent || 0;
-                const containerCount = featureData.container_count || 0;
-                
-                const message = `📍 Адрес: ${address}\n🗑️ Контейнеров: ${containerCount}\n📊 Заполненность: ${fillPercent}%`;
-                alert(message);
-                console.log('Container selected:', featureData);
-            });
-
-            // Cursor change on hover
-            map.on('mouseenter', 'clusters', function() {
-                map.getCanvas().style.cursor = 'pointer';
-            });
-
-            map.on('mouseleave', 'clusters', function() {
-                map.getCanvas().style.cursor = '';
-            });
+    map.addSource('containers', { type: 'geojson', data: data });
+    
+    // Рисуем кружки
+    map.addLayer({
+        id: 'clusters',
+        type: 'circle',
+        source: 'containers',
+        paint: {
+            'circle-color': ['case', ['>=', ['get', 'avg_fill_percent'], 70], '#dc3545', ['>=', ['get', 'avg_fill_percent'], 50], '#ffc107', '#28a745'],
+            'circle-radius': 14,
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#fff'
         }
+    });
 
-        console.log(`Загружено ${containers.length} контейнеров`);
-    } catch (error) {
-        console.error('Ошибка загрузки данных:', error);
-        alert('Не удалось загрузить данные о контейнерах');
-    }
+    // Клик по карте (ставим точку "Дом")
+    map.on('click', function(e) {
+        const lat = e.lngLat.lat;
+        const lon = e.lngLat.lng;
+        window.dispatchEvent(new CustomEvent('set-user-location', { detail: {lat, lon, address: "Выбранная точка"} }));
+    });
 }
+
+// Alpine.js логика UI
+document.addEventListener('alpine:init', () => {
+    Alpine.data('residentApp', () => ({
+        expanded: true,
+        searchQuery: '',
+        suggestions: [],
+        userLocation: null, // {lat, lon}
+        routeInfo: null,
+        
+        init() {
+            // Восстанавливаем локацию из памяти
+            const saved = localStorage.getItem('resident_location');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                this.updateMarker(parsed.lat, parsed.lon, parsed.address);
+            }
+
+            window.addEventListener('set-user-location', (e) => {
+                this.updateMarker(e.detail.lat, e.detail.lon, e.detail.address);
+            });
+        },
+        
+        searchAddress() {
+            if (this.searchQuery.length < 2) { this.suggestions = []; return; }
+            const q = this.searchQuery.toLowerCase();
+            // Ищем уникальные адреса
+            const unique = new Set();
+            this.suggestions = containersData.filter(c => {
+                if (c.address.toLowerCase().includes(q) && !unique.has(c.address)) {
+                    unique.add(c.address);
+                    return true;
+                }
+                return false;
+            }).slice(0, 5);
+        },
+        
+        selectAddress(item) {
+            this.updateMarker(item.lat, item.lon, item.address);
+            this.suggestions = [];
+            map.flyTo({center: [item.lon, item.lat], zoom: 15});
+        },
+        
+        updateMarker(lat, lon, addr) {
+            this.userLocation = {lat, lon};
+            this.searchQuery = addr;
+            localStorage.setItem('resident_location', JSON.stringify({lat, lon, address: addr}));
+            
+            if (userMarker) userMarker.remove();
+            
+            const el = document.createElement('div');
+            el.innerHTML = '<i class="fas fa-home text-2xl text-blue-600" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));"></i>';
+            userMarker = new maplibregl.Marker({element: el}).setLngLat([lon, lat]).addTo(map);
+        },
+        
+        async findNearest() {
+            if (!this.userLocation) return;
+            this.expanded = false; // Сворачиваем панель на мобилках
+            
+            // Ищем ближайший свободный бак (<70%)
+            const available = containersData.filter(c => c.fill < 70);
+            if (!available.length) { alert("Все контейнеры переполнены!"); return; }
+            
+            // Считаем дистанцию
+            let nearest = available[0];
+            let minDist = Infinity;
+            available.forEach(c => {
+                const dist = Math.pow(c.lat - this.userLocation.lat, 2) + Math.pow(c.lon - this.userLocation.lon, 2);
+                if (dist < minDist) { minDist = dist; nearest = c; }
+            });
+
+            // Строим маршрут
+            const response = await fetch('/api/logistics/resident-route', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    origin: `${this.userLocation.lat},${this.userLocation.lon}`,
+                    destination: `${nearest.lat},${nearest.lon}` 
+                })
+            });
+            
+            if(response.ok) {
+                const data = await response.json();
+                this.routeInfo = data.route;
+                this.drawRoute(data.route.route_geojson);
+                
+                // Подстраиваем камеру, чтобы вместить маршрут
+                const bounds = new maplibregl.LngLatBounds();
+                bounds.extend([this.userLocation.lon, this.userLocation.lat]);
+                bounds.extend([nearest.lon, nearest.lat]);
+                map.fitBounds(bounds, {padding: 50});
+            }
+        },
+        
+        drawRoute(geojson) {
+            this.clearRoute();
+            map.addSource('route', { type: 'geojson', data: geojson });
+            map.addLayer({
+                id: 'route-layer', type: 'line', source: 'route',
+                paint: { 'line-color': '#3b82f6', 'line-width': 5, 'line-dasharray': [1, 2] }
+            });
+        },
+        
+        clearRoute() {
+            this.routeInfo = null;
+            if (map.getLayer('route-layer')) map.removeLayer('route-layer');
+            if (map.getSource('route')) map.removeSource('route');
+        }
+    }));
+});
 

@@ -12,6 +12,11 @@ class RouteRequest(BaseModel):
     threshold: int
 
 
+class ResidentRouteRequest(BaseModel):
+    origin: str  # "lat,lon"
+    destination: str  # "lat,lon"
+
+
 def deduplicate_coords(coords_list: List[str], radius_meters: float = 15.0) -> List[str]:
     """Deduplicate coordinates within a given radius (in meters)"""
     if not coords_list:
@@ -79,4 +84,17 @@ async def get_optimal_route(
     # Build route asynchronously
     DEPOT_COORDS = "55.753, 48.743"
     route = await routing_provider.build_route(origin=DEPOT_COORDS, waypoints=unique_coords)
+    return {"route": route}
+
+
+@router.post("/resident-route")
+async def get_resident_route(
+    request: ResidentRouteRequest,
+    routing_provider = Depends(get_routing_provider)
+):
+    """Get simple route from A to B for a resident"""
+    route = await routing_provider.build_route(
+        origin=request.origin,
+        waypoints=[request.destination]
+    )
     return {"route": route}
