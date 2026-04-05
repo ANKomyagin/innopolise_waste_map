@@ -1,7 +1,147 @@
 # Отчет об изменениях проекта
-Дата: 2026-04-05 16:10:34
+Дата: 2026-04-05 16:21:28
 
 ## Статистика
-- Измененные файлы: 0
+- Измененные файлы: 2
 - Новые файлы: 0
 - Удаленные файлы: 0
+
+## Структура проекта (только измененные и новые файлы)
+```
+innopolis_waste_map_test/
+└── app
+    ├── api
+    │   └── routers
+    │       └── frontend.py
+    └── domain
+        └── models.py
+```
+
+## Измененные файлы
+
+### app/api/routers/frontend.py
+```
+# app/api/routers/frontend.py
+from fastapi import APIRouter, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+import os
+from app.config.settings import settings
+
+router = APIRouter(tags=["frontend"])
+
+# Setup Jinja2 templates
+# Use absolute path from project root
+template_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend")
+templates = Jinja2Templates(directory=template_dir)
+
+
+@router.get("/")
+async def serve_landing_page(request: Request):
+    """Serve landing page with guest access and login"""
+    return templates.TemplateResponse(
+        request=request,
+        name="landing.html"
+    )
+
+
+@router.get("/map")
+async def serve_map_page(request: Request):
+    """Serve full map page (old index.html)"""
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={
+            "YANDEX_API_KEY": settings.YANDEX_API_KEY,
+            "DEFAULT_LAT": settings.DEFAULT_LAT,
+            "DEFAULT_LON": settings.DEFAULT_LON,
+            "DEFAULT_ZOOM": settings.DEFAULT_ZOOM,
+            "PUBLIC_SERVER_URL": settings.PUBLIC_SERVER_URL
+        }
+    )
+
+
+@router.get("/qr-scan")
+async def serve_qr_page(request: Request):
+    """Serve mobile QR scanning page"""
+    return templates.TemplateResponse(
+        request=request,
+        name="qr_scan.html"
+    )
+
+
+@router.get("/admin.html")
+async def serve_admin_page(request: Request):
+    """Serve admin panel page"""
+    return templates.TemplateResponse(
+        request=request,
+        name="admin.html"
+    )
+
+
+@router.get("/truck.html")
+async def serve_truck_page(request: Request):
+    """Serve truck driver page"""
+    return templates.TemplateResponse(
+        request=request,
+        name="truck.html"
+    )
+
+
+@router.get("/resident.html")
+async def serve_resident_page(request: Request):
+    """Serve resident page"""
+    return templates.TemplateResponse(
+        request=request,
+        name="resident.html"
+    )
+
+
+@router.get("/role-select.html")
+async def serve_role_select_page(request: Request):
+    """Serve role selection page"""
+    return templates.TemplateResponse(
+        request=request,
+        name="role-select.html"
+    )
+
+```
+
+### app/domain/models.py
+```
+from pydantic import BaseModel, Field
+from typing import Optional, List
+from datetime import datetime
+
+class SensorData(BaseModel):
+    fill_percent: int
+    temperature_status: str
+    tilt_status: str
+    battery_status: str
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+class Container(BaseModel):
+    id: str
+    address: str
+    coords: str
+    sensor_data: Optional[SensorData] = None
+    
+    @property
+    def lat_lon(self) -> tuple[float, float]:
+        """Parse coordinates string and return (lat, lon) tuple"""
+        parts = self.coords.split(",")
+        return float(parts[0].strip()), float(parts[1].strip())
+
+class RoutePath(BaseModel):
+    route_geojson: dict
+    distance_km: float
+    duration_min: float
+    optimized_waypoints_order: List[str]
+
+class WebhookPayload(BaseModel):
+    container_id: str
+    address: str
+    coords: str
+    sensor_data: SensorData
+
+```

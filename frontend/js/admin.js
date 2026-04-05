@@ -1,6 +1,6 @@
 // Check authentication on page load
 (function() {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('access_token');
     const role = localStorage.getItem('role');
     
     if (!token || role !== 'admin') {
@@ -148,7 +148,7 @@ function updateTable() {
 }
 
 function getAuthHeaders() {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('access_token');
     return {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + token
