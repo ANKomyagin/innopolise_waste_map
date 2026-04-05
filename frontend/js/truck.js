@@ -88,6 +88,18 @@ async function loadContainers() {
                     'text-halo-width': 1
                 }
             });
+
+            // Обработка клика по контейнеру
+            map.on('click', 'clusters', function(e) {
+                const props = e.features[0].properties;
+                const featureData = {
+                    ...props,
+                    containers: typeof props.containers === 'string' ? JSON.parse(props.containers) : props.containers
+                };
+                window.dispatchEvent(new CustomEvent('container-selected', { detail: featureData }));
+            });
+            map.on('mouseenter', 'clusters', () => map.getCanvas().style.cursor = 'pointer');
+            map.on('mouseleave', 'clusters', () => map.getCanvas().style.cursor = '');
         }
 
         updateContainerCount();

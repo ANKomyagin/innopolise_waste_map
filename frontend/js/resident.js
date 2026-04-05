@@ -32,8 +32,37 @@ async function loadContainers() {
         }
     });
 
+    // Добавляем текст с процентами (как на лендинге)
+    map.addLayer({
+        id: 'cluster-count',
+        type: 'symbol',
+        source: 'containers',
+        layout: {
+            'text-field': ['concat', ['get', 'avg_fill_percent'], '%'],
+            'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+            'text-size': 12
+        },
+        paint: { 'text-color': '#ffffff' }
+    });
+
+    // Обработка клика по контейнеру
+    map.on('click', 'clusters', function(e) {
+        const props = e.features[0].properties;
+        const featureData = {
+            ...props,
+            containers: typeof props.containers === 'string' ? JSON.parse(props.containers) : props.containers
+        };
+        window.dispatchEvent(new CustomEvent('container-selected', { detail: featureData }));
+    });
+
+    map.on('mouseenter', 'clusters', () => map.getCanvas().style.cursor = 'pointer');
+    map.on('mouseleave', 'clusters', () => map.getCanvas().style.cursor = '');
+
     // Клик по карте (ставим точку "Дом")
     map.on('click', function(e) {
+        const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+        if (features.length) return; // Если кликнули по мусорке, не ставим дом
+        
         const lat = e.lngLat.lat;
         const lon = e.lngLat.lng;
         window.dispatchEvent(new CustomEvent('set-user-location', { detail: {lat, lon, address: "Выбранная точка"} }));

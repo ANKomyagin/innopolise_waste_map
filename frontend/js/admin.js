@@ -90,17 +90,33 @@ async function loadContainers() {
             });
         }
 
-        // Click handler for map to set coordinates in modal
-        if (!map.listenerCount || !map.listenerCount('click')) {
-            map.on('click', function(e) {
-                const modal = document.getElementById('addContainerModal');
-                if (modal && modal.style.display === 'flex') {
-                    const coords = e.lngLat;
-                    document.getElementById('containerCoords').value = 
-                        coords.lat.toFixed(6) + ', ' + coords.lng.toFixed(6);
-                }
-            });
-        }
+        // Обработка клика по контейнеру (открытие инфо)
+        map.on('click', 'clusters', function(e) {
+            const props = e.features[0].properties;
+            const featureData = {
+                ...props,
+                containers: typeof props.containers === 'string' ? JSON.parse(props.containers) : props.containers
+            };
+            window.dispatchEvent(new CustomEvent('container-selected', { detail: featureData }));
+        });
+        map.on('mouseenter', 'clusters', () => map.getCanvas().style.cursor = 'pointer');
+        map.on('mouseleave', 'clusters', () => map.getCanvas().style.cursor = '');
+
+        // Клик по пустой карте = добавление нового контейнера
+        map.on('click', function(e) {
+            const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+            if (features.length) return; // Если кликнули по мусорке, игнорируем
+            
+            const coords = e.lngLat;
+            document.getElementById('containerCoords').value = coords.lat.toFixed(6) + ', ' + coords.lng.toFixed(6);
+            
+            // Автоматически генерируем ID
+            document.getElementById('containerId').value = 'BIN-' + Math.floor(Math.random() * 10000);
+            document.getElementById('containerAddress').value = 'Новая площадка';
+            
+            isEditMode = false;
+            document.getElementById('addContainerModal').style.display = 'flex';
+        });
 
         updateStatistics();
         updateTable();
