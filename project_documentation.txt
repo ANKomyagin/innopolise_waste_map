@@ -2686,73 +2686,84 @@ exec uvicorn app.main:app --host 0.0.0.0 --port 8000
 {% endblock %}
 
 {% block content %}
-<div class="w-full md:w-[32rem] pointer-events-auto bg-transparent md:bg-white/95 md:dark:bg-gray-800/95 md:rounded-lg md:shadow-lg">
-    <!-- Statistics Cards -->
-    <div class="grid grid-cols-2 gap-3 mb-6">
-        <div class="bg-white/90 backdrop-blur rounded-lg shadow p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-600">Всего контейнеров</p>
-                    <h3 id="totalContainers" class="text-2xl font-bold text-gray-800">0</h3>
-                </div>
-                <i class="fas fa-dumpster text-3xl text-blue-500 opacity-20"></i>
-            </div>
-        </div>
-        
-        <div class="bg-white/90 backdrop-blur rounded-lg shadow p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-600">Требуют вывоза</p>
-                    <h3 id="needsCollection" class="text-2xl font-bold text-red-600">0</h3>
-                </div>
-                <i class="fas fa-exclamation-triangle text-3xl text-red-500 opacity-20"></i>
-            </div>
-        </div>
-        
-        <div class="bg-white/90 backdrop-blur rounded-lg shadow p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-600">Свободно (&lt;50%)</p>
-                    <h3 id="availableContainers" class="text-2xl font-bold text-green-600">0</h3>
-                </div>
-                <i class="fas fa-check-circle text-3xl text-green-500 opacity-20"></i>
-            </div>
-        </div>
-        
-        <div class="bg-white/90 backdrop-blur rounded-lg shadow p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-600">Средняя заполненность</p>
-                    <h3 id="avgFill" class="text-2xl font-bold text-gray-800">0%</h3>
-                </div>
-                <i class="fas fa-chart-line text-3xl text-yellow-500 opacity-20"></i>
-            </div>
-        </div>
+<div class="pointer-events-auto fixed md:relative bottom-0 left-0 w-full md:w-[32rem] bg-white md:bg-white/95 dark:bg-gray-800 md:dark:bg-gray-800/95 rounded-t-2xl md:rounded-lg shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] md:shadow-lg transition-all duration-300 flex flex-col z-50" 
+     x-data="{ expanded: true, touchStartY: 0, touchEndY: 0 }"
+     :class="expanded ? 'h-[85vh] md:h-auto' : 'h-[10vh] min-h-[60px] md:h-auto'"
+     @touchstart="touchStartY = $event.touches[0].clientY"
+     @touchend="touchEndY = $event.changedTouches[0].clientY; if(touchEndY - touchStartY > 50) expanded = false; if(touchStartY - touchEndY > 50) expanded = true;">
+    
+    <!-- Draggable header for mobile -->
+    <div class="md:hidden flex justify-center py-2 cursor-pointer" @click="expanded = !expanded">
+        <div class="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
     </div>
-    
-    <!-- Add Container Button -->
-    <button onclick="document.getElementById('addContainerModal').style.display='flex'" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2 mb-6">
-        <i class="fas fa-plus"></i>
-        Добавить контейнер
-    </button>
-    
-    <!-- Container Table -->
-    <div class="bg-white/90 backdrop-blur rounded-lg shadow overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-gray-100 border-b">
-                    <tr>
-                        <th class="px-4 py-3 text-left font-semibold text-gray-700">ID</th>
-                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Адрес</th>
-                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Заполненность</th>
-                    </tr>
-                </thead>
-                <tbody id="containerTableBody">
-                    <tr>
-                        <td colspan="3" class="px-4 py-6 text-center text-gray-500">Загрузка данных...</td>
-                    </tr>
-                </tbody>
-            </table>
+
+    <div class="flex-1 overflow-y-auto px-4 pb-4" x-show="expanded || window.innerWidth >= 768" x-transition.opacity>
+        <!-- Statistics Cards -->
+        <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600 rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Всего контейнеров</p>
+                        <h3 id="totalContainers" class="text-2xl font-bold text-gray-800 dark:text-white">0</h3>
+                    </div>
+                    <i class="fas fa-dumpster text-3xl text-blue-500 opacity-20"></i>
+                </div>
+            </div>
+            
+            <div class="bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600 rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Требуют вывоза</p>
+                        <h3 id="needsCollection" class="text-2xl font-bold text-red-600 dark:text-red-400">0</h3>
+                    </div>
+                    <i class="fas fa-exclamation-triangle text-3xl text-red-500 opacity-20"></i>
+                </div>
+            </div>
+            
+            <div class="bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600 rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Свободно (&lt;50%)</p>
+                        <h3 id="availableContainers" class="text-2xl font-bold text-green-600 dark:text-green-400">0</h3>
+                    </div>
+                    <i class="fas fa-check-circle text-3xl text-green-500 opacity-20"></i>
+                </div>
+            </div>
+            
+            <div class="bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600 rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Средняя заполненность</p>
+                        <h3 id="avgFill" class="text-2xl font-bold text-gray-800 dark:text-white">0%</h3>
+                    </div>
+                    <i class="fas fa-chart-line text-3xl text-yellow-500 opacity-20"></i>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Add Container Button -->
+        <button onclick="document.getElementById('addContainerModal').style.display='flex'" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-2 mb-4 mt-2">
+            <i class="fas fa-plus"></i> Добавить площадку (Кликните по карте)
+        </button>
+        
+        <!-- Container Table -->
+        <div class="bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600 rounded-lg overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">ID</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Адрес</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Заполненность</th>
+                        </tr>
+                    </thead>
+                    <tbody id="containerTableBody">
+                        <tr>
+                            <td colspan="3" class="px-4 py-6 text-center text-gray-500 dark:text-gray-400">Загрузка данных...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
@@ -2900,6 +2911,51 @@ exec uvicorn app.main:app --host 0.0.0.0 --port 8000
                 </main>
             </div>
             {% endblock %}
+        </div>
+        
+        <!-- Container Details Modal (shared across all pages) -->
+        <div x-data="{ selectedFeature: null }" 
+             @container-selected.window="selectedFeature = $event.detail" 
+             x-show="selectedFeature" 
+             style="display: none;" 
+             class="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" 
+             @click="selectedFeature = null">
+            
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-md relative" @click.stop>
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                        <i class="fas fa-map-marker-alt text-green-600"></i>
+                        Детали площадки
+                    </h3>
+                    <button @click="selectedFeature = null" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white text-2xl">&times;</button>
+                </div>
+                
+                <!-- Content -->
+                <div class="space-y-4">
+                    <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Адрес:</p>
+                        <p class="text-gray-800 dark:text-white font-medium" x-text="selectedFeature?.address"></p>
+                    </div>
+                    
+                    <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                        <div>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Контейнеров:</p>
+                            <p class="text-xl font-bold text-gray-800 dark:text-white" x-text="selectedFeature?.container_count"></p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Средняя заполненность:</p>
+                            <p class="text-xl font-bold" 
+                               :class="selectedFeature?.avg_fill_percent >= 70 ? 'text-red-500' : (selectedFeature?.avg_fill_percent >= 50 ? 'text-yellow-500' : 'text-green-500')" 
+                               x-text="selectedFeature?.avg_fill_percent + '%'"></p>
+                        </div>
+                    </div>
+                    
+                    <button @click="selectedFeature = null" class="w-full mt-4 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-medium py-3 rounded-lg transition-colors">
+                        Закрыть
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -3338,17 +3394,33 @@ async function loadContainers() {
             });
         }
 
-        // Click handler for map to set coordinates in modal
-        if (!map.listenerCount || !map.listenerCount('click')) {
-            map.on('click', function(e) {
-                const modal = document.getElementById('addContainerModal');
-                if (modal && modal.style.display === 'flex') {
-                    const coords = e.lngLat;
-                    document.getElementById('containerCoords').value = 
-                        coords.lat.toFixed(6) + ', ' + coords.lng.toFixed(6);
-                }
-            });
-        }
+        // Обработка клика по контейнеру (открытие инфо)
+        map.on('click', 'clusters', function(e) {
+            const props = e.features[0].properties;
+            const featureData = {
+                ...props,
+                containers: typeof props.containers === 'string' ? JSON.parse(props.containers) : props.containers
+            };
+            window.dispatchEvent(new CustomEvent('container-selected', { detail: featureData }));
+        });
+        map.on('mouseenter', 'clusters', () => map.getCanvas().style.cursor = 'pointer');
+        map.on('mouseleave', 'clusters', () => map.getCanvas().style.cursor = '');
+
+        // Клик по пустой карте = добавление нового контейнера
+        map.on('click', function(e) {
+            const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+            if (features.length) return; // Если кликнули по мусорке, игнорируем
+            
+            const coords = e.lngLat;
+            document.getElementById('containerCoords').value = coords.lat.toFixed(6) + ', ' + coords.lng.toFixed(6);
+            
+            // Автоматически генерируем ID
+            document.getElementById('containerId').value = 'BIN-' + Math.floor(Math.random() * 10000);
+            document.getElementById('containerAddress').value = 'Новая площадка';
+            
+            isEditMode = false;
+            document.getElementById('addContainerModal').style.display = 'flex';
+        });
 
         updateStatistics();
         updateTable();
@@ -4007,8 +4079,37 @@ async function loadContainers() {
         }
     });
 
+    // Добавляем текст с процентами (как на лендинге)
+    map.addLayer({
+        id: 'cluster-count',
+        type: 'symbol',
+        source: 'containers',
+        layout: {
+            'text-field': ['concat', ['get', 'avg_fill_percent'], '%'],
+            'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+            'text-size': 12
+        },
+        paint: { 'text-color': '#ffffff' }
+    });
+
+    // Обработка клика по контейнеру
+    map.on('click', 'clusters', function(e) {
+        const props = e.features[0].properties;
+        const featureData = {
+            ...props,
+            containers: typeof props.containers === 'string' ? JSON.parse(props.containers) : props.containers
+        };
+        window.dispatchEvent(new CustomEvent('container-selected', { detail: featureData }));
+    });
+
+    map.on('mouseenter', 'clusters', () => map.getCanvas().style.cursor = 'pointer');
+    map.on('mouseleave', 'clusters', () => map.getCanvas().style.cursor = '');
+
     // Клик по карте (ставим точку "Дом")
     map.on('click', function(e) {
+        const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+        if (features.length) return; // Если кликнули по мусорке, не ставим дом
+        
         const lat = e.lngLat.lat;
         const lon = e.lngLat.lng;
         window.dispatchEvent(new CustomEvent('set-user-location', { detail: {lat, lon, address: "Выбранная точка"} }));
@@ -4222,6 +4323,18 @@ async function loadContainers() {
                     'text-halo-width': 1
                 }
             });
+
+            // Обработка клика по контейнеру
+            map.on('click', 'clusters', function(e) {
+                const props = e.features[0].properties;
+                const featureData = {
+                    ...props,
+                    containers: typeof props.containers === 'string' ? JSON.parse(props.containers) : props.containers
+                };
+                window.dispatchEvent(new CustomEvent('container-selected', { detail: featureData }));
+            });
+            map.on('mouseenter', 'clusters', () => map.getCanvas().style.cursor = 'pointer');
+            map.on('mouseleave', 'clusters', () => map.getCanvas().style.cursor = '');
         }
 
         updateContainerCount();
@@ -4500,50 +4613,6 @@ async function emptyRouteContainers() {
         <p>&copy; 2026 Innopolis QRBIN. Умное управление отходами для чистого города.</p>
     </footer>
 
-    <!-- Container Details Modal -->
-    <div x-data="{ selectedFeature: null }" 
-         @container-selected.window="selectedFeature = $event.detail" 
-         x-show="selectedFeature" 
-         style="display: none;" 
-         class="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" 
-         @click="selectedFeature = null">
-        
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-md relative" @click.stop>
-            <!-- Header -->
-            <div class="flex items-center justify-between mb-6">
-                <h3 class="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                    <i class="fas fa-map-marker-alt text-green-600"></i>
-                    Детали площадки
-                </h3>
-                <button @click="selectedFeature = null" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white text-2xl">&times;</button>
-            </div>
-            
-            <!-- Content -->
-            <div class="space-y-4">
-                <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Адрес:</p>
-                    <p class="text-gray-800 dark:text-white font-medium" x-text="selectedFeature?.address"></p>
-                </div>
-                
-                <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                    <div>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Контейнеров:</p>
-                        <p class="text-xl font-bold text-gray-800 dark:text-white" x-text="selectedFeature?.container_count"></p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Средняя заполненность:</p>
-                        <p class="text-xl font-bold" 
-                           :class="selectedFeature?.avg_fill_percent >= 70 ? 'text-red-500' : (selectedFeature?.avg_fill_percent >= 50 ? 'text-yellow-500' : 'text-green-500')" 
-                           x-text="selectedFeature?.avg_fill_percent + '%'"></p>
-                    </div>
-                </div>
-                
-                <button @click="selectedFeature = null" class="w-full mt-4 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-medium py-3 rounded-lg transition-colors">
-                    Закрыть
-                </button>
-            </div>
-        </div>
-    </div>
 </main>
 {% endblock %}
 

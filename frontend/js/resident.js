@@ -60,8 +60,11 @@ async function loadContainers() {
 
     // Клик по карте (ставим точку "Дом")
     map.on('click', function(e) {
-        const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
-        if (features.length) return; // Если кликнули по мусорке, не ставим дом
+        // Проверяем, есть ли слой clusters перед запросом
+        if (map.getLayer('clusters')) {
+            const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+            if (features.length > 0) return; // Игнорируем клик, если попали по мусорке
+        }
         
         const lat = e.lngLat.lat;
         const lon = e.lngLat.lng;
