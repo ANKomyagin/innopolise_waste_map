@@ -66,6 +66,17 @@ async function loadMapData() {
 
     } catch (err) {
         console.error('Ошибка загрузки данных контейнеров:', err);
+        const mapSection = document.getElementById('map-section');
+        if (mapSection) {
+            const existing = document.getElementById('map-error-banner');
+            if (existing) existing.remove();
+            const banner = document.createElement('div');
+            banner.id = 'map-error-banner';
+            banner.style.cssText = 'position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:#fff3cd;border:1px solid #ffc107;color:#856404;padding:12px 20px;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.18);display:flex;align-items:center;gap:10px;z-index:9999;font-size:14px;max-width:90%;white-space:nowrap;';
+            banner.innerHTML = '⚠️ <span style="white-space:normal;">Не удалось загрузить данные контейнеров. Возможно, ведутся технические работы.</span><button onclick="this.parentElement.remove()" style="background:none;border:none;font-size:20px;line-height:1;cursor:pointer;color:#856404;margin-left:8px;padding:0;">×</button>';
+            mapSection.appendChild(banner);
+            setTimeout(() => { if (banner.parentElement) banner.remove(); }, 8000);
+        }
     }
 }
 

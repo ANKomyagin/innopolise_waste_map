@@ -4,9 +4,9 @@ from datetime import datetime
 
 class SensorData(BaseModel):
     fill_percent: int
-    temperature_status: str
-    tilt_status: str
-    battery_status: str
+    temperature_status: str = "неизвестно"
+    tilt_status: str = "неизвестно"
+    battery_status: str = "неизвестно"
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class Container(BaseModel):

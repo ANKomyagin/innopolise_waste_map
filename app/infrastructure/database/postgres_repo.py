@@ -141,12 +141,21 @@ class PostgresContainerRepo(ContainerRepository):
                     container.coords = new_coords
                 if fill_percent is not None:
                     if container.sensor_data is None:
-                        container.sensor_data = {"fill_percent": fill_percent, "timestamp": datetime.utcnow().isoformat()}
+                        container.sensor_data = {
+                            "fill_percent": fill_percent,
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "temperature_status": "норм. (ручной ввод)",
+                            "tilt_status": "норм.",
+                            "battery_status": "норм."
+                        }
                     else:
                         # Обязательно создаем копию словаря, чтобы SQLAlchemy увидела изменение!
                         new_data = dict(container.sensor_data)
                         new_data["fill_percent"] = fill_percent
                         new_data["timestamp"] = datetime.utcnow().isoformat()
+                        new_data["temperature_status"] = new_data.get("temperature_status", "неизвестно")
+                        new_data["tilt_status"] = new_data.get("tilt_status", "неизвестно")
+                        new_data["battery_status"] = new_data.get("battery_status", "неизвестно")
                         container.sensor_data = new_data
                 
                 await db.commit()
