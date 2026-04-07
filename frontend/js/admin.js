@@ -142,6 +142,7 @@ function updateLocationsView() {
     }
 
     container.innerHTML = Object.entries(locations).map(([address, locs]) => {
+        const safeAddress = address.replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, ' ');
         const avgFill = Math.round(locs.reduce((sum, c) => sum + c.fill_percent, 0) / locs.length);
         let fillColor = 'text-green-600';
         if (avgFill >= 70) fillColor = 'text-red-600';
@@ -158,11 +159,14 @@ function updateLocationsView() {
                 </div>
                 
                 <div class="flex gap-2 mb-3 flex-wrap">
-                    <button onclick="startLocationSelection('${address.replace(/'/g, "\\'")}')" class="flex-1 min-w-[120px] bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
+                    <button onclick="startLocationSelection('${safeAddress}')" class="flex-1 min-w-[120px] bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
                         <i class="fas fa-map-pin"></i> Координаты
                     </button>
-                    <button onclick="openAddContainerToLocationModal('${address.replace(/'/g, "\\'")}', '${locs[0].lat}, ${locs[0].lon}')" class="flex-1 min-w-[120px] bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
+                    <button onclick="openAddContainerToLocationModal('${safeAddress}', '${locs[0].lat}, ${locs[0].lon}')" class="flex-1 min-w-[120px] bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
                         <i class="fas fa-plus"></i> Добавить бак
+                    </button>
+                    <button onclick="openEditLocationModal('${safeAddress}', '${locs[0].lat}, ${locs[0].lon}')" class="flex-1 min-w-[120px] bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
+                        <i class="fas fa-edit"></i> Ред. площадку
                     </button>
                 </div>
                 
