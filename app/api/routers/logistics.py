@@ -10,6 +10,7 @@ router = APIRouter(prefix="/api/logistics", tags=["logistics"])
 class RouteRequest(BaseModel):
     container_ids: List[str]
     threshold: int
+    origin: str
 
 
 class ResidentRouteRequest(BaseModel):
@@ -82,8 +83,7 @@ async def get_optimal_route(
         return {"message": "Нет уникальных точек для маршрута"}
     
     # Build route asynchronously
-    DEPOT_COORDS = "55.753, 48.743"
-    route = await routing_provider.build_route(origin=DEPOT_COORDS, waypoints=unique_coords)
+    route = await routing_provider.build_route(origin=request.origin, waypoints=unique_coords)
     return {"route": route}
 
 
