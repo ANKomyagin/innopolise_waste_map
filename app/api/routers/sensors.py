@@ -80,7 +80,7 @@ async def get_scan_logs(container_id: str = None, limit: int = 50, db_repo = Dep
     return {"logs": logs, "count": len(logs)}
 
 
-@router.get("/{container_id}/qr")
+@router.get("/{container_id:path}/qr")
 async def generate_qr(container_id: str, request: Request):
     """Generate QR code for a specific container"""
     base_url = str(request.base_url).rstrip("/")

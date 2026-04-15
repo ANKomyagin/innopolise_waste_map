@@ -329,7 +329,7 @@ function getAuthHeaders() {
 }
 
 function openQRModal(containerId) {
-    const qrUrl = `/api/sensors/${containerId}/qr`;
+    const qrUrl = `/api/sensors/${encodeURIComponent(containerId)}/qr`;
     document.getElementById('qrImage').src = qrUrl;
     document.getElementById('qrModal').style.display = 'flex';
 }
@@ -467,7 +467,7 @@ async function saveEditContainer(event) {
     }
 
     try {
-        const response = await fetch(`/api/containers/${editingId}`, {
+        const response = await fetch(`/api/containers/${encodeURIComponent(editingId)}`, {
             method: 'PUT',
             headers: getAuthHeaders(),
             body: JSON.stringify(body)
@@ -535,7 +535,7 @@ async function deleteContainer(id) {
     if (!confirm(`Удалить контейнер ${id}?`)) return;
 
     try {
-        const response = await fetch(`/api/containers/${id}`, {
+        const response = await fetch(`/api/containers/${encodeURIComponent(id)}`, {
             method: 'DELETE',
             headers: getAuthHeaders()
         });

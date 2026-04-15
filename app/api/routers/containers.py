@@ -83,7 +83,7 @@ async def create_container(
     return {"status": "ok", "id": data.id}
 
 
-@router.put("/{container_id}")
+@router.put("/{container_id:path}")
 async def edit_container(
     container_id: str, 
     data: EditContainer, 
@@ -103,7 +103,7 @@ async def edit_container(
     return {"status": "ok"}
 
 
-@router.delete("/{container_id}")
+@router.delete("/{container_id:path}")
 async def delete_container(
     container_id: str, 
     db_repo = Depends(get_db_repo),
