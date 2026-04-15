@@ -65,18 +65,3 @@ button, input, select, textarea {
     transition: all 0.3s ease;
 }
 
-.bg-white {
-    background-color: var(--bg-color);
-}
-
-.text-gray-800 {
-    color: var(--text-primary);
-}
-
-.text-gray-600 {
-    color: var(--text-secondary);
-}
-
-.border-gray-200 {
-    border-color: var(--border-color);
-}

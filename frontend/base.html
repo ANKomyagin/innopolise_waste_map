@@ -264,8 +264,10 @@
                     const html = document.documentElement;
                     if (this.isDarkMode) {
                         html.classList.add('dark');
+                        html.setAttribute('data-theme', 'dark');
                     } else {
                         html.classList.remove('dark');
+                        html.setAttribute('data-theme', 'light');
                     }
                     const theme = this.isDarkMode ? 'dark' : 'light';
                     localStorage.setItem('theme', theme);
