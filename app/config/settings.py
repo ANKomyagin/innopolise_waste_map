@@ -44,8 +44,6 @@ class Settings:
     CONTRACTOR_USERNAME: str = os.getenv("CONTRACTOR_USERNAME", "driver")
     CONTRACTOR_PASSWORD: str = os.getenv("CONTRACTOR_PASSWORD", "driver123")
     
-    # API ключи
-    YANDEX_API_KEY: str = os.getenv("YANDEX_API_KEY", "7d253372-5194-4f00-a292-ea1d7bc18844")
     
     # Настройки приложения
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"

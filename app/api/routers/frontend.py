@@ -22,22 +22,6 @@ async def serve_landing_page(request: Request):
     )
 
 
-@router.get("/map")
-async def serve_map_page(request: Request):
-    """Serve full map page (old index.html)"""
-    return templates.TemplateResponse(
-        request=request,
-        name="index.html",
-        context={
-            "YANDEX_API_KEY": settings.YANDEX_API_KEY,
-            "DEFAULT_LAT": settings.DEFAULT_LAT,
-            "DEFAULT_LON": settings.DEFAULT_LON,
-            "DEFAULT_ZOOM": settings.DEFAULT_ZOOM,
-            "PUBLIC_SERVER_URL": settings.PUBLIC_SERVER_URL
-        }
-    )
-
-
 @router.get("/qr-scan")
 async def serve_qr_page(request: Request):
     """Serve mobile QR scanning page"""
@@ -74,10 +58,3 @@ async def serve_resident_page(request: Request):
     )
 
 
-@router.get("/role-select.html")
-async def serve_role_select_page(request: Request):
-    """Serve role selection page"""
-    return templates.TemplateResponse(
-        request=request,
-        name="role-select.html"
-    )
