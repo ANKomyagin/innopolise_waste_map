@@ -31,17 +31,7 @@ async function loadMapData() {
                 ],
                 'icon-size': 1,
                 'icon-anchor': 'bottom',
-                'icon-allow-overlap': true,
-                'text-field': ['concat', ['get', 'avg_fill_percent'], '%'],
-                'text-font': ['Open Sans Bold'],
-                'text-size': 11,
-                'text-offset': [0, -2.5],
-                'text-allow-overlap': true
-            },
-            paint: {
-                'text-color': '#ffffff',
-                'text-halo-color': 'rgba(0,0,0,0.5)',
-                'text-halo-width': 1
+                'icon-allow-overlap': true
             }
         });
 
