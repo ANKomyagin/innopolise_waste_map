@@ -163,16 +163,16 @@ function updateLocationsView() {
                 </div>
                 
                 <div class="flex gap-2 mb-3 flex-wrap">
-                    <button onclick="emptyLocation('${safeAddress}')" class="flex-1 min-w-[120px] bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
+                    <button onclick="emptyLocation('${safeAddress}')" class="flex-1 min-w-[120px] bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
                         <i class="fas fa-trash-restore"></i> Очистить площадку
                     </button>
-                    <button onclick="startLocationSelection('${safeAddress}')" class="flex-1 min-w-[120px] bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
+                    <button onclick="startLocationSelection('${safeAddress}')" class="flex-1 min-w-[120px] bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
                         <i class="fas fa-map-pin"></i> Координаты
                     </button>
-                    <button onclick="openEditLocationModal('${safeAddress}', '${locs[0].lat}, ${locs[0].lon}')" class="flex-1 min-w-[120px] bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
+                    <button onclick="openEditLocationModal('${safeAddress}', '${locs[0].lat}, ${locs[0].lon}')" class="flex-1 min-w-[120px] bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
                         <i class="fas fa-edit"></i> Ред. площадку
                     </button>
-                    <button onclick="openQRModal('${locs[0].id}')" class="flex-1 min-w-[120px] bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
+                    <button onclick="openQRModal('${locs[0].id}')" class="flex-1 min-w-[120px] bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
                         <i class="fas fa-qrcode"></i> QR-код
                     </button>
                 </div>

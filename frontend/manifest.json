@@ -20,6 +20,13 @@
   ],
   "shortcuts": [
     {
+      "name": "Сканировать QR",
+      "short_name": "Сканер",
+      "description": "Отсканировать QR-код площадки",
+      "url": "/scanner.html",
+      "icons": [{ "src": "/vendor/images/icon-192.png", "sizes": "192x192" }]
+    },
+    {
       "name": "Карта площадок",
       "short_name": "Карта",
       "description": "Посмотреть карту контейнерных площадок",

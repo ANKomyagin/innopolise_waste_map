@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Сканер QR-кода{% endblock %}
+
+{% block header_actions %}
+<button onclick="window.location.href='/resident.html'" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-medium py-1.5 px-3 rounded-lg text-sm transition-colors flex items-center gap-2">
+    <i class="fas fa-map"></i> Карта
+</button>
+{% endblock %}
+
+{% block layout %}
+<div class="flex-1 pt-20 bg-gray-50 dark:bg-gray-900 dark:text-white min-h-screen flex flex-col items-center p-4 z-20 relative">
+    <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden mt-4">
+        <div class="bg-green-600 p-6 text-center text-white">
+            <i class="fas fa-qrcode text-4xl mb-2"></i>
+            <h1 class="text-2xl font-bold">Сканер QRBIN</h1>
+            <p class="text-green-100 text-sm mt-1">Наведите камеру на QR-код площадки</p>
+        </div>
+        
+        <div class="p-6 flex flex-col items-center">
+            <div id="reader" class="w-full rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-700 bg-black"></div>
+            
+            <div id="scanResult" class="hidden w-full mt-6 p-4 rounded-xl text-center font-medium"></div>
+            
+            <button id="restartBtn" onclick="startScanner()" class="hidden w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2">
+                <i class="fas fa-redo"></i> Сканировать заново
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/vendor/js/html5-qrcode.min.js"></script>
+<script>
+    let html5QrcodeScanner = null;
+
+    function onScanSuccess(decodedText, decodedResult) {
+        // Остановка сканера
+        if (html5QrcodeScanner) {
+            html5QrcodeScanner.clear();
+        }
+        
+        const resultDiv = document.getElementById('scanResult');
+        const restartBtn = document.getElementById('restartBtn');
+        
+        resultDiv.classList.remove('hidden', 'bg-red-100', 'text-red-800', 'bg-green-100', 'text-green-800');
+        restartBtn.classList.remove('hidden');
+        
+        try {
+            const url = new URL(decodedText);
+            const currentOrigin = window.location.origin;
+            
+            // Проверка безопасности (защита от квишинга)
+            if (url.origin === currentOrigin && url.pathname === '/qr-scan') {
+                resultDiv.classList.add('bg-green-100', 'text-green-800');
+                resultDiv.innerHTML = '<i class="fas fa-check-circle text-2xl mb-2 block"></i>Код распознан! Перенаправление...';
+                
+                // Перенаправляем на страницу сканирования
+                setTimeout(() => {
+                    window.location.href = decodedText;
+                }, 1000);
+            } else {
+                resultDiv.classList.add('bg-red-100', 'text-red-800');
+                resultDiv.innerHTML = '<i class="fas fa-exclamation-triangle text-2xl mb-2 block"></i>Внимание! Этот QR-код не принадлежит системе QRBIN. Возможна попытка фишинга.';
+            }
+        } catch (e) {
+            resultDiv.classList.add('bg-red-100', 'text-red-800');
+            resultDiv.innerHTML = '<i class="fas fa-exclamation-triangle text-2xl mb-2 block"></i>Неверный формат QR-кода.';
+        }
+    }
+
+    function onScanFailure(error) {
+        // Игнорируем ошибки сканирования (кадр без QR-кода)
+    }
+
+    function startScanner() {
+        document.getElementById('scanResult').classList.add('hidden');
+        document.getElementById('restartBtn').classList.add('hidden');
+        
+        if (html5QrcodeScanner) {
+            html5QrcodeScanner.clear();
+        }
+        
+        html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader",
+            { fps: 10, qrbox: {width: 250, height: 250}, aspectRatio: 1.0 },
+            /* verbose= */ false
+        );
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        startScanner();
+    });
+</script>
+{% endblock %}

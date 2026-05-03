@@ -58,3 +58,12 @@ async def serve_resident_page(request: Request):
     )
 
 
+@router.get("/scanner.html")
+async def serve_scanner_page(request: Request):
+    """Serve in-app QR scanner page"""
+    return templates.TemplateResponse(
+        request=request,
+        name="scanner.html"
+    )
+
+
