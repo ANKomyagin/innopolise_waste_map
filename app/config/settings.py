@@ -37,12 +37,12 @@ class Settings:
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # Токен живет 7 дней
     
-    # Учетные данные пользователей (хардкод для MVP)
+    # Учетные данные пользователей
     ADMIN_USERNAME: str = os.getenv("ADMIN_USERNAME", "admin")
-    ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "admin123")
+    ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD")
     
     CONTRACTOR_USERNAME: str = os.getenv("CONTRACTOR_USERNAME", "driver")
-    CONTRACTOR_PASSWORD: str = os.getenv("CONTRACTOR_PASSWORD", "driver123")
+    CONTRACTOR_PASSWORD: str = os.getenv("CONTRACTOR_PASSWORD")
     
     
     # Настройки приложения

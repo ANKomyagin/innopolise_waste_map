@@ -1,6 +1,6 @@
 from typing import List
 from datetime import datetime
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func
 from app.core.interfaces import ContainerRepository
 from app.domain.models import Container, SensorData
 from .database import SessionLocal
@@ -203,16 +203,16 @@ class PostgresContainerRepo(ContainerRepository):
         """Получить статистику сканирований"""
         async with SessionLocal() as db:
             # Всего сканирований
-            total_result = await db.execute(select(DBScanLog))
-            total_scans = len(total_result.scalars().all())
+            total_result = await db.execute(select(func.count(DBScanLog.id)))
+            total_scans = total_result.scalar_one()
             
             # Сканирования за последние 24 часа
             from datetime import timedelta
             last_24h = datetime.utcnow() - timedelta(hours=24)
             recent_result = await db.execute(
-                select(DBScanLog).filter(DBScanLog.scanned_at >= last_24h)
+                select(func.count(DBScanLog.id)).filter(DBScanLog.scanned_at >= last_24h)
             )
-            recent_scans = len(recent_result.scalars().all())
+            recent_scans = recent_result.scalar_one()
             
             return {
                 "total_scans": total_scans,

@@ -5,6 +5,7 @@ from datetime import datetime
 from fastapi.responses import StreamingResponse
 import qrcode
 import io
+from cachetools import TTLCache
 from app.api.dependencies import get_db_repo, get_notifier, get_sensor_pipeline
 from app.domain.models import WebhookPayload
 
@@ -18,8 +19,8 @@ class QRManualReport(BaseModel):
     role: str = "resident"
 
 
-# Простой словарь для защиты от спама (в проде используют Redis)
-anti_spam_cache = {}
+# Используем TTLCache для защиты от спама (ограничение размера и времени жизни)
+anti_spam_cache = TTLCache(maxsize=10000, ttl=300)
 
 
 @router.post("/webhook")
@@ -37,9 +38,7 @@ async def receive_qr_data(report: QRManualReport, db_repo = Depends(get_db_repo)
     
     # 🛡 Антиспам: разрешаем отправлять статус не чаще раза в 5 минут
     if spam_key in anti_spam_cache:
-        delta = (now - anti_spam_cache[spam_key]).total_seconds()
-        if delta < 300:
-            return {"status": "error", "message": "Вы уже отправляли данные недавно. Спасибо!"}
+        return {"status": "error", "message": "Вы уже отправляли данные недавно. Спасибо!"}
     
     anti_spam_cache[spam_key] = now
     

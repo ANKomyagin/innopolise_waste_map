@@ -19,11 +19,12 @@ class ResidentRouteRequest(BaseModel):
 
 
 def deduplicate_coords(coords_list: List[str], radius_meters: float = 15.0) -> List[str]:
-    """Deduplicate coordinates within a given radius (in meters)"""
+    """Deduplicate coordinates by rounding to a grid (O(N) complexity)"""
     if not coords_list:
         return []
     
     unique_coords = []
+    seen_grid = set()
     
     for coord in coords_list:
         try:
@@ -31,30 +32,15 @@ def deduplicate_coords(coords_list: List[str], radius_meters: float = 15.0) -> L
         except (ValueError, IndexError):
             continue
         
-        # Check if this coordinate is close to any existing unique coordinate
-        is_duplicate = False
-        for unique_coord in unique_coords:
-            try:
-                u_lat, u_lon = map(float, unique_coord.split(','))
-            except (ValueError, IndexError):
-                continue
-            
-            # Calculate distance using Haversine formula
-            from math import radians, cos, sin, asin, sqrt
-            R = 6371000  # Earth radius in meters
-            dLat = radians(lat - u_lat)
-            dLon = radians(lon - u_lon)
-            a = sin(dLat/2)**2 + cos(radians(u_lat)) * cos(radians(lat)) * sin(dLon/2)**2
-            c = 2 * asin(sqrt(a))
-            distance = R * c
-            
-            if distance <= radius_meters:
-                is_duplicate = True
-                break
+        # Rounding to 4 decimal places gives a grid of ~11m x 11m
+        grid_lat = round(lat, 4)
+        grid_lon = round(lon, 4)
+        grid_key = (grid_lat, grid_lon)
         
-        if not is_duplicate:
+        if grid_key not in seen_grid:
+            seen_grid.add(grid_key)
             unique_coords.append(coord)
-    
+            
     return unique_coords
 
 

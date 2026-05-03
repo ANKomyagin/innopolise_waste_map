@@ -66,8 +66,9 @@ class TelegramBotService:
     async def _process_sensor_message(self, message: types.Message):
         """Обработка сообщений от датчиков"""
         import re
-        import httpx
         from datetime import datetime
+        from app.api.dependencies import get_sensor_pipeline
+        from app.domain.models import WebhookPayload
         
         # Паттерн для парсинга сообщений от датчиков
         pattern = re.compile(
@@ -98,26 +99,24 @@ class TelegramBotService:
             iso_timestamp = dt_obj.isoformat()
             
             # Формирование payload для API
-            payload = {
-                "container_id": data['container_id'],
-                "address": data['address'],
-                "coords": data['coords'],
-                "sensor_data": {
+            payload = WebhookPayload(
+                container_id=data['container_id'],
+                address=data['address'],
+                coords=data['coords'],
+                sensor_data={
                     "fill_percent": int(data['fill_percent']),
                     "temperature_status": data['temperature'].strip(),
                     "tilt_status": data['tilt'].strip(),
                     "battery_status": data['battery'].strip(),
                     "timestamp": iso_timestamp
                 }
-            }
+            )
             
-            # Отправка в API
-            api_url = f"http://localhost:{settings.PORT}/api/sensors/webhook"
-            async with httpx.AsyncClient() as client:
-                response = await client.post(api_url, json=payload, timeout=10.0)
-                response.raise_for_status()
+            # Прямой вызов сервиса вместо HTTP-запроса
+            sensor_pipeline = get_sensor_pipeline()
+            await sensor_pipeline.process_new_data(payload)
                 
-            logger.info(f"✅ Данные от контейнера {data['container_id']} отправлены в API")
+            logger.info(f"✅ Данные от контейнера {data['container_id']} обработаны")
             
             # Отправка подтверждения
             await message.answer(
