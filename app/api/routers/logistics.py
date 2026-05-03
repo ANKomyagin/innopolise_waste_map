@@ -98,7 +98,7 @@ async def geocode_address(query: str):
             data = json.load(f)
             
         results = []
-        query_words = query_lower.split()
+        query_words = query.lower().split()
         
         for feature in data.get("features", []):
             props = feature.get("properties", {})
