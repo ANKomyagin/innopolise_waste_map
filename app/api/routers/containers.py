@@ -130,6 +130,7 @@ async def empty_containers(
     for cid in request.container_ids:
         sensor_dict = {
             "fill_percent": 0,
+            "is_reset": True,
             "temperature_status": "норм. (Сброс водителем)",
             "tilt_status": "норм.",
             "battery_status": "норм.",

@@ -69,19 +69,26 @@ class PostgresContainerRepo(ContainerRepository):
             if container:
                 old_data = container.sensor_data or {}
 
-                # Достаем историю последних сканирований
-                history = old_data.get("qr_history", [])
-
-                # Добавляем новую оценку
-                new_fill = sensor_data["fill_percent"]
-                history.append(new_fill)
-
-                # Храним только последние 3 оценки
-                if len(history) > 3:
-                    history = history[-3:]
-
-                # Считаем среднее арифметическое последних 3
-                avg_fill = int(sum(history) / len(history))
+                # Проверяем, является ли это принудительным сбросом от админа/водителя
+                is_reset = sensor_data.pop("is_reset", False)
+                
+                if is_reset:
+                    avg_fill = 0
+                    history = [0, 0, 0]
+                else:
+                    # Достаем историю последних сканирований
+                    history = old_data.get("qr_history", [])
+    
+                    # Добавляем новую оценку
+                    new_fill = sensor_data["fill_percent"]
+                    history.append(new_fill)
+    
+                    # Храним только последние 3 оценки
+                    if len(history) > 3:
+                        history = history[-3:]
+    
+                    # Считаем среднее арифметическое последних 3
+                    avg_fill = int(sum(history) / len(history))
 
                 # Обновляем словарь
                 sensor_data["fill_percent"] = avg_fill

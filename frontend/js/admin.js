@@ -105,12 +105,12 @@ async function loadContainers() {
 }
 
 function updateStatistics() {
-    const total = containers.length;
+    const totalLocations = Object.keys(locations).length;
     const needsCollection = containers.filter(c => c.fill_percent >= 70).length;
     const available = containers.filter(c => c.fill_percent < 50).length;
-    const avgFill = total > 0 ? Math.round(containers.reduce((sum, c) => sum + c.fill_percent, 0) / total) : 0;
+    const avgFill = containers.length > 0 ? Math.round(containers.reduce((sum, c) => sum + c.fill_percent, 0) / containers.length) : 0;
 
-    document.getElementById('totalContainers').textContent = total;
+    document.getElementById('totalContainers').textContent = totalLocations;
     document.getElementById('needsCollection').textContent = needsCollection;
     document.getElementById('availableContainers').textContent = available;
     document.getElementById('avgFill').textContent = avgFill + '%';
@@ -156,7 +156,7 @@ function updateLocationsView() {
                         <i class="fas fa-map-pin"></i> Координаты
                     </button>
                     <button onclick="openAddContainerToLocationModal('${safeAddress}', '${locs[0].lat}, ${locs[0].lon}')" class="flex-1 min-w-[120px] bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
-                        <i class="fas fa-plus"></i> Добавить контейнер
+                        <i class="fas fa-plus"></i> Добавить системный ID
                     </button>
                     <button onclick="openEditLocationModal('${safeAddress}', '${locs[0].lat}, ${locs[0].lon}')" class="flex-1 min-w-[120px] bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
                         <i class="fas fa-edit"></i> Ред. площадку
@@ -164,32 +164,38 @@ function updateLocationsView() {
                 </div>
                 
                 <div class="space-y-2">
-                    ${locs.map(c => {
-                        let cFillColor = 'bg-green-100 text-green-800';
-                        if (c.fill_percent >= 70) cFillColor = 'bg-red-100 text-red-800';
-                        else if (c.fill_percent >= 50) cFillColor = 'bg-yellow-100 text-yellow-800';
-                        
-                        return `
-                            <div class="bg-white dark:bg-gray-800 p-3 rounded-lg flex justify-between items-center">
-                                <div>
-                                    <p class="font-semibold text-gray-800 dark:text-white">${c.id}</p>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">${c.lat}, ${c.lon}</p>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <span class="px-2 py-1 rounded text-sm font-medium ${cFillColor}">${c.fill_percent}%</span>
-                                    <button onclick="openQRModal('${c.id}')" class="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors" title="QR-код">
-                                        <i class="fas fa-qrcode"></i>
-                                    </button>
-                                    <button onclick="openEditContainerModal('${c.id}', ${c.fill_percent})" class="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded transition-colors" title="Редактировать">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button onclick="deleteContainer('${c.id}')" class="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors" title="Удалить">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        `;
-                    }).join('')}
+                    <!-- DEPRECATED: Логика отдельных баков. Оставляем для совместимости БД, но в UI акцент на площадки. -->
+                    <details class="text-sm text-gray-500 dark:text-gray-400 mt-4">
+                        <summary class="cursor-pointer hover:text-gray-700 dark:hover:text-gray-200">Скрытая логика баков (системная)</summary>
+                        <div class="mt-2 space-y-2">
+                            ${locs.map(c => {
+                                let cFillColor = 'bg-green-100 text-green-800';
+                                if (c.fill_percent >= 70) cFillColor = 'bg-red-100 text-red-800';
+                                else if (c.fill_percent >= 50) cFillColor = 'bg-yellow-100 text-yellow-800';
+                                
+                                return `
+                                    <div class="bg-white dark:bg-gray-800 p-3 rounded-lg flex justify-between items-center">
+                                        <div>
+                                            <p class="font-semibold text-gray-800 dark:text-white">${c.id}</p>
+                                            <p class="text-xs text-gray-500 dark:text-gray-400">${c.lat}, ${c.lon}</p>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="px-2 py-1 rounded text-sm font-medium ${cFillColor}">${c.fill_percent}%</span>
+                                            <button onclick="openQRModal('${c.id}')" class="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors" title="QR-код">
+                                                <i class="fas fa-qrcode"></i>
+                                            </button>
+                                            <button onclick="openEditContainerModal('${c.id}', ${c.fill_percent})" class="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded transition-colors" title="Редактировать">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button onclick="deleteContainer('${c.id}')" class="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors" title="Удалить">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </details>
                 </div>
             </div>
         `;
