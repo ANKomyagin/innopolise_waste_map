@@ -148,7 +148,6 @@
                         </div>
                         <div class="flex justify-between text-xs text-gray-400 mt-2 font-medium">
                             <span>Всего контейнеров: <span x-text="selectedFeature?.container_count" class="text-gray-600 dark:text-gray-300"></span></span>
-                            <span>Вместимость: <span x-text="selectedFeature?.total_fill" class="text-gray-600 dark:text-gray-300"></span> / <span x-text="selectedFeature?.max_capacity"></span>%</span>
                         </div>
                     </div>
                     
@@ -223,23 +222,27 @@
             const installBtn = document.getElementById('installPwaBtn');
             if (installBtn) {
                 installBtn.style.display = 'flex';
+                installBtn.innerHTML = '<i class="fas fa-download"></i> Установить приложение';
             }
         });
         
         function installPWA() {
-            if (!deferredPrompt) return;
-            // Show the install prompt
-            deferredPrompt.prompt();
-            // Wait for the user to respond to the prompt
-            deferredPrompt.userChoice.then((choiceResult) => {
-                if (choiceResult.outcome === 'accepted') {
-                    console.log('User accepted the install prompt');
-                    document.getElementById('installPwaBtn').style.display = 'none';
-                } else {
-                    console.log('User dismissed the install prompt');
-                }
-                deferredPrompt = null;
-            });
+            if (deferredPrompt) {
+                // Show the install prompt
+                deferredPrompt.prompt();
+                // Wait for the user to respond to the prompt
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('User accepted the install prompt');
+                        document.getElementById('installPwaBtn').style.display = 'none';
+                    } else {
+                        console.log('User dismissed the install prompt');
+                    }
+                    deferredPrompt = null;
+                });
+            } else {
+                alert('Чтобы установить приложение:\n\nНа iOS (Safari): нажмите кнопку "Поделиться" (квадрат со стрелочкой) и выберите "На экран «Домой»".\n\nНа Android (Chrome): нажмите меню (три точки) и выберите "Добавить на гл. экран".\n\n(Автоматическая установка работает только по HTTPS)');
+            }
         }
     </script>
     

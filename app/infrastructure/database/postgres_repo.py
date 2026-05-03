@@ -62,42 +62,29 @@ class PostgresContainerRepo(ContainerRepository):
             return False
 
     async def update_sensor_data(self, container_id: str, sensor_data: dict):
-        """Обновление данных с QR-кода с логикой УСРЕДНЕНИЯ последних 3 сканирований"""
+        """Обновление данных с QR-кода. Обновляет ВСЕ контейнеры на этой же площадке"""
         async with SessionLocal() as db:
+            # Сначала находим контейнер, чей QR отсканировали
             result = await db.execute(select(DBContainer).filter(DBContainer.id == container_id))
-            container = result.scalar_one_or_none()
-            if container:
-                old_data = container.sensor_data or {}
-
-                # Проверяем, является ли это принудительным сбросом от админа/водителя
-                is_reset = sensor_data.pop("is_reset", False)
+            scanned_container = result.scalar_one_or_none()
+            if not scanned_container:
+                return False
                 
-                if is_reset:
-                    avg_fill = 0
-                    history = []
-                else:
-                    # Достаем историю последних сканирований
-                    history = old_data.get("qr_history", [])
-    
-                    # Добавляем новую оценку
-                    new_fill = sensor_data["fill_percent"]
-                    history.append(new_fill)
-    
-                    # Храним только последние 3 оценки
-                    if len(history) > 3:
-                        history = history[-3:]
-    
-                    # Считаем среднее арифметическое последних 3
-                    avg_fill = int(sum(history) / len(history))
-
-                # Обновляем словарь
-                sensor_data["fill_percent"] = avg_fill
-                sensor_data["qr_history"] = history
-
-                container.sensor_data = sensor_data
-                await db.commit()
-                return True
-            return False
+            address = scanned_container.address
+            
+            # Находим все контейнеры на этой площадке
+            all_result = await db.execute(select(DBContainer).filter(DBContainer.address == address))
+            containers = all_result.scalars().all()
+            
+            # Убираем технический флаг сброса
+            sensor_data.pop("is_reset", None)
+            
+            for container in containers:
+                # Просто записываем новые данные (без усреднения)
+                container.sensor_data = dict(sensor_data)
+                
+            await db.commit()
+            return True
 
     async def add_scan_log(self, container_id: str, fill_percent: int, device_id: str = None, role: str = None):
         """Добавить запись о сканировании в лог"""

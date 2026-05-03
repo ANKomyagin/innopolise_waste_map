@@ -2,20 +2,8 @@
 from fastapi import APIRouter, Depends
 from app.api.dependencies import get_db_repo
 from collections import defaultdict
-from math import radians, cos, sin, asin, sqrt
 
 router = APIRouter(prefix="/api/map", tags=["map"])
-
-
-def haversine_distance(lat1, lon1, lat2, lon2):
-    """Calculate distance between two points in meters"""
-    R = 6371000  # Earth radius in meters
-    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-    c = 2 * asin(sqrt(a))
-    return R * c
 
 
 @router.get("/geojson")
@@ -23,7 +11,7 @@ async def get_map_geojson(db_repo = Depends(get_db_repo)):
     """Get all containers in GeoJSON format with clustering by location"""
     containers = await db_repo.get_all()
     
-    # Group containers by address or proximity (within 20 meters)
+    # Group containers by address instead of coordinates to avoid O(N^2) distance calculations
     location_groups = defaultdict(list)
     
     for c in containers:
@@ -34,51 +22,37 @@ async def get_map_geojson(db_repo = Depends(get_db_repo)):
         
         fill = c.sensor_data.fill_percent if c.sensor_data else 0
         
-        # Try to find existing group at same location
-        found_group = False
-        for group_key in location_groups.keys():
-            group_lat, group_lon = group_key
-            if haversine_distance(lat, lon, group_lat, group_lon) < 20:  # 20 meters threshold
-                location_groups[group_key].append({
-                    "id": c.id,
-                    "address": c.address,
-                    "fill_percent": fill,
-                    "battery": c.sensor_data.battery_status if c.sensor_data else "неизвестно",
-                    "temperature": c.sensor_data.temperature_status if c.sensor_data else "неизвестно",
-                    "lat": lat,
-                    "lon": lon
-                })
-                found_group = True
-                break
+        # Group by exact address string
+        group_key = c.address
         
-        if not found_group:
-            location_groups[(lat, lon)].append({
-                "id": c.id,
-                "address": c.address,
-                "fill_percent": fill,
-                "battery": c.sensor_data.battery_status if c.sensor_data else "неизвестно",
-                "temperature": c.sensor_data.temperature_status if c.sensor_data else "неизвестно",
-                "lat": lat,
-                "lon": lon
-            })
+        location_groups[group_key].append({
+            "id": c.id,
+            "address": c.address,
+            "fill_percent": fill,
+            "battery": c.sensor_data.battery_status if c.sensor_data else "неизвестно",
+            "temperature": c.sensor_data.temperature_status if c.sensor_data else "неизвестно",
+            "lat": lat,
+            "lon": lon
+        })
     
     # Create features from grouped containers
     features = []
-    for (group_lat, group_lon), group_containers in location_groups.items():
-        total_fill = sum(c["fill_percent"] for c in group_containers)
-        max_capacity = len(group_containers) * 100
-        avg_fill = total_fill / len(group_containers) if group_containers else 0
+    for address, group_containers in location_groups.items():
+        # All containers in this group should have the same fill_percent now,
+        # but we'll take the max just to be safe and ensure it turns red if any is full
+        max_fill = max(c["fill_percent"] for c in group_containers) if group_containers else 0
         
-        # Determine color based on average fill percentage
-        if avg_fill >= 70:
+        # Determine color based on max fill percentage
+        if max_fill >= 70:
             color = "red"
-        elif avg_fill >= 50:
+        elif max_fill >= 50:
             color = "yellow"
         else:
             color = "green"
         
-        # Use first container's address as group address
-        address = group_containers[0]["address"]
+        # Use first container's coordinates for the group
+        group_lat = group_containers[0]["lat"]
+        group_lon = group_containers[0]["lon"]
         
         features.append({
             "type": "Feature",
@@ -91,9 +65,7 @@ async def get_map_geojson(db_repo = Depends(get_db_repo)):
                 "container_count": len(group_containers),
                 "containers": group_containers,
                 "address": address,
-                "total_fill": total_fill,
-                "max_capacity": max_capacity,
-                "avg_fill_percent": round(avg_fill, 1),
+                "avg_fill_percent": max_fill, # Used max_fill instead of average for safety
                 "color": color
             }
         })

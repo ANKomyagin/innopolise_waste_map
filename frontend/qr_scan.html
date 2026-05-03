@@ -56,8 +56,8 @@
         <div id="message" class="hidden mx-6 mb-6 p-4 rounded-xl text-center font-medium"></div>
         
         <!-- Кнопка установки PWA -->
-        <button id="installPwaBtn" onclick="installPWA()" style="display: none;" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 text-md">
-            <i class="fas fa-download"></i> Установить приложение на телефон
+        <button id="installPwaBtn" onclick="installPWA()" style="display: flex;" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 text-md">
+            <i class="fas fa-download"></i> Как установить приложение?
         </button>
     </div>
 
@@ -83,18 +83,22 @@
             const installBtn = document.getElementById('installPwaBtn');
             if (installBtn) {
                 installBtn.style.display = 'flex';
+                installBtn.innerHTML = '<i class="fas fa-download"></i> Установить приложение';
             }
         });
         
         function installPWA() {
-            if (!deferredPrompt) return;
-            deferredPrompt.prompt();
-            deferredPrompt.userChoice.then((choiceResult) => {
-                if (choiceResult.outcome === 'accepted') {
-                    document.getElementById('installPwaBtn').style.display = 'none';
-                }
-                deferredPrompt = null;
-            });
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        document.getElementById('installPwaBtn').style.display = 'none';
+                    }
+                    deferredPrompt = null;
+                });
+            } else {
+                alert('Чтобы установить приложение:\n\nНа iOS (Safari): нажмите кнопку "Поделиться" (квадрат со стрелочкой) и выберите "На экран «Домой»".\n\nНа Android (Chrome): нажмите меню (три точки) и выберите "Добавить на гл. экран".\n\n(Автоматическая установка работает только по HTTPS)');
+            }
         }
     </script>
 </body>
