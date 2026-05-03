@@ -33,12 +33,14 @@
 {% block scripts %}
 <script src="/vendor/js/html5-qrcode.min.js"></script>
 <script>
-    let html5QrcodeScanner = null;
+    let html5QrCode = null;
 
     function onScanSuccess(decodedText, decodedResult) {
         // Остановка сканера
-        if (html5QrcodeScanner) {
-            html5QrcodeScanner.clear();
+        if (html5QrCode) {
+            html5QrCode.stop().then(() => {
+                html5QrCode.clear();
+            }).catch(err => console.error("Failed to stop scanner", err));
         }
         
         const resultDiv = document.getElementById('scanResult');
@@ -49,10 +51,11 @@
         
         try {
             const url = new URL(decodedText);
-            const currentOrigin = window.location.origin;
+            const currentHostname = window.location.hostname;
+            const allowedHostnames = ['qrbin.ru', 'www.qrbin.ru', currentHostname];
             
             // Проверка безопасности (защита от квишинга)
-            if (url.origin === currentOrigin && url.pathname === '/qr-scan') {
+            if (allowedHostnames.includes(url.hostname) && url.pathname === '/qr-scan') {
                 resultDiv.classList.add('bg-green-100', 'text-green-800');
                 resultDiv.innerHTML = '<i class="fas fa-check-circle text-2xl mb-2 block"></i>Код распознан! Перенаправление...';
                 
@@ -78,16 +81,26 @@
         document.getElementById('scanResult').classList.add('hidden');
         document.getElementById('restartBtn').classList.add('hidden');
         
-        if (html5QrcodeScanner) {
-            html5QrcodeScanner.clear();
+        if (!html5QrCode) {
+            html5QrCode = new Html5Qrcode("reader");
         }
         
-        html5QrcodeScanner = new Html5QrcodeScanner(
-            "reader",
-            { fps: 10, qrbox: {width: 250, height: 250}, aspectRatio: 1.0 },
-            /* verbose= */ false
-        );
-        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        html5QrCode.start(
+            { facingMode: "environment" }, // Задняя камера по умолчанию
+            {
+                fps: 10,
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0
+            },
+            onScanSuccess,
+            onScanFailure
+        ).catch((err) => {
+            const resultDiv = document.getElementById('scanResult');
+            resultDiv.classList.remove('hidden');
+            resultDiv.classList.add('bg-red-100', 'text-red-800');
+            resultDiv.innerHTML = '<i class="fas fa-camera text-2xl mb-2 block"></i>Ошибка доступа к камере. Пожалуйста, разрешите использование камеры в настройках браузера.';
+            document.getElementById('restartBtn').classList.remove('hidden');
+        });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
