@@ -24,6 +24,7 @@ class EditContainer(BaseModel):
 
 
 class UpdateLocationRequest(BaseModel):
+    old_address: str
     new_address: str
     new_coords: str
 
@@ -137,12 +138,18 @@ async def empty_containers(
             "timestamp": datetime.utcnow().isoformat()
         }
         await db_repo.update_sensor_data(cid, sensor_dict)
+        # Логируем очистку в историю сканирований для аналитики
+        await db_repo.add_scan_log(
+            container_id=cid,
+            fill_percent=0,
+            device_id="admin_or_driver",
+            role=current_user["role"]
+        )
     return {"status": "ok", "emptied": len(request.container_ids)}
 
 
-@router.put("/location/{encoded_address}")
+@router.put("/location")
 async def update_location(
-    encoded_address: str,
     data: UpdateLocationRequest,
     db_repo = Depends(get_db_repo),
     current_user: dict = Depends(verify_admin)
@@ -162,9 +169,8 @@ async def update_location(
     except (ValueError, IndexError):
         raise HTTPException(status_code=400, detail="Invalid coordinates format. Expected 'lat, lon' with numeric values")
     
-    old_address = unquote(encoded_address)
     try:
-        updated_count = await db_repo.update_location_coords(old_address, data.new_address, coords_str)
+        updated_count = await db_repo.update_location_coords(data.old_address, data.new_address, coords_str)
         if updated_count == 0:
             raise HTTPException(status_code=404, detail="No containers found at this location")
         return {"status": "ok", "updated": updated_count}

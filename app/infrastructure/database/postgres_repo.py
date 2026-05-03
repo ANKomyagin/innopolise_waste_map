@@ -74,7 +74,7 @@ class PostgresContainerRepo(ContainerRepository):
                 
                 if is_reset:
                     avg_fill = 0
-                    history = [0, 0, 0]
+                    history = []
                 else:
                     # Достаем историю последних сканирований
                     history = old_data.get("qr_history", [])

@@ -155,11 +155,11 @@ function updateLocationsView() {
                     <button onclick="startLocationSelection('${safeAddress}')" class="flex-1 min-w-[120px] bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
                         <i class="fas fa-map-pin"></i> Координаты
                     </button>
-                    <button onclick="openAddContainerToLocationModal('${safeAddress}', '${locs[0].lat}, ${locs[0].lon}')" class="flex-1 min-w-[120px] bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
-                        <i class="fas fa-plus"></i> Добавить системный ID
-                    </button>
                     <button onclick="openEditLocationModal('${safeAddress}', '${locs[0].lat}, ${locs[0].lon}')" class="flex-1 min-w-[120px] bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
                         <i class="fas fa-edit"></i> Ред. площадку
+                    </button>
+                    <button onclick="openQRModal('${locs[0].id}')" class="flex-1 min-w-[120px] bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
+                        <i class="fas fa-qrcode"></i> QR-код
                     </button>
                 </div>
                 
@@ -167,6 +167,11 @@ function updateLocationsView() {
                     <!-- DEPRECATED: Логика отдельных баков. Оставляем для совместимости БД, но в UI акцент на площадки. -->
                     <details class="text-sm text-gray-500 dark:text-gray-400 mt-4">
                         <summary class="cursor-pointer hover:text-gray-700 dark:hover:text-gray-200">Скрытая логика баков (системная)</summary>
+                        <div class="mt-2 mb-2">
+                            <button onclick="openAddContainerToLocationModal('${safeAddress}', '${locs[0].lat}, ${locs[0].lon}')" class="w-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
+                                <i class="fas fa-plus"></i> Добавить контейнер
+                            </button>
+                        </div>
                         <div class="mt-2 space-y-2">
                             ${locs.map(c => {
                                 let cFillColor = 'bg-green-100 text-green-800';
@@ -181,9 +186,6 @@ function updateLocationsView() {
                                         </div>
                                         <div class="flex items-center gap-2">
                                             <span class="px-2 py-1 rounded text-sm font-medium ${cFillColor}">${c.fill_percent}%</span>
-                                            <button onclick="openQRModal('${c.id}')" class="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors" title="QR-код">
-                                                <i class="fas fa-qrcode"></i>
-                                            </button>
                                             <button onclick="openEditContainerModal('${c.id}', ${c.fill_percent})" class="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded transition-colors" title="Редактировать">
                                                 <i class="fas fa-edit"></i>
                                             </button>
@@ -286,9 +288,6 @@ function setupMapClickHandler() {
         document.getElementById('containerAddress').value = 'Новая площадка';
         document.getElementById('containerAddress').disabled = false;
         
-        // Автоматически генерируем ID
-        document.getElementById('containerId').value = 'BIN-' + Math.floor(Math.random() * 10000);
-        
         isEditMode = false;
         document.getElementById('addContainerModal').style.display = 'flex';
     });
@@ -304,11 +303,11 @@ async function updateLocationCoordinates(newCoords) {
     }
     
     try {
-        const encodedAddress = encodeURIComponent(editingLocationAddress);
-        const response = await fetch(`/api/containers/location/${encodedAddress}`, {
+        const response = await fetch(`/api/containers/location`, {
             method: 'PUT',
             headers: getAuthHeaders(),
             body: JSON.stringify({
+                old_address: editingLocationAddress,
                 new_address: editingLocationAddress,
                 new_coords: newCoords
             })
@@ -420,7 +419,12 @@ function openAddContainerToLocationModal(address, coords, lon) {
 async function saveContainer(event) {
     if (event) event.preventDefault();
     
-    const id = document.getElementById('containerId').value;
+    // Если ID скрыт и пуст, генерируем его
+    let id = document.getElementById('containerId').value;
+    if (!id) {
+        id = 'BIN-' + Math.floor(Math.random() * 100000);
+    }
+    
     const address = document.getElementById('containerAddress').value;
     const coords = document.getElementById('containerCoords').value;
 
@@ -512,11 +516,11 @@ async function saveEditLocation(event) {
     }
 
     try {
-        const encodedAddress = encodeURIComponent(currentEditingLocation);
-        const response = await fetch(`/api/containers/location/${encodedAddress}`, {
+        const response = await fetch(`/api/containers/location`, {
             method: 'PUT',
             headers: getAuthHeaders(),
             body: JSON.stringify({
+                old_address: currentEditingLocation,
                 new_address: newAddress,
                 new_coords: newCoords
             })
