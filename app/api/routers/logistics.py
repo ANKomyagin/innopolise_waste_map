@@ -98,7 +98,7 @@ async def geocode_address(query: str):
             data = json.load(f)
             
         results = []
-        query_lower = query.lower()
+        query_words = query_lower.split()
         
         for feature in data.get("features", []):
             props = feature.get("properties", {})
@@ -109,7 +109,8 @@ async def geocode_address(query: str):
             # Create a searchable string
             search_text = f"{street} {housenumber} {name}".lower()
             
-            if query_lower in search_text:
+            # Check if ALL words from query are in the search text
+            if all(word in search_text for word in query_words):
                 coords = feature.get("geometry", {}).get("coordinates", [])
                 if len(coords) >= 2:
                     # GeoJSON is [lon, lat], we want "lat, lon" or similar
