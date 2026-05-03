@@ -1,4 +1,43 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#16a34a"/>
-  <path d="M256 100 L356 400 L156 400 Z" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <title>qrbin favicon</title>
+
+  <!-- Background rounded square -->
+  <rect x="0" y="0" width="32" height="32" rx="6" fill="#1a7a3c"/>
+
+  <!-- Bin lid -->
+  <rect x="4" y="8" width="24" height="5" rx="1.5" fill="#0d5c2e"/>
+  <!-- Bin handle -->
+  <rect x="11" y="5" width="10" height="3.5" rx="1.5" fill="#0d5c2e"/>
+
+  <!-- Bin body (white background for QR) -->
+  <rect x="6" y="13" width="20" height="16" rx="2" fill="#ffffff"/>
+
+  <!-- QR: top-left finder pattern -->
+  <rect x="7.5" y="14.5" width="6" height="6" rx="0.8" fill="#1a7a3c"/>
+  <rect x="8.5" y="15.5" width="4" height="4" rx="0.3" fill="#fff"/>
+  <rect x="9.5" y="16.5" width="2" height="2" fill="#1a7a3c"/>
+
+  <!-- QR: top-right finder pattern -->
+  <rect x="18.5" y="14.5" width="6" height="6" rx="0.8" fill="#1a7a3c"/>
+  <rect x="19.5" y="15.5" width="4" height="4" rx="0.3" fill="#fff"/>
+  <rect x="20.5" y="16.5" width="2" height="2" fill="#1a7a3c"/>
+
+  <!-- QR: bottom-left finder pattern -->
+  <rect x="7.5" y="21.5" width="6" height="6" rx="0.8" fill="#1a7a3c"/>
+  <rect x="8.5" y="22.5" width="4" height="4" rx="0.3" fill="#fff"/>
+  <rect x="9.5" y="23.5" width="2" height="2" fill="#1a7a3c"/>
+
+  <!-- QR data dots (middle area) -->
+  <rect x="15" y="14.5" width="2" height="2" rx="0.3" fill="#1a7a3c"/>
+  <rect x="15" y="17.5" width="2" height="2" rx="0.3" fill="#1a7a3c"/>
+  <rect x="15" y="21.5" width="2" height="2" rx="0.3" fill="#1a7a3c"/>
+  <rect x="15" y="24.5" width="2" height="2" rx="0.3" fill="#1a7a3c"/>
+  <rect x="18.5" y="21.5" width="2" height="2" rx="0.3" fill="#1a7a3c"/>
+  <rect x="21" y="21.5" width="2" height="2" rx="0.3" fill="#1a7a3c"/>
+  <rect x="18.5" y="24.5" width="2" height="2" rx="0.3" fill="#1a7a3c"/>
+  <rect x="21" y="24.5" width="2" height="2" rx="0.3" fill="#1a7a3c"/>
+
+  <!-- Smart wifi dot top-right corner -->
+  <circle cx="27.5" cy="5" r="1.5" fill="#4dd47a"/>
+  <path d="M25 3 Q27.5 1 30 3" stroke="#4dd47a" stroke-width="1.2" fill="none" stroke-linecap="round"/>
 </svg>
