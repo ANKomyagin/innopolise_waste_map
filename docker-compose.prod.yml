@@ -37,6 +37,15 @@ services:
     networks:
       - waste_network
 
+  osrm:
+    image: osrm/osrm-backend:latest
+    volumes:
+      - ./osrm-data:/data
+    command: "osrm-routed --algorithm mld /data/innopolis.osrm"
+    restart: unless-stopped
+    networks:
+      - waste_network
+
   nginx:
     image: nginx:alpine
     ports:

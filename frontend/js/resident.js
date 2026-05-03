@@ -101,18 +101,19 @@ document.addEventListener('alpine:init', () => {
             });
         },
         
-        searchAddress() {
+        async searchAddress() {
             if (this.searchQuery.length < 2) { this.suggestions = []; return; }
-            const q = this.searchQuery.toLowerCase();
-            // Ищем уникальные адреса
-            const unique = new Set();
-            this.suggestions = containersData.filter(c => {
-                if (c.address.toLowerCase().includes(q) && !unique.has(c.address)) {
-                    unique.add(c.address);
-                    return true;
+            
+            try {
+                const response = await fetch(`/api/logistics/geocode?query=${encodeURIComponent(this.searchQuery)}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    this.suggestions = data.results || [];
                 }
-                return false;
-            }).slice(0, 5);
+            } catch (e) {
+                console.error("Ошибка геокодирования:", e);
+                this.suggestions = [];
+            }
         },
         
         selectAddress(item) {

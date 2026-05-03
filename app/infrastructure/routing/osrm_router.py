@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 
 class OSRMRoutingProvider(RoutingProvider):
     def __init__(self):
-        # Используем публичный бесплатный сервер OSRM (для хакатона - идеально)
-        self.base_url = "http://router.project-osrm.org/route/v1/driving"
+        # Используем локальный OSRM сервер (пешеходный профиль)
+        self.base_url = "http://osrm:5000/route/v1/foot"
 
     async def build_route(self, origin: str, waypoints: List[str]) -> RoutePath:
         """

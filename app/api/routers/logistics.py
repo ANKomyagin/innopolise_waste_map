@@ -84,3 +84,49 @@ async def get_resident_route(
         waypoints=[request.destination]
     )
     return {"route": route}
+
+@router.get("/geocode")
+async def geocode_address(query: str):
+    """Simple in-memory geocoder using export.geojson"""
+    import json
+    import os
+    
+    geojson_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "data", "export.geojson")
+    
+    try:
+        with open(geojson_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            
+        results = []
+        query_lower = query.lower()
+        
+        for feature in data.get("features", []):
+            props = feature.get("properties", {})
+            street = props.get("addr:street", "")
+            housenumber = props.get("addr:housenumber", "")
+            name = props.get("name", "")
+            
+            # Create a searchable string
+            search_text = f"{street} {housenumber} {name}".lower()
+            
+            if query_lower in search_text:
+                coords = feature.get("geometry", {}).get("coordinates", [])
+                if len(coords) >= 2:
+                    # GeoJSON is [lon, lat], we want "lat, lon" or similar
+                    lon, lat = coords[0], coords[1]
+                    display_name = f"{street}, {housenumber}"
+                    if name:
+                        display_name += f" ({name})"
+                    
+                    results.append({
+                        "address": display_name.strip(", "),
+                        "lat": lat,
+                        "lon": lon
+                    })
+                    
+                    if len(results) >= 10:  # Limit results
+                        break
+                        
+        return {"results": results}
+    except Exception as e:
+        return {"error": str(e), "results": []}

@@ -1,0 +1,3030 @@
+{
+  "type": "FeatureCollection",
+  "generator": "overpass-turbo",
+  "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.",
+  "timestamp": "2026-05-03T12:13:51Z",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "relation/3399852",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "7",
+        "addr:postcode": "420500",
+        "addr:street": "Университетская улица",
+        "building": "commercial",
+        "building:colour": "#778899",
+        "building:levels": "7",
+        "building:material": "mirror",
+        "name": "Корпус имени А. С. Попова",
+        "roof:colour": "#363431",
+        "type": "multipolygon",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7523,
+          55.7519036
+        ]
+      },
+      "id": "relation/3399852"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "relation/5302102",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "1",
+        "addr:postcode": "420500",
+        "addr:street": "Университетская улица",
+        "amenity": "university",
+        "building": "university",
+        "type": "building",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7436216,
+          55.7536903
+        ]
+      },
+      "id": "relation/5302102"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "relation/18071648",
+        "addr:housenumber": "201",
+        "addr:street": "Спортивная улица",
+        "building": "hotel",
+        "building:levels": "4",
+        "start_date": "2024",
+        "type": "multipolygon",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7447677,
+          55.7550174
+        ]
+      },
+      "id": "relation/18071648"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/308285805",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "100",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:colour": "#f5f5f5",
+        "building:flats": "85",
+        "building:levels": "6",
+        "roof:colour": "#363431",
+        "start_date": "2015",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7413793,
+          55.7477825
+        ]
+      },
+      "id": "way/308285805"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/308285806",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "120",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:colour": "#f5f5f5",
+        "building:flats": "85",
+        "building:levels": "6",
+        "energy_class": "B",
+        "roof:colour": "#363431",
+        "start_date": "2016",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7442061,
+          55.7484713
+        ]
+      },
+      "id": "way/308285806"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/308285807",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "107",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "building": "yes",
+        "building:colour": "white",
+        "building:levels": "4",
+        "leisure": "sports_centre",
+        "name": "Спортивный комплекс Иннополис",
+        "name:en": "Innopolis Sports Complex",
+        "name:ru": "Спортивный комплекс Иннополис",
+        "opening_hours": "07:00-23:00",
+        "roof:colour": "white",
+        "sport": "multi",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7423953,
+          55.7513974
+        ]
+      },
+      "id": "way/308285807"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/308285808",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "1 к1",
+        "addr:postcode": "420500",
+        "addr:street": "Университетская улица",
+        "building": "dormitory",
+        "building:colour": "#9b7b4d",
+        "building:levels": "4",
+        "height": "14",
+        "name": "Корпус #1",
+        "roof:colour": "#363431",
+        "smoking": "no",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7417727,
+          55.7536441
+        ]
+      },
+      "id": "way/308285808"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/308285809",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "110",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:colour": "#f5f5f5",
+        "building:flats": "85",
+        "building:levels": "6",
+        "roof:colour": "#363431",
+        "start_date": "2014",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7426038,
+          55.7478472
+        ]
+      },
+      "id": "way/308285809"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/308285810",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "106",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:colour": "#deb887",
+        "building:flats": "20",
+        "building:levels": "6",
+        "roof:colour": "#363431",
+        "start_date": "2014",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7437905,
+          55.7467738
+        ]
+      },
+      "id": "way/308285810"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/308285811",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "126",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:colour": "#f5f5f5",
+        "building:flats": "85",
+        "building:levels": "6",
+        "energy_class": "B",
+        "roof:colour": "#363431",
+        "start_date": "2016",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7437323,
+          55.7490462
+        ]
+      },
+      "id": "way/308285811"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/308285812",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "104",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:colour": "#f5f5f5",
+        "building:flats": "85",
+        "building:levels": "6",
+        "roof:colour": "#363431",
+        "start_date": "2014",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.743117,
+          55.7472475
+        ]
+      },
+      "id": "way/308285812"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/308285813",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "1 к2",
+        "addr:postcode": "420500",
+        "addr:street": "Университетская улица",
+        "building": "dormitory",
+        "building:colour": "#9b7b4d",
+        "building:levels": "4",
+        "roof:colour": "#363431",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7411988,
+          55.7537877
+        ]
+      },
+      "id": "way/308285813"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/308285814",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "1 к3",
+        "addr:postcode": "420500",
+        "addr:street": "Университетская улица",
+        "building": "dormitory",
+        "building:colour": "#9b7b4d",
+        "building:levels": "4",
+        "roof:colour": "#363431",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7405753,
+          55.7537951
+        ]
+      },
+      "id": "way/308285814"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/308285815",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "1 к4",
+        "addr:postcode": "420500",
+        "addr:street": "Университетская улица",
+        "building": "dormitory",
+        "building:colour": "#9b7b4d",
+        "building:levels": "4",
+        "roof:colour": "#363431",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7399799,
+          55.7539122
+        ]
+      },
+      "id": "way/308285815"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/308285816",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "130",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:colour": "#f5f5f5",
+        "building:flats": "85",
+        "building:levels": "6",
+        "roof:colour": "#363431",
+        "start_date": "2015",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7454307,
+          55.748536
+        ]
+      },
+      "id": "way/308285816"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/308285817",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "116",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:colour": "#f5f5f5",
+        "building:flats": "85",
+        "building:levels": "6",
+        "energy_class": "B",
+        "roof:colour": "#363431",
+        "start_date": "2016",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7425077,
+          55.7489816
+        ]
+      },
+      "id": "way/308285817"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/308285818",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "114",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:colour": "#f5f5f5",
+        "building:flats": "85",
+        "building:levels": "6",
+        "roof:colour": "#363431",
+        "start_date": "2014",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7443002,
+          55.7473354
+        ]
+      },
+      "id": "way/308285818"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/308285819",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "1",
+        "addr:postcode": "420500",
+        "addr:street": "Университетская улица",
+        "amenity": "university",
+        "building": "university",
+        "building:levels": "5",
+        "layer": "1",
+        "name": "Университет Иннополис",
+        "name:en": "Innopolis University",
+        "name:ru": "Университет Иннополис",
+        "phone": "+7 843 2039253",
+        "roof:colour": "#363431",
+        "smoking": "separated",
+        "source": "survey",
+        "website": "https://university.innopolis.ru/",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7436216,
+          55.7536903
+        ]
+      },
+      "id": "way/308285819"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/336674815",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "301",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "amenity": "clinic",
+        "building": "clinic",
+        "building:levels": "4",
+        "contact:telegram": "https://telegram.me/joinchat/CCS9pz3TH09k7FgaWZ0tqA",
+        "name": "Медицинский центр",
+        "opening_hours": "Mo-Fr 10:00-16:00; Sa 09:30-15:30",
+        "phone": "+7 987 2291300",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7451662,
+          55.756667
+        ]
+      },
+      "id": "way/336674815"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/336674816",
+        "addr:housenumber": "1",
+        "addr:street": "Квантовый переулок",
+        "building": "school",
+        "building:levels": "3",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7462838,
+          55.7479868
+        ]
+      },
+      "id": "way/336674816"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/336674817",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "2",
+        "addr:street": "Квантовый переулок",
+        "building": "yes",
+        "building:levels": "2",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7453692,
+          55.74657
+        ]
+      },
+      "id": "way/336674817"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/351407279",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "112",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:colour": "#7cfc00",
+        "building:flats": "20",
+        "building:levels": "6",
+        "roof:colour": "#363431",
+        "start_date": "2014",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7436035,
+          55.7478072
+        ]
+      },
+      "id": "way/351407279"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/351407280",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "122",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:colour": "#deb887",
+        "building:flats": "20",
+        "building:levels": "6",
+        "roof:colour": "#363431",
+        "start_date": "2015",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7449188,
+          55.7479719
+        ]
+      },
+      "id": "way/351407280"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/351407281",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "128",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:colour": "#7cfc00",
+        "building:flats": "20",
+        "building:levels": "6",
+        "energy_class": "B",
+        "roof:colour": "#363431",
+        "start_date": "2015",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7447191,
+          55.749036
+        ]
+      },
+      "id": "way/351407281"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/351519061",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "102",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:colour": "#7cfc00",
+        "building:flats": "20",
+        "building:levels": "6",
+        "roof:colour": "#363431",
+        "start_date": "2014",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7420897,
+          55.7472812
+        ]
+      },
+      "id": "way/351519061"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/351519062",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "108",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:colour": "#deb887",
+        "building:flats": "20",
+        "building:levels": "6",
+        "roof:colour": "#363431",
+        "start_date": "2015",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7419053,
+          55.7483084
+        ]
+      },
+      "id": "way/351519062"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/351519063",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "118",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:colour": "#7cfc00",
+        "building:flats": "20",
+        "building:levels": "6",
+        "energy_class": "B",
+        "roof:colour": "#363431",
+        "start_date": "2015",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7432204,
+          55.7484818
+        ]
+      },
+      "id": "way/351519063"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/351519064",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "124",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:colour": "#deb887",
+        "building:flats": "20",
+        "building:levels": "6",
+        "roof:colour": "#363431",
+        "start_date": "2015",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7430182,
+          55.7495434
+        ]
+      },
+      "id": "way/351519064"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/351593892",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "5",
+        "addr:postcode": "420500",
+        "addr:street": "Университетская улица",
+        "building": "commercial",
+        "building:levels": "5",
+        "name": "Корпус им. Н.И. Лобачевского",
+        "start_date": "2020-01-01",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7489802,
+          55.7523972
+        ]
+      },
+      "id": "way/351593892"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/416577803",
+        "addr:housenumber": "1А",
+        "addr:place": "квартал Энергоцентр",
+        "building": "industrial",
+        "building:levels": "2",
+        "start_date": "2020",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7590103,
+          55.7603267
+        ]
+      },
+      "id": "way/416577803"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/437950069",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "3",
+        "addr:street": "Квантовый переулок",
+        "building": "kindergarten",
+        "building:levels": "2",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7483466,
+          55.749903
+        ]
+      },
+      "id": "way/437950069"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/442725833",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "195",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "4",
+        "building:levels": "3",
+        "start_date": "2015-12-16",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7523897,
+          55.7481322
+        ]
+      },
+      "id": "way/442725833"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/442725834",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "193",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "4",
+        "building:levels": "3",
+        "start_date": "2016-11-21",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7519871,
+          55.748253
+        ]
+      },
+      "id": "way/442725834"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/442725835",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "191",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "4",
+        "building:levels": "3",
+        "start_date": "2018-03-15",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7514679,
+          55.7484087
+        ]
+      },
+      "id": "way/442725835"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/442725836",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "181",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "apartments",
+        "building:flats": "15",
+        "building:levels": "3",
+        "start_date": "2017-04-13",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7520162,
+          55.7478234
+        ]
+      },
+      "id": "way/442725836"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/446073566",
+        "addr:housenumber": "3",
+        "addr:place": "квартал Энергоцентр",
+        "building": "yes",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7627973,
+          55.7595344
+        ]
+      },
+      "id": "way/446073566"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/449869894",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "101",
+        "addr:street": "Спортивная улица",
+        "amenity": "cafe",
+        "building": "yes",
+        "name": "Инсайт",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7388176,
+          55.747654
+        ]
+      },
+      "id": "way/449869894"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/497821565",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "189",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "4",
+        "building:levels": "3",
+        "start_date": "2019-12-28",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7510363,
+          55.7485959
+        ]
+      },
+      "id": "way/497821565"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/497821566",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "187",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "4",
+        "building:levels": "3",
+        "start_date": "2020-09-02",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.750575,
+          55.7486765
+        ]
+      },
+      "id": "way/497821566"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/497821567",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "185",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "4",
+        "building:levels": "3",
+        "start_date": "2021-01-15",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7500539,
+          55.7488327
+        ]
+      },
+      "id": "way/497821567"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/497821568",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "183",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "4",
+        "building:levels": "3",
+        "start_date": "2021-01-15",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7496463,
+          55.748955
+        ]
+      },
+      "id": "way/497821568"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/497821569",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "177",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "apartments",
+        "building:flats": "24",
+        "building:levels": "3",
+        "start_date": "2019-06-28",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7502547,
+          55.7483524
+        ]
+      },
+      "id": "way/497821569"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/497821570",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "175",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "apartments",
+        "building:flats": "24",
+        "building:levels": "3",
+        "start_date": "2019-12-28",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7495372,
+          55.7485678
+        ]
+      },
+      "id": "way/497821570"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/497821571",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "179",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "5",
+        "building:levels": "3",
+        "start_date": "2016-09-07",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7512988,
+          55.7480393
+        ]
+      },
+      "id": "way/497821571"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/501737701",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "173",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "apartments",
+        "building:flats": "8",
+        "building:levels": "3",
+        "start_date": "2018-06-29",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7518045,
+          55.7474509
+        ]
+      },
+      "id": "way/501737701"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/515440039",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "161",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "201-10-28",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7516592,
+          55.7470144
+        ]
+      },
+      "id": "way/515440039"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/517193497",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "136",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:flats": "48",
+        "building:levels": "9",
+        "energy_class": "B",
+        "start_date": "2018",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7452803,
+          55.7494076
+        ]
+      },
+      "id": "way/517193497"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/517193500",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "134",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:flats": "118",
+        "building:levels": "9",
+        "start_date": "2018",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7457239,
+          55.7499873
+        ]
+      },
+      "id": "way/517193500"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/517193503",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "132",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:flats": "200",
+        "building:levels": "9",
+        "start_date": "2018",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7464772,
+          55.749586
+        ]
+      },
+      "id": "way/517193503"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/548988266",
+        "addr:housenumber": "138",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:flats": "200",
+        "building:levels": "9",
+        "start_date": "2019",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7447854,
+          55.7501384
+        ]
+      },
+      "id": "way/548988266"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/548988267",
+        "addr:housenumber": "140",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:flats": "118",
+        "building:levels": "9",
+        "start_date": "2019",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7439691,
+          55.7505118
+        ]
+      },
+      "id": "way/548988267"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/548988268",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "142",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:flats": "48",
+        "building:levels": "9",
+        "start_date": "2019",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.743543,
+          55.7499251
+        ]
+      },
+      "id": "way/548988268"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/589230284",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "159",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2018-12-19",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.75121,
+          55.7471518
+        ]
+      },
+      "id": "way/589230284"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/590978438",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "167",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "apartments",
+        "building:flats": "8",
+        "building:levels": "3",
+        "start_date": "2019-06-28",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7500439,
+          55.7479731
+        ]
+      },
+      "id": "way/590978438"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/595051126",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "171",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2019-09-25",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7509962,
+          55.7475156
+        ]
+      },
+      "id": "way/595051126"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/608524270",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "169",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2019-12-28",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7505745,
+          55.747642
+        ]
+      },
+      "id": "way/608524270"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/628520061",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "155",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2020-03-20",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7495004,
+          55.7476687
+        ]
+      },
+      "id": "way/628520061"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/628520062",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "157",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2019-12-28",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7499179,
+          55.7475352
+        ]
+      },
+      "id": "way/628520062"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/643751228",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "163",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2020-09-02",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7488133,
+          55.7481742
+        ]
+      },
+      "id": "way/643751228"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/643751229",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "165",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2020-12-01",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7492931,
+          55.7480448
+        ]
+      },
+      "id": "way/643751229"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/688636094",
+        "addr:housenumber": "22",
+        "addr:street": "Парковая улица",
+        "building": "school",
+        "building:levels": "3",
+        "start_date": "2019",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.740227,
+          55.7434289
+        ]
+      },
+      "id": "way/688636094"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/813808142",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "153",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "garage",
+        "building:levels": "2",
+        "start_date": "2021",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7486322,
+          55.7476908
+        ]
+      },
+      "id": "way/813808142"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/820875095",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "151",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2021",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7511076,
+          55.7463233
+        ]
+      },
+      "id": "way/820875095"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/820875096",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "149",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2021",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7506261,
+          55.7466257
+        ]
+      },
+      "id": "way/820875096"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/820875097",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "147",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2021",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7498711,
+          55.7468868
+        ]
+      },
+      "id": "way/820875097"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/820875098",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "1",
+        "addr:postcode": "420500",
+        "addr:street": "Парковая улица",
+        "amenity": "community_centre",
+        "building": "yes",
+        "building:levels": "3",
+        "check_date": "2023-05-15",
+        "name": "Art Space",
+        "wheelchair": "limited",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7487233,
+          55.7442762
+        ]
+      },
+      "id": "way/820875098"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/827377280",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "141",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2022",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7503677,
+          55.7463616
+        ]
+      },
+      "id": "way/827377280"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/827377281",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "139",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2022",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7496108,
+          55.7466308
+        ]
+      },
+      "id": "way/827377281"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/827377282",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "143",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2022",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7483424,
+          55.7473609
+        ]
+      },
+      "id": "way/827377282"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/827377283",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "137",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2022",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7480895,
+          55.747085
+        ]
+      },
+      "id": "way/827377283"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/841225711",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "145",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2022",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7490735,
+          55.7470905
+        ]
+      },
+      "id": "way/841225711"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/841225714",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "125",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2022",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7499823,
+          55.7458259
+        ]
+      },
+      "id": "way/841225714"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/841225715",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "123",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2022",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7492132,
+          55.7460885
+        ]
+      },
+      "id": "way/841225715"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/841225716",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "121",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2022",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7484446,
+          55.7462982
+        ]
+      },
+      "id": "way/841225716"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/841225717",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "119",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2022",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7476956,
+          55.7465584
+        ]
+      },
+      "id": "way/841225717"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/841225718",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "115",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:levels": "2",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7496237,
+          55.7455616
+        ]
+      },
+      "id": "way/841225718"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/841225719",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "113",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:levels": "2",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7489293,
+          55.7458314
+        ]
+      },
+      "id": "way/841225719"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/841225720",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "111",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:levels": "2",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7481665,
+          55.7460275
+        ]
+      },
+      "id": "way/841225720"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/841225721",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "109",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:levels": "2",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7473873,
+          55.7462926
+        ]
+      },
+      "id": "way/841225721"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/841225722",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "101",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:levels": "2",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7471632,
+          55.7460526
+        ]
+      },
+      "id": "way/841225722"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/841225723",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "103",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:levels": "2",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7479617,
+          55.7458088
+        ]
+      },
+      "id": "way/841225723"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/841225724",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "105",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:levels": "2",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7487385,
+          55.7456054
+        ]
+      },
+      "id": "way/841225724"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/841225725",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "107",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:levels": "2",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7494704,
+          55.7453636
+        ]
+      },
+      "id": "way/841225725"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/913161724",
+        "addr:housenumber": "13",
+        "addr:street": "Университетская улица",
+        "building": "commercial",
+        "building:levels": "5",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7526625,
+          55.7538035
+        ]
+      },
+      "id": "way/913161724"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/913161725",
+        "addr:housenumber": "11",
+        "addr:street": "Университетская улица",
+        "building": "commercial",
+        "building:levels": "5",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7500349,
+          55.7535988
+        ]
+      },
+      "id": "way/913161725"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/924314619",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "127",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2022",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7478936,
+          55.7467717
+        ]
+      },
+      "id": "way/924314619"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/924314620",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "129",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2022",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.748635,
+          55.746509
+        ]
+      },
+      "id": "way/924314620"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/924314621",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "131",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2022",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7494248,
+          55.7463073
+        ]
+      },
+      "id": "way/924314621"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/924314622",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "133",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2022",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7501776,
+          55.7460546
+        ]
+      },
+      "id": "way/924314622"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/924314623",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "91",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:levels": "2",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.746917,
+          55.745772
+        ]
+      },
+      "id": "way/924314623"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/924314624",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "93",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:levels": "2",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.747656,
+          55.7455121
+        ]
+      },
+      "id": "way/924314624"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/924314625",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "95",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:levels": "2",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7484717,
+          55.7453136
+        ]
+      },
+      "id": "way/924314625"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/924314626",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "97",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "construction",
+        "building:levels": "2",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7492185,
+          55.7450431
+        ]
+      },
+      "id": "way/924314626"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/924314627",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "83",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:levels": "2",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7467001,
+          55.7455741
+        ]
+      },
+      "id": "way/924314627"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/924314628",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "85",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:levels": "2",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7474466,
+          55.7453138
+        ]
+      },
+      "id": "way/924314628"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/924314629",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "87",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "construction",
+        "building:levels": "2",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7482057,
+          55.7450596
+        ]
+      },
+      "id": "way/924314629"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/924314630",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "89",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "construction",
+        "building:levels": "2",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7489605,
+          55.7448102
+        ]
+      },
+      "id": "way/924314630"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/924314631",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "99",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "hotel",
+        "building:levels": "2",
+        "name": "ION",
+        "tourism": "hotel",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7497422,
+          55.7447096
+        ]
+      },
+      "id": "way/924314631"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/987962863",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "1 к6",
+        "addr:street": "Университетская улица",
+        "building": "dormitory",
+        "building:levels": "12",
+        "name": "Корпус #6",
+        "start_date": "2023",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7426189,
+          55.7544522
+        ]
+      },
+      "id": "way/987962863"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/987962864",
+        "addr:housenumber": "1 к7",
+        "addr:street": "Университетская улица",
+        "building": "dormitory",
+        "building:levels": "12",
+        "name": "Корпус #7",
+        "start_date": "2023",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7418998,
+          55.7546796
+        ]
+      },
+      "id": "way/987962864"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/1013769317",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "135",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "terrace",
+        "building:flats": "7",
+        "building:levels": "2",
+        "start_date": "2022",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7506671,
+          55.7457702
+        ]
+      },
+      "id": "way/1013769317"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/1013769318",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "117",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "construction",
+        "building:levels": "2",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.750205,
+          55.7452945
+        ]
+      },
+      "id": "way/1013769318"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/1069557832",
+        "addr:country": "RU",
+        "addr:housenumber": "98",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:flats": "275",
+        "building:levels": "7",
+        "contact:website": "https://наш.дом.рф/сервисы/каталог-новостроек/объект/46675",
+        "energy_class": "C",
+        "name": "Квартал Ю",
+        "start_date": "2024-03-26",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7386199,
+          55.7454563
+        ]
+      },
+      "id": "way/1069557832"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/1069557833",
+        "addr:country": "RU",
+        "addr:housenumber": "98",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:flats": "275",
+        "building:levels": "5",
+        "contact:website": "https://наш.дом.рф/сервисы/каталог-новостроек/объект/46675",
+        "energy_class": "B",
+        "start_date": "2024-03-25",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7398101,
+          55.7447459
+        ]
+      },
+      "id": "way/1069557833"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/1069557834",
+        "addr:country": "RU",
+        "addr:housenumber": "98",
+        "addr:street": "Спортивная улица",
+        "building": "apartments",
+        "building:flats": "275",
+        "building:levels": "5",
+        "contact:website": "https://наш.дом.рф/сервисы/каталог-новостроек/объект/46675",
+        "energy_class": "B",
+        "start_date": "2024-03-25",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7387813,
+          55.7446333
+        ]
+      },
+      "id": "way/1069557834"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/1079986308",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "300",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "building": "industrial",
+        "building:levels": "3",
+        "name": "Иннопарк",
+        "source:addr": "ЕГРН",
+        "start_date": "2022",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7574697,
+          55.7566051
+        ]
+      },
+      "id": "way/1079986308"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/1123297095",
+        "addr:housenumber": "1 к5",
+        "addr:street": "Университетская улица",
+        "building": "dormitory",
+        "building:levels": "8",
+        "name": "Корпус #5",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7394994,
+          55.754091
+        ]
+      },
+      "id": "way/1123297095"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/1298145098",
+        "addr:housenumber": "304",
+        "addr:street": "Центральная улица",
+        "building": "data_center",
+        "name": "Атомдата Иннополис",
+        "start_date": "2024",
+        "telecom": "data_center",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7548152,
+          55.7592755
+        ]
+      },
+      "id": "way/1298145098"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/1434961256",
+        "addr:housenumber": "5",
+        "addr:place": "Энергоцентр",
+        "building": "yes",
+        "building:levels": "1",
+        "start_date": "2024",
+        "@geometry": "center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7603918,
+          55.7560939
+        ]
+      },
+      "id": "way/1434961256"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/3602434124",
+        "addr:city": "Иннополис",
+        "addr:floor": "1",
+        "addr:housenumber": "1",
+        "addr:postcode": "420500",
+        "addr:street": "Университетская улица",
+        "amenity": "cafe",
+        "check_date": "2025-11-28",
+        "cuisine": "coffee_shop",
+        "internet_access": "yes",
+        "level": "0",
+        "name": "Coffee Cava",
+        "opening_hours": "9:00-18:00",
+        "smoking": "no"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7438749,
+          55.7532809
+        ]
+      },
+      "id": "node/3602434124"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/3602434125",
+        "addr:city": "Иннополис",
+        "addr:floor": "1",
+        "addr:housenumber": "7",
+        "addr:postcode": "420500",
+        "addr:street": "Университетская улица",
+        "amenity": "post_office",
+        "brand": "Почта России",
+        "check_date": "2023-05-15",
+        "contact:facebook": "https://www.facebook.com/ruspost",
+        "contact:phone": "+7 800 2005888",
+        "contact:twitter": "https://twitter.com/ruspostofficial",
+        "contact:vk": "https://vk.com/russianpost",
+        "contact:website": "https://www.pochta.ru",
+        "level": "0",
+        "name": "Иннополис 420500",
+        "name:en": "Post Office 420500",
+        "name:ru": "Почтовое отделение №420500",
+        "official_name": "Отделение почтовой связи № 420500",
+        "opening_hours": "Mo-Fr 09:00-17:00",
+        "operator": "АО \"Почта России\"",
+        "operator:wikidata": "Q1502763",
+        "operator:wikipedia": "ru:Почта России",
+        "ref": "420500",
+        "wheelchair": "yes"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7529233,
+          55.7519133
+        ]
+      },
+      "id": "node/3602434125"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/3668195655",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "1 к4",
+        "addr:postcode": "420500",
+        "addr:street": "Университетская улица",
+        "amenity": "pharmacy",
+        "drive_through": "no",
+        "opening_hours": "Mo-Fr 09:00-20:00",
+        "operator": "ГУП «Таттехмедфарм»",
+        "phone": "+7 962 5561450",
+        "wheelchair": "limited"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7400078,
+          55.7541426
+        ]
+      },
+      "id": "node/3668195655"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/3668197581",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "1 к1",
+        "addr:postcode": "420500",
+        "addr:street": "Университетская улица",
+        "amenity": "cafe",
+        "delivery": "no",
+        "drive_through": "no",
+        "name": "Департамент питания",
+        "opening_hours": "08:00-20:00",
+        "smoking": "no",
+        "takeaway": "yes"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7418408,
+          55.7538471
+        ]
+      },
+      "id": "node/3668197581"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/3668880925",
+        "addr:city": "Иннополис",
+        "addr:floor": "1",
+        "addr:housenumber": "1",
+        "addr:postcode": "420500",
+        "addr:street": "Университетская улица",
+        "amenity": "cafe",
+        "check_date": "2025-11-28",
+        "delivery": "yes",
+        "drive_through": "no",
+        "internet_access": "wlan",
+        "internet_access:fee": "no",
+        "internet_access:ssid": "Innopolis",
+        "level": "0",
+        "name": "Matrix food",
+        "opening_hours": "08:00-20:00",
+        "operator": "ООО \"Инномакс\"",
+        "outdoor_seating": "no",
+        "smoking": "no",
+        "takeaway": "yes"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7432604,
+          55.7542391
+        ]
+      },
+      "id": "node/3668880925"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/3678559397",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "1 к4",
+        "addr:postcode": "420500",
+        "addr:street": "Университетская улица",
+        "amenity": "doctors",
+        "name": "Амбулаторный центр",
+        "opening_hours": "00:00-23:59"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7399732,
+          55.7540501
+        ]
+      },
+      "id": "node/3678559397"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/3696091493",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "1 к4",
+        "addr:postcode": "420500",
+        "addr:street": "Университетская улица",
+        "amenity": "cafe",
+        "cuisine": "regional",
+        "delivery": "no",
+        "drive_through": "no",
+        "name": "Департамент питания",
+        "opening_hours": "08:00-20:00",
+        "operator": "Трапеза",
+        "smoking": "no",
+        "takeaway": "yes"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7401097,
+          55.7542643
+        ]
+      },
+      "id": "node/3696091493"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/4142456697",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "104",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "check_date:opening_hours": "2023-09-03",
+        "contact:email": "info@bahetle.com",
+        "contact:facebook": "https://www.facebook.com/bahetleactions/",
+        "contact:instagram": "bahetle_kzn",
+        "contact:phone": "+7 843 5287804;88002000790",
+        "contact:vk": "https://vk.com/bahetle_ru",
+        "contact:website": "https://bahetle.com/",
+        "name": "Бахетле",
+        "name:en": "Bakhetle",
+        "name:ru": "Бахетле",
+        "name:tt": "Бәхетле",
+        "opening_hours": "Mo-Su 09:00-21:30",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.743248,
+          55.7475204
+        ]
+      },
+      "id": "node/4142456697"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/4529754072",
+        "addr:city": "Иннополис",
+        "addr:floor": "1",
+        "addr:housenumber": "108",
+        "addr:street": "Спортивная улица",
+        "amenity": "bar",
+        "check_date": "2023-05-15",
+        "contact:instagram": "https://www.instagram.com/bar_108",
+        "contact:phone": "+7 843 5148108",
+        "level": "0",
+        "name": "108",
+        "opening_hours": "Mo-Th,Su 13:00-02:00; Fr-Sa 12:00-02:00",
+        "operator": "ООО \"Казанские кофейни\"",
+        "smoking": "outside"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7418374,
+          55.7483309
+        ]
+      },
+      "id": "node/4529754072"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/4885875206",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "100",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "amenity": "restaurant",
+        "capacity": "50",
+        "cuisine": "italian;pizza",
+        "delivery": "no",
+        "level": "0",
+        "name": "Cacio e Vino",
+        "opening_hours": "Fr,Sa 12:00-24:00, Su-Th 12:00-22:00",
+        "phone": "+7 843 2453020",
+        "smoking": "separated",
+        "start_date": "2017",
+        "takeaway": "yes",
+        "website": "https://www.cacioevino.ru/"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7413943,
+          55.7479271
+        ]
+      },
+      "id": "node/4885875206"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/5252495821",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "118",
+        "addr:street": "Спортивная улица",
+        "amenity": "pharmacy",
+        "check_date:opening_hours": "2025-05-12",
+        "drive_through": "no",
+        "healthcare": "pharmacy",
+        "name": "Низкие цены",
+        "opening_hours": "08:00-21:00"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7432427,
+          55.7484142
+        ]
+      },
+      "id": "node/5252495821"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/7942133058",
+        "addr:city": "Иннополис",
+        "addr:floor": "1",
+        "addr:housenumber": "120",
+        "addr:street": "Спортивная улица",
+        "check_date": "2023-05-15",
+        "level": "0",
+        "name": "Эко.Инномаркет",
+        "opening_hours": "10:00-20:00",
+        "operator": "ИП Белова Мария Игоревна",
+        "payment:cash": "yes",
+        "payment:credit_cards": "yes",
+        "payment:debit_cards": "yes",
+        "shop": "health_food",
+        "wheelchair": "no"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7438722,
+          55.748263
+        ]
+      },
+      "id": "node/7942133058"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/8894384912",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "118",
+        "addr:street": "Спортивная улица",
+        "check_date": "2025-05-12",
+        "check_date:opening_hours": "2025-05-12",
+        "name": "Хочу ещё!",
+        "opening_hours": "08:00-23:00",
+        "shop": "alcohol"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7431188,
+          55.7484573
+        ]
+      },
+      "id": "node/8894384912"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/8894410183",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "167",
+        "addr:postcode": "420500",
+        "addr:street": "Центральная улица",
+        "amenity": "cafe",
+        "cuisine": "italian;coffee_shop",
+        "name": "Месса и Ересь",
+        "opening_hours": "Mo-Su 10:00-22:00",
+        "phone": "+7 939 3792063"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7500271,
+          55.7479663
+        ]
+      },
+      "id": "node/8894410183"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/8894424949",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "110",
+        "addr:street": "Спортивная улица",
+        "name": "1000 мелочей",
+        "opening_hours": "Mo-Su 10:00-22:00",
+        "payment:cards": "yes",
+        "payment:cash": "yes",
+        "payment:credit_cards": "yes",
+        "shop": "clothes"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.742838,
+          55.7479571
+        ]
+      },
+      "id": "node/8894424949"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/8894424950",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "110",
+        "addr:street": "Спортивная улица",
+        "name": "1000 мелочей",
+        "opening_hours": "Mo-Su 09:00-21:00",
+        "shop": "hardware"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7428222,
+          55.7479291
+        ]
+      },
+      "id": "node/8894424950"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9375896602",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "5",
+        "addr:postcode": "420500",
+        "addr:street": "Университетская улица",
+        "name": "Govidas eco cafe",
+        "opening_hours": "24/7 10:00 - 20:00",
+        "payment:cash": "yes",
+        "payment:credit_cards": "yes",
+        "payment:debit_cards": "yes",
+        "shop": "confectionery"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.749105,
+          55.7520157
+        ]
+      },
+      "id": "node/9375896602"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9737806085",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "110",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "amenity": "restaurant",
+        "cuisine": "noodle;tea;coffee;drinks;beer;cider;onigiri",
+        "name": "Ultramen",
+        "opening_hours": "Mo-Su 12:00-23:00+"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7428898,
+          55.7479885
+        ]
+      },
+      "id": "node/9737806085"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9737806086",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "110",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "check_date:opening_hours": "2025-05-12",
+        "name": "Строительный магазин",
+        "opening_hours": "Mo-Su 10:00-20:00",
+        "shop": "hardware"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7429624,
+          55.7480571
+        ]
+      },
+      "id": "node/9737806086"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9737806087",
+        "addr:city": "Иннополис",
+        "addr:housenumber": "134",
+        "addr:postcode": "420500",
+        "addr:street": "Спортивная улица",
+        "check_date": "2024-08-04",
+        "name": "Кайрос",
+        "opening_hours": "Tu-Sa 09:00-19:00; Mo off; Su 09:00-16:00",
+        "phone": "+7 843 2588040",
+        "shop": "car_repair"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7452802,
+          55.7496034
+        ]
+      },
+      "id": "node/9737806087"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/13176676102",
+        "addr:housenumber": "128",
+        "addr:street": "Спортивная улица",
+        "amenity": "cafe",
+        "name": "Big Boss"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.7446234,
+          55.749057
+        ]
+      },
+      "id": "node/13176676102"
+    }
+  ]
+}
