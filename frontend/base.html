@@ -17,6 +17,11 @@
     <!-- Theme CSS -->
     <link rel="stylesheet" href="/css/theme.css" />
     
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#16a34a" />
+    <link rel="apple-touch-icon" href="/vendor/images/icon.svg">
+    
     <style>
         html, body {
             margin: 0;
@@ -141,7 +146,7 @@
                                  :style="`width: ${selectedFeature?.avg_fill_percent}%`"></div>
                         </div>
                         <div class="flex justify-between text-xs text-gray-400 mt-2 font-medium" x-show="selectedFeature?.is_cluster">
-                            <span>Всего баков: <span x-text="selectedFeature?.container_count" class="text-gray-600 dark:text-gray-300"></span></span>
+                            <span>Всего контейнеров: <span x-text="selectedFeature?.container_count" class="text-gray-600 dark:text-gray-300"></span></span>
                             <span>Вместимость: <span x-text="selectedFeature?.total_fill" class="text-gray-600 dark:text-gray-300"></span> / <span x-text="selectedFeature?.max_capacity"></span>%</span>
                         </div>
                     </div>
@@ -197,6 +202,19 @@
     
     <!-- Alpine.js -->
     <script defer src="/vendor/js/alpine.min.js"></script>
+    
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').then(registration => {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                }, err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+    </script>
     
     <!-- MapLibre GL JS -->
     <script src="/vendor/js/maplibre-gl.js"></script>

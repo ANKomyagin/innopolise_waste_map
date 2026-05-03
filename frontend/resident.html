@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Карта контейнеров{% endblock %}
+{% block title %}Карта контейнерных площадок{% endblock %}
 
 {% block header_actions %}
 <a href="/" class="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-2">
@@ -21,7 +21,7 @@
     </div>
     
     <div class="flex-1 overflow-y-auto overscroll-none px-4 pb-4" id="residentScroll" x-show="expanded || window.innerWidth >= 768" x-transition.opacity>
-        <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-4">Поиск контейнера</h2>
+        <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-4">Поиск площадки РСО</h2>
         
         <!-- Address Search -->
         <div class="mb-4 relative">
@@ -43,7 +43,7 @@
         </div>
         
         <button @click="findNearest()" :disabled="!userLocation" class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-2 mb-4">
-            <i class="fas fa-route"></i> Найти ближайший свободный
+            <i class="fas fa-route"></i> Найти ближайшую свободную
         </button>
         
         <!-- Route Info -->

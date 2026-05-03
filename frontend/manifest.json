@@ -1,0 +1,16 @@
+{
+  "name": "QRBIN Иннополис",
+  "short_name": "QRBIN",
+  "description": "Мониторинг контейнерных площадок РСО в Иннополисе",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#16a34a",
+  "icons": [
+    {
+      "src": "/vendor/images/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

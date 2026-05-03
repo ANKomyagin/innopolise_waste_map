@@ -149,11 +149,14 @@ function updateLocationsView() {
                 </div>
                 
                 <div class="flex gap-2 mb-3 flex-wrap">
+                    <button onclick="emptyLocation('${safeAddress}')" class="flex-1 min-w-[120px] bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
+                        <i class="fas fa-trash-restore"></i> Очистить площадку
+                    </button>
                     <button onclick="startLocationSelection('${safeAddress}')" class="flex-1 min-w-[120px] bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
                         <i class="fas fa-map-pin"></i> Координаты
                     </button>
                     <button onclick="openAddContainerToLocationModal('${safeAddress}', '${locs[0].lat}, ${locs[0].lon}')" class="flex-1 min-w-[120px] bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
-                        <i class="fas fa-plus"></i> Добавить бак
+                        <i class="fas fa-plus"></i> Добавить контейнер
                     </button>
                     <button onclick="openEditLocationModal('${safeAddress}', '${locs[0].lat}, ${locs[0].lon}')" class="flex-1 min-w-[120px] bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
                         <i class="fas fa-edit"></i> Ред. площадку
@@ -554,6 +557,38 @@ async function deleteContainer(id) {
     } catch (error) {
         console.error('Error:', error);
         alert('Ошибка удаления');
+    }
+}
+
+async function emptyLocation(address) {
+    if (!confirm(`Очистить все контейнеры на площадке "${address}"?`)) return;
+    
+    const locs = locations[address];
+    if (!locs || locs.length === 0) return;
+    
+    const containerIds = locs.map(c => c.id);
+    
+    try {
+        const response = await fetch('/api/containers/empty', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ container_ids: containerIds })
+        });
+        
+        if (response.ok) {
+            alert('Площадка очищена');
+            loadContainers();
+        } else if (response.status === 401) {
+            alert('Сессия истекла. Войдите заново.');
+            localStorage.clear();
+            window.location.href = '/';
+        } else {
+            const err = await response.json().catch(() => null);
+            alert('Ошибка очистки: ' + (err?.detail || response.statusText));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Ошибка очистки');
     }
 }
 
