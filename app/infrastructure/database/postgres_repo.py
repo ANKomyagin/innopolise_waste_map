@@ -86,8 +86,8 @@ class PostgresContainerRepo(ContainerRepository):
                     avg_fill = 0
                     history = []
                 else:
-                    # Достаем историю последних сканирований
-                    history = old_data.get("qr_history", [])
+                    # Достаем историю последних сканирований (ОБЯЗАТЕЛЬНО делаем копию списка!)
+                    history = list(old_data.get("qr_history", []))
                     
                     # Добавляем новую оценку
                     new_fill = sensor_data["fill_percent"]

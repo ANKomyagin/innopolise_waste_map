@@ -17,5 +17,14 @@
       "sizes": "512x512",
       "type": "image/png"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Карта площадок",
+      "short_name": "Карта",
+      "description": "Посмотреть карту контейнерных площадок",
+      "url": "/resident.html",
+      "icons": [{ "src": "/vendor/images/icon-192.png", "sizes": "192x192" }]
+    }
   ]
 }
