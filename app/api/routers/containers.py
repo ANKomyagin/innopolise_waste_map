@@ -84,6 +84,35 @@ async def create_container(
     return {"status": "ok", "id": data.id}
 
 
+@router.put("/location")
+async def update_location(
+    data: UpdateLocationRequest,
+    db_repo = Depends(get_db_repo),
+    current_user: dict = Depends(verify_admin)
+):
+    """Update address and coordinates for all containers at a location (admin only)"""
+    # Validate coordinates format
+    coords_str = str(data.new_coords).strip()
+    if ',' not in coords_str:
+        raise HTTPException(status_code=400, detail="Coordinates must be in format 'lat, lon'")
+    
+    try:
+        parts = coords_str.split(',')
+        if len(parts) != 2:
+            raise ValueError()
+        float(parts[0].strip())
+        float(parts[1].strip())
+    except (ValueError, IndexError):
+        raise HTTPException(status_code=400, detail="Invalid coordinates format. Expected 'lat, lon' with numeric values")
+    
+    try:
+        updated_count = await db_repo.update_location_coords(data.old_address, data.new_address, coords_str)
+        if updated_count == 0:
+            raise HTTPException(status_code=404, detail="No containers found at this location")
+        return {"status": "ok", "updated": updated_count}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.put("/{container_id:path}")
 async def edit_container(
     container_id: str, 
@@ -146,33 +175,3 @@ async def empty_containers(
             role=current_user["role"]
         )
     return {"status": "ok", "emptied": len(request.container_ids)}
-
-
-@router.put("/location")
-async def update_location(
-    data: UpdateLocationRequest,
-    db_repo = Depends(get_db_repo),
-    current_user: dict = Depends(verify_admin)
-):
-    """Update address and coordinates for all containers at a location (admin only)"""
-    # Validate coordinates format
-    coords_str = str(data.new_coords).strip()
-    if ',' not in coords_str:
-        raise HTTPException(status_code=400, detail="Coordinates must be in format 'lat, lon'")
-    
-    try:
-        parts = coords_str.split(',')
-        if len(parts) != 2:
-            raise ValueError()
-        float(parts[0].strip())
-        float(parts[1].strip())
-    except (ValueError, IndexError):
-        raise HTTPException(status_code=400, detail="Invalid coordinates format. Expected 'lat, lon' with numeric values")
-    
-    try:
-        updated_count = await db_repo.update_location_coords(data.old_address, data.new_address, coords_str)
-        if updated_count == 0:
-            raise HTTPException(status_code=404, detail="No containers found at this location")
-        return {"status": "ok", "updated": updated_count}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))

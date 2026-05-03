@@ -97,8 +97,8 @@ async function loadContainers() {
         // Клик по пустой карте = выбор координат или добавление нового контейнера
         setupMapClickHandler();
 
-        updateStatistics();
         updateLocationsView();
+        updateStatistics();
     } catch (error) {
         console.error('Ошибка загрузки данных:', error);
     }
@@ -106,14 +106,28 @@ async function loadContainers() {
 
 function updateStatistics() {
     const totalLocations = Object.keys(locations).length;
-    const needsCollection = containers.filter(c => c.fill_percent >= 70).length;
-    const available = containers.filter(c => c.fill_percent < 50).length;
-    const avgFill = containers.length > 0 ? Math.round(containers.reduce((sum, c) => sum + c.fill_percent, 0) / containers.length) : 0;
+    
+    let needsCollection = 0;
+    let available = 0;
+    let totalFill = 0;
+    
+    Object.values(locations).forEach(locs => {
+        const avgFill = Math.round(locs.reduce((sum, c) => sum + c.fill_percent, 0) / locs.length);
+        totalFill += avgFill;
+        
+        if (avgFill >= 70) {
+            needsCollection++;
+        } else if (avgFill < 50) {
+            available++;
+        }
+    });
+    
+    const avgFillOverall = totalLocations > 0 ? Math.round(totalFill / totalLocations) : 0;
 
     document.getElementById('totalContainers').textContent = totalLocations;
     document.getElementById('needsCollection').textContent = needsCollection;
     document.getElementById('availableContainers').textContent = available;
-    document.getElementById('avgFill').textContent = avgFill + '%';
+    document.getElementById('avgFill').textContent = avgFillOverall + '%';
 }
 
 function updateLocationsView() {
@@ -250,7 +264,7 @@ async function loadRecentScans() {
             });
             return `
                 <tr class="border-b hover:bg-gray-50 dark:hover:bg-gray-600">
-                    <td class="px-4 py-3 font-semibold text-gray-800 dark:text-white">${scan.container_id}</td>
+                    <td class="px-4 py-3 font-semibold text-gray-800 dark:text-white truncate max-w-[150px]" title="${scan.address}">${scan.address}</td>
                     <td class="px-4 py-3 text-gray-700 dark:text-gray-300">${scan.fill_percent}%</td>
                     <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-sm">${timeStr}</td>
                 </tr>

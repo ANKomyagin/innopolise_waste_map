@@ -77,11 +77,40 @@ class PostgresContainerRepo(ContainerRepository):
             containers = all_result.scalars().all()
             
             # Убираем технический флаг сброса
-            sensor_data.pop("is_reset", None)
+            is_reset = sensor_data.pop("is_reset", False)
             
             for container in containers:
-                # Просто записываем новые данные (без усреднения)
-                container.sensor_data = dict(sensor_data)
+                old_data = container.sensor_data or {}
+                
+                if is_reset:
+                    avg_fill = 0
+                    history = []
+                else:
+                    # Достаем историю последних сканирований
+                    history = old_data.get("qr_history", [])
+                    
+                    # Добавляем новую оценку
+                    new_fill = sensor_data["fill_percent"]
+                    history.append(new_fill)
+                    
+                    # Храним только последние 3 оценки
+                    if len(history) > 3:
+                        history = history[-3:]
+                        
+                    # Считаем среднее арифметическое последних 3
+                    avg_fill = int(sum(history) / len(history))
+                
+                # Создаем новый словарь данных для контейнера
+                new_sensor_data = dict(sensor_data)
+                new_sensor_data["fill_percent"] = avg_fill
+                new_sensor_data["qr_history"] = history
+                
+                # Сохраняем старые параметры, если они не переданы
+                new_sensor_data["temperature_status"] = sensor_data.get("temperature_status", old_data.get("temperature_status", "неизвестно"))
+                new_sensor_data["tilt_status"] = sensor_data.get("tilt_status", old_data.get("tilt_status", "неизвестно"))
+                new_sensor_data["battery_status"] = sensor_data.get("battery_status", old_data.get("battery_status", "неизвестно"))
+                
+                container.sensor_data = new_sensor_data
                 
             await db.commit()
             return True
@@ -178,20 +207,29 @@ class PostgresContainerRepo(ContainerRepository):
             return len(containers)
 
     async def get_recent_scans(self, limit: int = 10):
-        """Получить последние сканирования"""
+        """Получить последние сканирования с адресами площадок"""
         async with SessionLocal() as db:
-            result = await db.execute(
-                select(DBScanLog).order_by(desc(DBScanLog.scanned_at)).limit(limit)
+            # Join DBScanLog with DBContainer to get the address
+            query = (
+                select(DBScanLog, DBContainer.address)
+                .outerjoin(DBContainer, DBScanLog.container_id == DBContainer.id)
+                .order_by(desc(DBScanLog.scanned_at))
+                .limit(limit)
             )
-            logs = result.scalars().all()
-            return [{
-                "id": log.id,
-                "container_id": log.container_id,
-                "fill_percent": log.fill_percent,
-                "device_id": log.device_id,
-                "role": log.role,
-                "scanned_at": log.scanned_at.isoformat() if log.scanned_at else None
-            } for log in logs]
+            result = await db.execute(query)
+            
+            logs = []
+            for log, address in result:
+                logs.append({
+                    "id": log.id,
+                    "container_id": log.container_id,
+                    "address": address or log.container_id, # Fallback to ID if address not found
+                    "fill_percent": log.fill_percent,
+                    "device_id": log.device_id,
+                    "role": log.role,
+                    "scanned_at": log.scanned_at.isoformat() if log.scanned_at else None
+                })
+            return logs
 
     async def get_scans_stats(self):
         """Получить статистику сканирований"""
