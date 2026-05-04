@@ -123,8 +123,12 @@ document.addEventListener('alpine:init', () => {
         },
         
         updateMarker(lat, lon, addr) {
-            this.userLocation = {lat, lon};
-            this.searchQuery = addr;
+            this.userLocation = {lat, lon, address: addr};
+            if (addr !== "Выбранная точка") {
+                this.searchQuery = addr;
+            } else {
+                this.searchQuery = ''; // Очищаем, чтобы показать placeholder
+            }
             localStorage.setItem('resident_location', JSON.stringify({lat, lon, address: addr}));
             
             if (userMarker) userMarker.remove();
