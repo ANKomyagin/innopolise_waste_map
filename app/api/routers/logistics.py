@@ -69,7 +69,7 @@ async def get_optimal_route(
         return {"message": "Нет уникальных точек для маршрута"}
     
     # Build route asynchronously
-    route = await routing_provider.build_route(origin=request.origin, waypoints=unique_coords)
+    route = await routing_provider.build_optimized_trip(origin=request.origin, waypoints=unique_coords)
     return {"route": route}
 
 
@@ -79,7 +79,7 @@ async def get_resident_route(
     routing_provider = Depends(get_routing_provider)
 ):
     """Get simple route from A to B for a resident"""
-    route = await routing_provider.build_route(
+    route = await routing_provider.build_simple_route(
         origin=request.origin,
         waypoints=[request.destination]
     )

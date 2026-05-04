@@ -35,10 +35,19 @@ services:
     networks:
       - waste_network
 
-  osrm:
+  osrm-foot:
     image: osrm/osrm-backend:latest
     volumes:
-      - ./osrm-data:/data
+      - ./osrm-data/foot:/data
+    command: "osrm-routed --algorithm mld /data/innopolis.osrm"
+    restart: unless-stopped
+    networks:
+      - waste_network
+
+  osrm-driving:
+    image: osrm/osrm-backend:latest
+    volumes:
+      - ./osrm-data/driving:/data
     command: "osrm-routed --algorithm mld /data/innopolis.osrm"
     restart: unless-stopped
     networks:
