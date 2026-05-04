@@ -5,12 +5,12 @@
 {% block header_actions %}
 <button onclick="window.location.href='/scanner.html'" class="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none transition-colors mr-2 flex items-center gap-2" title="Сканировать QR">
     <i class="fas fa-qrcode text-xl"></i>
-    <span class="hidden sm:block font-medium text-sm">Скан QR</span>
+    <span class="hidden sm:inline-block font-medium text-sm">Скан QR</span>
 </button>
 <div x-data="{ showLogin: false }" @open-login.window="showLogin = true">
     <button @click="showLogin = true" class="flex items-center gap-2 px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium text-sm sm:text-base">
         <i class="fas fa-sign-in-alt text-white"></i>
-        <span class="hidden sm:block text-white">Войти</span>
+        <span class="hidden sm:inline-block text-white">Войти</span>
     </button>
     
     <!-- Login Modal -->
@@ -144,5 +144,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="js/landing.js"></script>
+<script src="js/landing.js?v=3"></script>
 {% endblock %}
