@@ -29,7 +29,7 @@ class OSRMRoutingProvider(RoutingProvider):
         all_points = [origin] + waypoints
         osrm_coords = ";".join([flip_coords(p) for p in all_points])
 
-        url = f"{self.driving_url}/{osrm_coords}?source=first&roundtrip=false&overview=full&geometries=geojson"
+        url = f"{self.driving_url}/{osrm_coords}?source=first&roundtrip=true&overview=full&geometries=geojson"
 
         logger.info(f"[OSRM] Отправляю запрос на оптимизацию маршрута (TSP) {len(all_points)} точек...")
 
