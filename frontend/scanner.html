@@ -10,7 +10,12 @@
 
 {% block layout %}
 <div class="flex-1 pt-20 bg-gray-50 dark:bg-gray-900 dark:text-white min-h-screen flex flex-col items-center p-4 z-20 relative">
-    <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden mt-4">
+    <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden mt-4 relative">
+        <!-- Close Button -->
+        <button onclick="window.history.back()" class="absolute top-4 right-4 text-white hover:text-gray-200 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/20 hover:bg-black/40 transition-colors">
+            <i class="fas fa-times text-xl"></i>
+        </button>
+
         <div class="bg-green-600 p-6 text-center text-white">
             <i class="fas fa-qrcode text-4xl mb-2"></i>
             <h1 class="text-2xl font-bold">Сканер QRBIN</h1>
@@ -18,8 +23,19 @@
         </div>
         
         <div class="p-6 flex flex-col items-center">
-            <div id="reader" class="w-full rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-700 bg-black"></div>
+            <div id="reader" class="w-full rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-700 bg-black relative"></div>
             
+            <!-- Camera Controls -->
+            <div id="cameraControls" class="w-full mt-4 flex flex-col gap-4 hidden">
+                <div class="flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-3 rounded-xl">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300"><i class="fas fa-search-plus mr-2"></i>Зум</span>
+                    <input type="range" id="zoomSlider" min="1" max="5" step="0.1" value="1" class="w-1/2 accent-green-600">
+                </div>
+                <button id="torchBtn" class="w-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-medium py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
+                    <i class="fas fa-bolt"></i> Включить фонарик
+                </button>
+            </div>
+
             <div id="scanResult" class="hidden w-full mt-6 p-4 rounded-xl text-center font-medium"></div>
             
             <button id="restartBtn" onclick="startScanner()" class="hidden w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2">
@@ -34,12 +50,16 @@
 <script src="/vendor/js/html5-qrcode.min.js"></script>
 <script>
     let html5QrCode = null;
+    let currentStream = null;
+    let track = null;
+    let isTorchOn = false;
 
     function onScanSuccess(decodedText, decodedResult) {
         // Остановка сканера
         if (html5QrCode) {
             html5QrCode.stop().then(() => {
                 html5QrCode.clear();
+                document.getElementById('cameraControls').classList.add('hidden');
             }).catch(err => console.error("Failed to stop scanner", err));
         }
         
@@ -77,9 +97,67 @@
         // Игнорируем ошибки сканирования (кадр без QR-кода)
     }
 
+    function setupCameraControls() {
+        // Получаем доступ к видео-треку
+        const videoElement = document.querySelector('#reader video');
+        if (!videoElement || !videoElement.srcObject) return;
+        
+        const stream = videoElement.srcObject;
+        track = stream.getVideoTracks()[0];
+        
+        if (!track) return;
+
+        const capabilities = track.getCapabilities();
+        const controlsDiv = document.getElementById('cameraControls');
+        const zoomSlider = document.getElementById('zoomSlider');
+        const torchBtn = document.getElementById('torchBtn');
+
+        let showControls = false;
+
+        // Настройка зума
+        if (capabilities.zoom) {
+            zoomSlider.min = capabilities.zoom.min;
+            zoomSlider.max = capabilities.zoom.max;
+            zoomSlider.step = capabilities.zoom.step || 0.1;
+            zoomSlider.value = track.getSettings().zoom || 1;
+            
+            zoomSlider.addEventListener('input', (e) => {
+                track.applyConstraints({ advanced: [{ zoom: parseFloat(e.target.value) }] });
+            });
+            showControls = true;
+        } else {
+            zoomSlider.parentElement.style.display = 'none';
+        }
+
+        // Настройка фонарика
+        if (capabilities.torch) {
+            torchBtn.addEventListener('click', async () => {
+                try {
+                    isTorchOn = !isTorchOn;
+                    await track.applyConstraints({ advanced: [{ torch: isTorchOn }] });
+                    if (isTorchOn) {
+                        torchBtn.innerHTML = '<i class="fas fa-bolt text-yellow-500"></i> Выключить фонарик';
+                    } else {
+                        torchBtn.innerHTML = '<i class="fas fa-bolt"></i> Включить фонарик';
+                    }
+                } catch (err) {
+                    console.error("Torch error:", err);
+                }
+            });
+            showControls = true;
+        } else {
+            torchBtn.style.display = 'none';
+        }
+
+        if (showControls) {
+            controlsDiv.classList.remove('hidden');
+        }
+    }
+
     function startScanner() {
         document.getElementById('scanResult').classList.add('hidden');
         document.getElementById('restartBtn').classList.add('hidden');
+        isTorchOn = false;
         
         if (!html5QrCode) {
             html5QrCode = new Html5Qrcode("reader");
@@ -94,7 +172,10 @@
             },
             onScanSuccess,
             onScanFailure
-        ).catch((err) => {
+        ).then(() => {
+            // Небольшая задержка, чтобы видео-элемент успел инициализироваться
+            setTimeout(setupCameraControls, 500);
+        }).catch((err) => {
             const resultDiv = document.getElementById('scanResult');
             resultDiv.classList.remove('hidden');
             resultDiv.classList.add('bg-red-100', 'text-red-800');
