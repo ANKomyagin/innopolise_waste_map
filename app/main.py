@@ -1,4 +1,3 @@
-# app/main.py
 import os
 import asyncio
 import logging
@@ -7,24 +6,23 @@ from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from fastapi.exceptions import RequestValidationError
 
 from app.infrastructure.database.database import engine, Base
 from app.api.routers import create_api_router
 from app.infrastructure.telegram.bot import telegram_bot_service
 from app.config.settings import settings
 
-# Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 is_prod = settings.ENVIRONMENT == "production"
 
-# ----------------------
-# 1. Инициализация FastAPI с отключённой документацией на проде
-# ----------------------
+# 1. Инициализация FastAPI
 app = FastAPI(
     title="Innopolis Smart Waste API",
-    description="API для управления системой умных мусорных контейнеров в Иннополисе",
+    description="API для управления системой умных мусорных контейнеров",
     version="1.0.0",
     openapi_version="3.1.0",
     docs_url=None if is_prod else "/docs",
@@ -32,35 +30,32 @@ app = FastAPI(
     openapi_url=None if is_prod else "/openapi.json"
 )
 
-# /docs теперь нужен только для docker Healthcheck
+
+# Фейковый эндпоинт для Docker Healthcheck
 @app.get("/docs", include_in_schema=False)
 async def docker_healthcheck_fallback():
     return HTMLResponse("OK")
 
-# ----------------------
+
 # 2. CORS middleware
-# ----------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         settings.PUBLIC_SERVER_URL,
         "http://localhost",
         "http://localhost:8000",
-        "http://localhost:8080",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ----------------------
-# 3. Security middleware (проверка токена + заголовки)
-# ----------------------
+
+# 3. Security middleware
 @app.middleware("http")
 async def security_middleware(request: Request, call_next):
     path = request.url.path
 
-    # Защищённые статические файлы – доступ только по роли
     protected_paths = {
         "/admin.html": "admin",
         "/js/admin.js": "admin",
@@ -84,22 +79,23 @@ async def security_middleware(request: Request, call_next):
 
     response = await call_next(request)
 
-    # Базовая CSP для всех страниц (расширенная для CDN)
+    # CSP - публичный (разрешаем картинки карт и внешние API)
     csp = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://cdn.tailwindcss.com; "
         "style-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com https://cdn.jsdelivr.net https://use.fontawesome.com; "
-        "img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org; "
-        "font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com https://use.fontawesome.com; "
-        "connect-src 'self' https://api.telegram.org https://*.openstreetmap.org;"
+        "img-src * data: blob:; "
+        "font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com https://use.fontawesome.com https://fonts.googleapis.com; "
+        "connect-src *;"
     )
-    # Для админских путей запрещаем внешние API (например, Telegram), но оставляем CDN
+
+    # CSP - строгий (только для админки)
     if path.startswith("/admin"):
         csp = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://cdn.tailwindcss.com; "
             "style-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com https://cdn.jsdelivr.net https://use.fontawesome.com; "
-            "img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org; "
+            "img-src 'self' data: blob: https://*.tile.openstreetmap.org; "
             "font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com https://use.fontawesome.com; "
             "connect-src 'self' https://*.openstreetmap.org;"
         )
@@ -111,11 +107,14 @@ async def security_middleware(request: Request, call_next):
 
     return response
 
-# ----------------------
-# 4. Глобальный обработчик ошибок
-# ----------------------
+
+# 4. Исправленный обработчик ошибок
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    # Пропускаем штатные HTTP-ошибки FastAPI (например, 404 Not Found или 422 Ошибка валидации формы логина)
+    if isinstance(exc, (StarletteHTTPException, RequestValidationError)):
+        raise exc
+
     logger.error(f"Critical Error: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
