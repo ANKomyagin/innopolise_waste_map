@@ -2,6 +2,7 @@
 import os
 import asyncio
 import logging
+import jwt
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -16,15 +17,24 @@ from app.config.settings import settings
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# FastAPI app initialization
+is_prod = settings.ENVIRONMENT == "production"
+
+# ----------------------
+# 1. Инициализация FastAPI с отключённой документацией на проде
+# ----------------------
 app = FastAPI(
     title="Innopolis Smart Waste API",
     description="API для управления системой умных мусорных контейнеров в Иннополисе",
     version="1.0.0",
-    openapi_version="3.1.0"
+    openapi_version="3.1.0",
+    docs_url=None if is_prod else "/docs",
+    redoc_url=None,
+    openapi_url=None if is_prod else "/openapi.json"
 )
 
-# CORS middleware
+# ----------------------
+# 2. CORS middleware
+# ----------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -38,23 +48,89 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Глобальный обработчик ошибок
+# ----------------------
+# 3. Security middleware (проверка токена + заголовки)
+# ----------------------
+@app.middleware("http")
+async def security_middleware(request: Request, call_next):
+    path = request.url.path
+
+    # Защищённые статические файлы – доступ только по роли
+    protected_paths = {
+        "/admin.html": "admin",
+        "/js/admin.js": "admin",
+        "/truck.html": "contractor"
+    }
+
+    if path in protected_paths:
+        token = request.cookies.get("auth_token")
+        if not token:
+            return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+            role = payload.get("role")
+            req_role = protected_paths[path]
+            if req_role == "admin" and role != "admin":
+                return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+            if req_role == "contractor" and role not in ["admin", "contractor"]:
+                return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+        except Exception:
+            return JSONResponse(status_code=401, content={"detail": "Invalid token"})
+
+    response = await call_next(request)
+
+    # Базовая CSP для всех страниц
+    csp = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; "
+        "style-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com; "
+        "img-src 'self' data: blob: https://tile.openstreetmap.org; "
+        "font-src 'self' https://cdnjs.cloudflare.com data:; "
+        "connect-src 'self' https://api.telegram.org;"
+    )
+    # Для админских путей запрещаем внешние подключения (в т.ч. Telegram API)
+    if path.startswith("/admin"):
+        csp = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; "
+            "style-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com; "
+            "img-src 'self' data: blob: https://tile.openstreetmap.org; "
+            "font-src 'self' https://cdnjs.cloudflare.com data:; "
+            "connect-src 'self';"
+        )
+
+    response.headers["Content-Security-Policy"] = csp
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+
+    return response
+
+# ----------------------
+# 4. Глобальный обработчик ошибок
+# ----------------------
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Critical Error: {exc}", exc_info=True)
     return JSONResponse(
-        status_code=500, 
+        status_code=500,
         content={"message": "Внутренняя ошибка сервера. Инженеры уже уведомлены."}
     )
 
-# Include API routes FIRST (before static files)
+# ----------------------
+# 5. Подключение API-роутов (до статики)
+# ----------------------
 api_router = create_api_router()
 app.include_router(api_router)
 
-# Static files setup (mount LAST - acts as catch-all after API routes)
-# Serves HTML files directly: /admin.html, /truck.html, /resident.html, etc.
+# ----------------------
+# 6. Статические файлы (catch‑all для фронтенда)
+# ----------------------
 app.mount("/", StaticFiles(directory="frontend", html=True), name="static")
 
+# ----------------------
+# 7. События запуска и остановки
+# ----------------------
 @app.on_event("startup")
 async def startup_event():
     """Инициализация сервисов при запуске"""
@@ -63,7 +139,7 @@ async def startup_event():
     # NOTE: We no longer use Base.metadata.create_all() to avoid data loss
     # when schema changes. Use Alembic migrations instead.
     logger.info("✅ Database ready (migrations managed by Alembic)")
-    
+
     try:
         # Инициализация Telegram бота с таймаутом
         telegram_initialized = await asyncio.wait_for(
@@ -71,7 +147,7 @@ async def startup_event():
         )
         if telegram_initialized:
             logger.info("✅ Telegram бот успешно инициализирован")
-            
+
             # Установка webhook с таймаутом
             webhook_url = f"{settings.PUBLIC_SERVER_URL}/telegram/webhook"
             try:

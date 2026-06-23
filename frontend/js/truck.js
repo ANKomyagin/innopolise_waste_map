@@ -1,14 +1,48 @@
-// Check authentication on page load
-(function() {
+// frontend/js/truck.js
+
+// ============================================================
+// 1. СЕРВЕРНАЯ ПРОВЕРКА ПРАВ (вместо локальной проверки role)
+// ============================================================
+(async function() {
     const token = localStorage.getItem('access_token');
-    const role = localStorage.getItem('role');
-    
-    if (!token || (role !== 'contractor' && role !== 'admin')) {
+    if (!token) {
         alert('Доступ запрещен. Пожалуйста, войдите как водитель или администратор.');
+        window.location.href = '/';
+        return;
+    }
+    try {
+        const res = await fetch('/api/auth/verify', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!res.ok) throw new Error('Invalid token');
+        const data = await res.json();
+        if (data.user.role !== 'contractor' && data.user.role !== 'admin') {
+            throw new Error('Not authorized');
+        }
+    } catch (e) {
+        alert('Сессия истекла или доступ запрещен.');
+        localStorage.clear();
+        await fetch('/api/auth/logout', { method: 'POST' });
         window.location.href = '/';
     }
 })();
 
+// ============================================================
+// 2. ФУНКЦИИ ЭКРАНИРОВАНИЯ ДЛЯ ЗАЩИТЫ ОТ XSS
+// ============================================================
+function escapeHTML(str) {
+    return String(str).replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[tag] || tag));
+}
+
+function escapeJS(str) {
+    return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r');
+}
+
+// ============================================================
+// 3. ОСНОВНОЙ КОД (переменные, загрузка, маршруты)
+// ============================================================
 let containers = [];
 let fillThreshold = 50;
 let currentRouteContainers = [];
@@ -23,7 +57,7 @@ async function loadContainers() {
     try {
         const response = await fetch('/api/map/geojson');
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        
+
         const data = await response.json();
         if (!data || !data.features) throw new Error('Invalid data format');
 
@@ -49,7 +83,7 @@ async function loadContainers() {
             });
 
             const sourceName = map.getSource('containers-source') ? 'containers-source' : 'containers';
-            
+
             // Очищаем старые слои, если они были
             if (map.getLayer('cluster-count')) map.removeLayer('cluster-count');
             if (map.getLayer('clusters')) map.removeLayer('clusters');
@@ -125,7 +159,7 @@ function updateContainerCount() {
 
 async function buildOptimalRoute() {
     const needCollection = containers.filter(c => c.fill_percent >= fillThreshold);
-    
+
     if (!startLocation) {
         alert('Пожалуйста, укажите точку старта, кликнув на карту');
         return;
@@ -209,9 +243,12 @@ function displayRoute(routeData, needCollection) {
         if (!addedAddresses.has(closestAddr)) {
             addedAddresses.add(closestAddr);
 
+            // Экранируем адрес для безопасной вставки в HTML
+            const safeAddr = escapeHTML(closestAddr);
+
             const li = document.createElement('li');
             li.className = 'flex gap-2 items-start';
-            li.innerHTML = `<span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded-full shrink-0 mt-0.5">${index}</span> <span>${closestAddr}</span>`;
+            li.innerHTML = `<span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded-full shrink-0 mt-0.5">${index}</span> <span>${safeAddr}</span>`;
             addressListEl.appendChild(li);
 
             const el = document.createElement('div');

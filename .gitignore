@@ -26,10 +26,8 @@ pip-delete-this-directory.txt
 *.session-journal
 
 # Generated files
-generate_project_docs.py
-compare_project_docs.py
-project_documentation.txt
-project_documentation_diff.txt
+project_snapshot.py
+.project_snapshots
 
 # Logs
 *.log

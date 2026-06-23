@@ -3,7 +3,7 @@
 {% block title %}Панель Администратора{% endblock %}
 
 {% block header_actions %}
-<button onclick="localStorage.clear(); window.location.href='/'" class="text-red-600 hover:text-red-800 font-medium flex items-center gap-2">
+<button onclick="localStorage.clear(); fetch('/api/auth/logout', {method: 'POST'}).then(() => window.location.href='/')" class="text-red-600 hover:text-red-800 font-medium flex items-center gap-2">
     <i class="fas fa-sign-out-alt"></i>
     Выйти
 </button>

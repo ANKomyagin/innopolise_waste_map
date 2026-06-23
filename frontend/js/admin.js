@@ -1,16 +1,48 @@
-// Check authentication on page load
-(function() {
+// frontend/js/admin.js
+
+// ============================================================
+// 1. СЕРВЕРНАЯ ПРОВЕРКА ПРАВ (вместо локальной проверки role)
+// ============================================================
+(async function() {
     const token = localStorage.getItem('access_token');
-    const role = localStorage.getItem('role');
-    
-    if (!token || role !== 'admin') {
+    if (!token) {
         alert('Доступ запрещен. Пожалуйста, войдите как администратор.');
+        window.location.href = '/';
+        return;
+    }
+    try {
+        const res = await fetch('/api/auth/verify', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!res.ok) throw new Error('Invalid token');
+        const data = await res.json();
+        if (data.user.role !== 'admin') throw new Error('Not admin');
+    } catch (e) {
+        alert('Доступ запрещен или сессия истекла.');
+        localStorage.clear();
+        await fetch('/api/auth/logout', { method: 'POST' });
         window.location.href = '/';
     }
 })();
 
+// ============================================================
+// 2. ФУНКЦИИ ЭКРАНИРОВАНИЯ ДЛЯ ЗАЩИТЫ ОТ XSS
+// ============================================================
+function escapeHTML(str) {
+    return String(str).replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[tag] || tag));
+}
+
+function escapeJS(str) {
+    return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r');
+}
+
+// ============================================================
+// 3. ОСНОВНОЙ КОД (переменные, функции, инициализация)
+// ============================================================
 let containers = [];
-let locations = {}; // Group containers by address
+let locations = {};
 let isEditMode = false;
 let editingId = null;
 let currentEditingLocation = null;
@@ -25,11 +57,12 @@ window.addEventListener('map-loaded', function() {
     setupMapClickHandler();
 });
 
+// ---------- ЗАГРУЗКА КОНТЕЙНЕРОВ ----------
 async function loadContainers() {
     try {
         const response = await fetch('/api/map/geojson');
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        
+
         const data = await response.json();
         if (!data || !data.features) throw new Error('Invalid data format');
 
@@ -55,7 +88,7 @@ async function loadContainers() {
             });
 
             const sourceName = map.getSource('containers-source') ? 'containers-source' : 'containers';
-            
+
             // Очищаем старые слои, если они были
             if (map.getLayer('cluster-count')) map.removeLayer('cluster-count');
             if (map.getLayer('clusters')) map.removeLayer('clusters');
@@ -82,7 +115,7 @@ async function loadContainers() {
         map.on('click', 'clusters', function(e) {
             const props = e.features[0].properties;
             const coords = e.features[0].geometry.coordinates; // [lon, lat]
-            
+
             const featureData = {
                 ...props,
                 containers: typeof props.containers === 'string' ? JSON.parse(props.containers) : props.containers,
@@ -104,24 +137,25 @@ async function loadContainers() {
     }
 }
 
+// ---------- СТАТИСТИКА ----------
 function updateStatistics() {
     const totalLocations = Object.keys(locations).length;
-    
+
     let needsCollection = 0;
     let available = 0;
     let totalFill = 0;
-    
+
     Object.values(locations).forEach(locs => {
         const avgFill = Math.round(locs.reduce((sum, c) => sum + c.fill_percent, 0) / locs.length);
         totalFill += avgFill;
-        
+
         if (avgFill >= 70) {
             needsCollection++;
         } else if (avgFill < 50) {
             available++;
         }
     });
-    
+
     const avgFillOverall = totalLocations > 0 ? Math.round(totalFill / totalLocations) : 0;
 
     document.getElementById('totalContainers').textContent = totalLocations;
@@ -130,6 +164,7 @@ function updateStatistics() {
     document.getElementById('avgFill').textContent = avgFillOverall + '%';
 }
 
+// ---------- ОТОБРАЖЕНИЕ ПЛОЩАДОК (С ЭКРАНИРОВАНИЕМ) ----------
 function updateLocationsView() {
     locations = {};
     containers.forEach(c => {
@@ -146,7 +181,10 @@ function updateLocationsView() {
     }
 
     container.innerHTML = Object.entries(locations).map(([address, locs]) => {
-        const safeAddress = address.replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, ' ');
+        // Безопасное экранирование для HTML и для атрибутов onclick
+        const displayAddress = escapeHTML(address);
+        const jsAddress = escapeJS(address);
+
         const avgFill = Math.round(locs.reduce((sum, c) => sum + c.fill_percent, 0) / locs.length);
         let fillColor = 'text-green-600';
         if (avgFill >= 70) fillColor = 'text-red-600';
@@ -156,33 +194,32 @@ function updateLocationsView() {
             <div class="bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600 rounded-lg p-4">
                 <div class="flex justify-between items-start mb-3">
                     <div class="flex-1">
-                        <h3 class="font-bold text-gray-800 dark:text-white">${address}</h3>
+                        <h3 class="font-bold text-gray-800 dark:text-white">${displayAddress}</h3>
                         <p class="text-sm text-gray-500 dark:text-gray-400">Контейнеров: ${locs.length}</p>
                     </div>
                     <span class="text-lg font-bold ${fillColor}">${avgFill}%</span>
                 </div>
                 
                 <div class="flex gap-2 mb-3 flex-wrap">
-                    <button onclick="emptyLocation('${safeAddress}')" class="flex-1 min-w-[120px] bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <button onclick="emptyLocation('${jsAddress}')" class="flex-1 min-w-[120px] bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
                         <i class="fas fa-trash-restore mr-1"></i> Очистить площадку
                     </button>
-                    <button onclick="startLocationSelection('${safeAddress}')" class="flex-1 min-w-[120px] bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <button onclick="startLocationSelection('${jsAddress}')" class="flex-1 min-w-[120px] bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
                         <i class="fas fa-map-pin mr-1"></i> Координаты
                     </button>
-                    <button onclick="openEditLocationModal('${safeAddress}', '${locs[0].lat}, ${locs[0].lon}')" class="flex-1 min-w-[120px] bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <button onclick="openEditLocationModal('${jsAddress}', '${escapeJS(locs[0].lat + ', ' + locs[0].lon)}')" class="flex-1 min-w-[120px] bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
                         <i class="fas fa-edit mr-1"></i> Ред. площадку
                     </button>
-                    <button onclick="openQRModal('${locs[0].id}')" class="flex-1 min-w-[120px] bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <button onclick="openQRModal('${escapeJS(locs[0].id)}')" class="flex-1 min-w-[120px] bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
                         <i class="fas fa-qrcode mr-1"></i> QR-код
                     </button>
                 </div>
                 
                 <div class="space-y-2">
-                    <!-- DEPRECATED: Логика отдельных баков. Оставляем для совместимости БД, но в UI акцент на площадки. -->
                     <details class="text-sm text-gray-500 dark:text-gray-400 mt-4">
                         <summary class="cursor-pointer hover:text-gray-700 dark:hover:text-gray-200">Скрытая логика баков (системная)</summary>
                         <div class="mt-2 mb-2">
-                            <button onclick="openAddContainerToLocationModal('${safeAddress}', '${locs[0].lat}, ${locs[0].lon}')" class="w-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
+                            <button onclick="openAddContainerToLocationModal('${jsAddress}', '${escapeJS(locs[0].lat + ', ' + locs[0].lon)}')" class="w-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1">
                                 <i class="fas fa-plus"></i> Добавить контейнер
                             </button>
                         </div>
@@ -192,18 +229,24 @@ function updateLocationsView() {
                                 if (c.fill_percent >= 70) cFillColor = 'bg-red-100 text-red-800';
                                 else if (c.fill_percent >= 50) cFillColor = 'bg-yellow-100 text-yellow-800';
                                 
+                                const safeId = escapeHTML(c.id);
+                                const safeLat = escapeHTML(c.lat);
+                                const safeLon = escapeHTML(c.lon);
+                                const safeFill = escapeHTML(c.fill_percent);
+                                const jsId = escapeJS(c.id);
+                                
                                 return `
                                     <div class="bg-white dark:bg-gray-800 p-3 rounded-lg flex justify-between items-center">
                                         <div>
-                                            <p class="font-semibold text-gray-800 dark:text-white">${c.id}</p>
-                                            <p class="text-xs text-gray-500 dark:text-gray-400">${c.lat}, ${c.lon}</p>
+                                            <p class="font-semibold text-gray-800 dark:text-white">${safeId}</p>
+                                            <p class="text-xs text-gray-500 dark:text-gray-400">${safeLat}, ${safeLon}</p>
                                         </div>
                                         <div class="flex items-center gap-2">
-                                            <span class="px-2 py-1 rounded text-sm font-medium ${cFillColor}">${c.fill_percent}%</span>
-                                            <button onclick="openEditContainerModal('${c.id}', ${c.fill_percent})" class="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded transition-colors" title="Редактировать">
+                                            <span class="px-2 py-1 rounded text-sm font-medium ${cFillColor}">${safeFill}%</span>
+                                            <button onclick="openEditContainerModal('${jsId}', ${c.fill_percent})" class="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded transition-colors" title="Редактировать">
                                                 <i class="fas fa-edit"></i>
                                             </button>
-                                            <button onclick="deleteContainer('${c.id}')" class="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors" title="Удалить">
+                                            <button onclick="deleteContainer('${jsId}')" class="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors" title="Удалить">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </div>
@@ -218,12 +261,13 @@ function updateLocationsView() {
     }).join('');
 }
 
+// ---------- ДАШБОРД И СКАНИРОВАНИЯ ----------
 async function loadDashboardStats() {
     try {
         const response = await fetch('/api/analytics/dashboard');
         if (!response.ok) return;
         const data = await response.json();
-        
+
         document.getElementById('totalContainers').textContent = data.total_containers || 0;
         document.getElementById('needsCollection').textContent = data.needs_collection_now || 0;
         document.getElementById('availableContainers').textContent = data.total_containers - (data.needs_collection_now || 0);
@@ -232,6 +276,7 @@ async function loadDashboardStats() {
     }
 }
 
+// В loadRecentScans тоже добавляем экранирование для безопасности
 async function loadRecentScans() {
     try {
         const response = await fetch('/api/analytics/scans', {
@@ -239,34 +284,36 @@ async function loadRecentScans() {
         });
         if (!response.ok) return;
         const data = await response.json();
-        
+
         document.getElementById('totalScans').textContent = data.stats.total_scans || 0;
         document.getElementById('scansLast24h').textContent = data.stats.scans_last_24h || 0;
-        
+
         const tbody = document.getElementById('recentScansBody');
         if (!data.recent_scans || data.recent_scans.length === 0) {
             tbody.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-gray-500">Нет сканирований</td></tr>';
             return;
         }
-        
+
         tbody.innerHTML = data.recent_scans.map(scan => {
             let dateStr = scan.scanned_at;
             if (!dateStr.endsWith('Z')) {
                 dateStr += 'Z';
             }
             const date = new Date(dateStr);
-            const timeStr = date.toLocaleString('ru-RU', { 
-                timeZone: 'Europe/Moscow', 
-                day: '2-digit', 
-                month: '2-digit', 
-                hour: '2-digit', 
-                minute: '2-digit' 
+            const timeStr = date.toLocaleString('ru-RU', {
+                timeZone: 'Europe/Moscow',
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
             });
+            const safeAddress = escapeHTML(scan.address);
+            const safeFill = escapeHTML(scan.fill_percent);
             return `
                 <tr class="border-b hover:bg-gray-50 dark:hover:bg-gray-600">
-                    <td class="px-4 py-3 font-semibold text-gray-800 dark:text-white truncate max-w-[150px]" title="${scan.address}">${scan.address}</td>
-                    <td class="px-4 py-3 text-gray-700 dark:text-gray-300">${scan.fill_percent}%</td>
-                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-sm">${timeStr}</td>
+                    <td class="px-4 py-3 font-semibold text-gray-800 dark:text-white truncate max-w-[150px]" title="${safeAddress}">${safeAddress}</td>
+                    <td class="px-4 py-3 text-gray-700 dark:text-gray-300">${safeFill}%</td>
+                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-sm">${escapeHTML(timeStr)}</td>
                 </tr>
             `;
         }).join('');
@@ -275,16 +322,17 @@ async function loadRecentScans() {
     }
 }
 
+// ---------- КАРТА: ОБРАБОТЧИК КЛИКА ----------
 function setupMapClickHandler() {
     if (map._mapClickHandlerSetup) return; // Prevent duplicate handlers
-    
+
     map.on('click', function(e) {
         const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
         if (features.length) return; // Если кликнули по мусорке, игнорируем
-        
+
         const coords = e.lngLat;
         const coordsStr = coords.lat.toFixed(6) + ', ' + coords.lng.toFixed(6);
-        
+
         // Если в режиме выбора координат площадки
         if (isSelectingLocation) {
             if (confirm('Перенести площадку сюда?')) {
@@ -294,28 +342,29 @@ function setupMapClickHandler() {
             }
             return;
         }
-        
+
         // Иначе открываем модалку создания новой площадки
         document.getElementById('containerCoords').value = coordsStr;
         document.getElementById('containerCoords').disabled = false;
-        
+
         document.getElementById('containerAddress').value = 'Новая площадка';
         document.getElementById('containerAddress').disabled = false;
-        
+
         isEditMode = false;
         document.getElementById('addContainerModal').style.display = 'flex';
     });
-    
+
     map._mapClickHandlerSetup = true;
 }
 
+// ---------- ОБНОВЛЕНИЕ КООРДИНАТ ПЛОЩАДКИ ----------
 async function updateLocationCoordinates(newCoords) {
     if (!editingLocationAddress) {
         alert('Ошибка: адрес площадки не найден');
         cancelLocationSelection();
         return;
     }
-    
+
     try {
         const response = await fetch(`/api/containers/location`, {
             method: 'PUT',
@@ -326,7 +375,7 @@ async function updateLocationCoordinates(newCoords) {
                 new_coords: newCoords
             })
         });
-        
+
         if (response.ok) {
             alert('Координаты площадки обновлены');
             loadContainers();
@@ -342,6 +391,7 @@ async function updateLocationCoordinates(newCoords) {
     }
 }
 
+// ---------- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ----------
 function getAuthHeaders() {
     const token = localStorage.getItem('access_token');
     return {
@@ -402,11 +452,11 @@ function hideLocationSelectionBanner() {
 
 function openAddContainerToLocationModal(address, coords, lon) {
     document.getElementById('containerId').value = 'BIN-' + Math.floor(Math.random() * 10000);
-    
+
     // Set address and make it readonly
     document.getElementById('containerAddress').value = address || '';
     document.getElementById('containerAddress').disabled = true;
-    
+
     // Handle coords in two formats:
     // 1. String "lat, lon" (from locations view)
     // 2. Separate lat and lon parameters (from container details modal)
@@ -422,23 +472,24 @@ function openAddContainerToLocationModal(address, coords, lon) {
         // Called with "lat, lon" string
         coordsStr = String(coords).trim();
     }
-    
+
     document.getElementById('containerCoords').value = coordsStr;
     document.getElementById('containerCoords').disabled = true;
-    
+
     isEditMode = false;
     document.getElementById('addContainerModal').style.display = 'flex';
 }
 
+// ---------- CRUD ОПЕРАЦИИ ----------
 async function saveContainer(event) {
     if (event) event.preventDefault();
-    
+
     // Если ID скрыт и пуст, генерируем его
     let id = document.getElementById('containerId').value;
     if (!id) {
         id = 'BIN-' + Math.floor(Math.random() * 100000);
     }
-    
+
     const address = document.getElementById('containerAddress').value;
     const coords = document.getElementById('containerCoords').value;
 
@@ -475,7 +526,7 @@ async function saveContainer(event) {
 
 async function saveEditContainer(event) {
     if (event) event.preventDefault();
-    
+
     const newId = document.getElementById('editContainerId').value;
     const fillPercent = parseInt(document.getElementById('editContainerFill').value);
 
@@ -520,7 +571,7 @@ async function saveEditContainer(event) {
 
 async function saveEditLocation(event) {
     if (event) event.preventDefault();
-    
+
     const newAddress = document.getElementById('editLocationAddress').value;
     const newCoords = document.getElementById('editLocationCoords').value;
 
@@ -586,19 +637,19 @@ async function deleteContainer(id) {
 
 async function emptyLocation(address) {
     if (!confirm(`Очистить все контейнеры на площадке "${address}"?`)) return;
-    
+
     const locs = locations[address];
     if (!locs || locs.length === 0) return;
-    
+
     const containerIds = locs.map(c => c.id);
-    
+
     try {
         const response = await fetch('/api/containers/empty', {
             method: 'POST',
             headers: getAuthHeaders(),
             body: JSON.stringify({ container_ids: containerIds })
         });
-        
+
         if (response.ok) {
             alert('Площадка очищена');
             loadContainers();
@@ -616,6 +667,7 @@ async function emptyLocation(address) {
     }
 }
 
+// ---------- ОБРАБОТЧИКИ СОБЫТИЙ ----------
 // Event listeners for modal prompts from container details
 window.addEventListener('edit-container-prompt', function(e) {
     const { id, fill } = e.detail;
@@ -633,17 +685,17 @@ document.addEventListener('DOMContentLoaded', function() {
     if (containerForm) {
         containerForm.addEventListener('submit', saveContainer);
     }
-    
+
     const editContainerForm = document.getElementById('editContainerForm');
     if (editContainerForm) {
         editContainerForm.addEventListener('submit', saveEditContainer);
     }
-    
+
     const editLocationForm = document.getElementById('editLocationForm');
     if (editLocationForm) {
         editLocationForm.addEventListener('submit', saveEditLocation);
     }
-    
+
     // Add Escape key listener for location selection cancellation
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && isSelectingLocation) {

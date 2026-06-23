@@ -97,8 +97,6 @@ async function handleLogin(event) {
         if (response.ok) {
             const data = await response.json();
             localStorage.setItem('access_token', data.access_token);
-            localStorage.setItem('role', data.role);
-            
             if (data.role === 'admin') {
                 window.location.href = '/admin.html';
             } else if (data.role === 'contractor') {
