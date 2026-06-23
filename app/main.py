@@ -32,6 +32,11 @@ app = FastAPI(
     openapi_url=None if is_prod else "/openapi.json"
 )
 
+# /docs теперь нужен только для docker Healthcheck
+@app.get("/docs", include_in_schema=False)
+async def docker_healthcheck_fallback():
+    return HTMLResponse("OK")
+
 # ----------------------
 # 2. CORS middleware
 # ----------------------
@@ -79,24 +84,24 @@ async def security_middleware(request: Request, call_next):
 
     response = await call_next(request)
 
-    # Базовая CSP для всех страниц
+    # Базовая CSP для всех страниц (расширенная для CDN)
     csp = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; "
-        "style-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com; "
-        "img-src 'self' data: blob: https://tile.openstreetmap.org; "
-        "font-src 'self' https://cdnjs.cloudflare.com data:; "
-        "connect-src 'self' https://api.telegram.org;"
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://cdn.tailwindcss.com; "
+        "style-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com https://cdn.jsdelivr.net https://use.fontawesome.com; "
+        "img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org; "
+        "font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com https://use.fontawesome.com; "
+        "connect-src 'self' https://api.telegram.org https://*.openstreetmap.org;"
     )
-    # Для админских путей запрещаем внешние подключения (в т.ч. Telegram API)
+    # Для админских путей запрещаем внешние API (например, Telegram), но оставляем CDN
     if path.startswith("/admin"):
         csp = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; "
-            "style-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com; "
-            "img-src 'self' data: blob: https://tile.openstreetmap.org; "
-            "font-src 'self' https://cdnjs.cloudflare.com data:; "
-            "connect-src 'self';"
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://cdn.tailwindcss.com; "
+            "style-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com https://cdn.jsdelivr.net https://use.fontawesome.com; "
+            "img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org; "
+            "font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com https://use.fontawesome.com; "
+            "connect-src 'self' https://*.openstreetmap.org;"
         )
 
     response.headers["Content-Security-Policy"] = csp
